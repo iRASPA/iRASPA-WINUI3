@@ -1,0 +1,62 @@
+#include <winver.h>
+#include <winres.h>
+#include "resource.h"
+
+// AboutView reads these fields back at runtime, and Store certification expects
+// them to agree with the Version in packaging\Package.appxmanifest.
+#define IRASPA_VERSION      2,3,4,0
+#define IRASPA_VERSION_STR  "2.3.4.0"
+
+// Explorer-style Import accessory: Cocoa ImportAccessoryViewController grid —
+// radios in the left column, protein/molecule checks in the right.
+IDD_IMPORT_ACCESSORY DIALOGEX 0, 0, 420, 86
+STYLE DS_SETFONT | DS_3DLOOK | DS_CONTROL | WS_CHILD | WS_CLIPSIBLINGS | WS_VISIBLE
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    GROUPBOX        "Import Options",IDC_IMPORT_GROUP,7,4,406,78
+    CONTROL         "As Separate Projects",IDC_IMPORT_SEPARATE,"Button",
+                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,18,18,150,12
+    CONTROL         "As Single Project",IDC_IMPORT_SINGLE,"Button",
+                    BS_AUTORADIOBUTTON | WS_TABSTOP,18,34,150,12
+    CONTROL         "As Movie Frames",IDC_IMPORT_FRAMES,"Button",
+                    BS_AUTORADIOBUTTON | WS_TABSTOP,18,50,150,12
+    CONTROL         "For Proteins Only Asymmetric-Unit",IDC_IMPORT_PROTEIN,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,200,18,200,12
+    CONTROL         "Separate polymer chains",IDC_IMPORT_CHAINS,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,200,34,200,12
+    CONTROL         "As Molecule",IDC_IMPORT_MOLECULE,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,200,50,200,12
+END
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION    IRASPA_VERSION
+ PRODUCTVERSION IRASPA_VERSION
+ FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+ FILEFLAGS      VS_FF_DEBUG
+#else
+ FILEFLAGS      0x0L
+#endif
+ FILEOS         VOS_NT_WINDOWS32
+ FILETYPE       VFT_APP
+ FILESUBTYPE    VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName",      "David Dubbeldam"
+            VALUE "FileDescription",  "iRASPA"
+            VALUE "FileVersion",      IRASPA_VERSION_STR
+            VALUE "InternalName",     "iRASPA"
+            VALUE "LegalCopyright",   "Copyright (C) David Dubbeldam"
+            VALUE "OriginalFilename", "iRASPA.exe"
+            VALUE "ProductName",      "iRASPA"
+            VALUE "ProductVersion",   IRASPA_VERSION_STR
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

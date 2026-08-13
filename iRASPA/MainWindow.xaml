@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="iRASPA_WinUI.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:iRASPA_WinUI"
+    Title="iRASPA">
+    <!-- UI is constructed in C++ (MainWindow::BuildUi). Keep a minimal Window shell for XAML codegen. -->
+    <Grid />
+</Window>

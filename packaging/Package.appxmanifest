@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+  <!-- Identity is assigned by Partner Center and must match Package.StoreAssociation.xml;
+       Store app ID 9P9513KNH8VC, reserved name "iRASPA". The Store reserves the fourth
+       version field for itself and rejects submissions unless the revision is 0. -->
+  <Identity
+    Name="39140DavidDubbeldam.432414C5FF922"
+    Publisher="CN=7A07FC1F-D8C3-492E-A048-10ACFB7E62DA"
+    Version="2.3.4.0" />
+  <Properties>
+    <DisplayName>iRASPA</DisplayName>
+    <PublisherDisplayName>David Dubbeldam</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+  </Properties>
+  <Dependencies>
+    <!-- WinUI 3 / Windows App SDK 2.3 requires 1809 or later. -->
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+  <Resources>
+    <Resource Language="x-generate" />
+  </Resources>
+  <Applications>
+    <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="iRASPA"
+        Description="Visualisation and editing of crystal and molecular structures"
+        BackgroundColor="transparent"
+        Square150x150Logo="Images\Square150x150Logo.png"
+        Square44x44Logo="Images\Square44x44Logo.png">
+        <uap:DefaultTile
+          Square310x310Logo="Images\LargeTile.png"
+          Wide310x150Logo="Images\WideTile.png"
+          Square71x71Logo="Images\SmallTile.png" />
+        <uap:SplashScreen Image="Images\SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

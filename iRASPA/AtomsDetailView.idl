@@ -1,0 +1,8 @@
+namespace iRASPA_WinUI
+{
+    [default_interface]
+    runtimeclass AtomsDetailView : Microsoft.UI.Xaml.Controls.UserControl
+    {
+        AtomsDetailView();
+    }
+}

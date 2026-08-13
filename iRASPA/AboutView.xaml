@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="iRASPA_WinUI.AboutView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:iRASPA_WinUI">
+
+    <!-- The About panel (Cocoa AboutWindow.storyboard / LocalAboutViewController):
+         a vertical stack inset by 20 inside the 720x450 window, so the content is
+         680x410; a 212pt icon column beside the text column, with the
+         other-contributors strip below both.
+
+         The credits are Credits.rtf and CreditsOtherContributors.rtf, with the
+         same ranges as links that Cocoa's viewDidLoad makes; a Hyperlink with a
+         NavigateUri opens the page itself, so they need no code behind.
+
+         Cocoa lays the panel out for 12pt text, so the Windows text-scaling
+         setting is kept out of it (IsTextScaleFactorEnabled=False); otherwise the
+         credits outgrow the panel. Cocoa's HelveticaNeue UltraLight/Light/regular
+         are Segoe UI at the matching weights here. -->
+    <Grid Padding="20" ColumnSpacing="20" RowSpacing="20"
+          Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+          ColumnDefinitions="212,*" RowDefinitions="*,60">
+
+        <!-- Left column: the 196x196 application icon over the Acknowledgements
+             button (opens AcknowledgedLicenses.pdf next to the exe). Clicking
+             the icon opens the author's page, as in Cocoa. -->
+        <StackPanel Spacing="39" HorizontalAlignment="Center">
+            <Button x:Name="IconButton" Width="196" Height="196" Padding="2"
+                    HorizontalAlignment="Center" Click="OnIconClick">
+                <Grid>
+                    <!-- The build deploys the icon next to the executable; the
+                         code-behind falls back to the wordmark when it is
+                         missing, which is why both are here. -->
+                    <Image x:Name="AppIcon" Stretch="Uniform"/>
+                    <TextBlock x:Name="Wordmark" Text="iRASPA" Visibility="Collapsed"
+                               FontFamily="Segoe UI" FontSize="28" FontWeight="ExtraLight"
+                               IsTextScaleFactorEnabled="False"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Grid>
+            </Button>
+            <Button Content="Acknowledgements" MinWidth="153"
+                    IsTextScaleFactorEnabled="False" HorizontalAlignment="Center"
+                    Click="OnAcknowledgementsClick"/>
+        </StackPanel>
+
+        <!-- Right column: name, version, scrollable credits. The credits take
+             whatever height is left so the extra window height is used. -->
+        <Grid Grid.Column="1" RowSpacing="4" RowDefinitions="Auto,Auto,*">
+            <TextBlock Text="iRASPA" FontFamily="Segoe UI" FontSize="40"
+                       FontWeight="ExtraLight" IsTextScaleFactorEnabled="False"/>
+            <!-- Cocoa reads CFBundleShortVersionString/CFBundleVersion; the
+                 executable's version resource is the equivalent, so the text
+                 comes from the code-behind. -->
+            <TextBlock x:Name="VersionLabel" Grid.Row="1" FontFamily="Segoe UI"
+                       FontSize="13" FontWeight="Light" IsTextScaleFactorEnabled="False"/>
+
+            <ScrollViewer Grid.Row="2" Margin="0,8,0,0" HorizontalScrollMode="Disabled"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <!-- Credits.rtf -->
+                <RichTextBlock FontFamily="Segoe UI" FontSize="12"
+                               IsTextScaleFactorEnabled="False" TextWrapping="Wrap"
+                               IsTextSelectionEnabled="True">
+                    <Paragraph Margin="0">
+                        <Run Text="Creators:" TextDecorations="Underline"/>
+                    </Paragraph>
+                    <!-- The closing tag butts against the Run that follows it:
+                         whitespace between two inlines is content, and would show
+                         up as a space the credits do not have. -->
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="https://www.uva.nl/en/profile/d/u/d.dubbeldam/d.dubbeldam.html">
+                            <Run Text="David Dubbeldam"/>
+                        </Hyperlink><Run Text=" (University of Amsterdam)"/>
+                    </Paragraph>
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="https://www.uva.nl/en/profile/v/r/j.vreede/j.vreede.html">
+                            <Run Text="Jocelyne Vreede"/>
+                        </Hyperlink><Run Text=" (University of Amsterdam)"/>
+                    </Paragraph>
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="https://www.tue.nl/en/research/researchers/sofia-calero/">
+                            <Run Text="Sofia Calero"/>
+                        </Hyperlink><Run Text=" (Eindhoven University of Technology)"/>
+                    </Paragraph>
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="http://homepage.tudelft.nl/v9k6y/">
+                            <Run Text="Thijs J.H. Vlugt"/>
+                        </Hyperlink><Run Text=" (Delft University of Technology)"/>
+                    </Paragraph>
+                    <Paragraph Margin="0"/>
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="http://dx.doi.org/10.1080/08927022.2018.1426855">
+                            <Run Text="Link to the article in 'Molecular Simulation Journal' (open access)"
+                                 TextDecorations="Underline"/>
+                        </Hyperlink>
+                    </Paragraph>
+                    <Paragraph Margin="0"/>
+                    <Paragraph Margin="0">
+                        <Run Text="Acknowledgements:" TextDecorations="Underline"/>
+                    </Paragraph>
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="http://www.iec.northwestern.edu">
+                            <Run Text="Randall Q. Snurr"/>
+                        </Hyperlink><Run Text=" (Northwestern University): CoRE MOF database"/>
+                    </Paragraph>
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="https://cmcp-group.github.io">
+                            <Run Text="Yongchul G. Chung"/>
+                        </Hyperlink><Run Text=" (Pusan National University, South Korea): CoRE MOF database"/>
+                    </Paragraph>
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="https://github.com/stegu">
+                            <Run Text="Stefan Gustavson"/>
+                        </Hyperlink><Run Text=": GLSL 2D and 3D cellular noise"/>
+                    </Paragraph>
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="https://www.eriksmistad.no/marching-cubes-implementation-using-opencl-and-opengl/">
+                            <Run Text="Erik Smistad"/>
+                        </Hyperlink><Run Text=": OpenCL/GL implementation Marching Cubes"/>
+                    </Paragraph>
+                    <Paragraph Margin="0">
+                        <Hyperlink NavigateUri="https://github.com/mario-holubar">
+                            <Run Text="Mario Holubar"/>
+                        </Hyperlink><Run Text=": Protein Ribbons"/>
+                    </Paragraph>
+                </RichTextBlock>
+            </ScrollViewer>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" Grid.ColumnSpan="2" HorizontalScrollMode="Disabled"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <!-- CreditsOtherContributors.rtf -->
+            <RichTextBlock FontFamily="Segoe UI" FontSize="12"
+                           IsTextScaleFactorEnabled="False" TextWrapping="Wrap"
+                           IsTextSelectionEnabled="True">
+                <Paragraph Margin="0">
+                    <Run Text="Other contributors:" TextDecorations="Underline"/>
+                </Paragraph>
+                <Paragraph Margin="0">
+                    <Run Text="Tim Becker, Yongchul G. Chung, Noura Dawass, Weina Du, Masafumi Miyaji, Sebastian Caro Ortiz, Anna Pavlova, Ahmadreza Rahbari, Shrinjay Sharma, and Ana Celia Araujo Vila Verde."/>
+                </Paragraph>
+            </RichTextBlock>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

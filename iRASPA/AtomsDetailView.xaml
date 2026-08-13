@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="iRASPA_WinUI.AtomsDetailView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:iRASPA_WinUI">
+
+    <!-- The Atoms tab (Cocoa StructureAtomDetailViewController): the atom tree
+         flattened into one virtualized list, over a pinned footer carrying
+         [+] [-] [search] ... [Net charge].
+
+         The ItemsView owns the scrolling rather than the inspector's shared
+         ScrollViewer: a structure has thousands of atoms and the rows have to
+         virtualize, which an outer ScrollViewer would defeat by giving the list
+         infinite height. -->
+    <UserControl.Resources>
+        <!-- Cocoa StructureAtomDetail: leaf atoms use fixed columns (vis | name |
+             atom id. | el | ff | occ. | x | y | z | q) with no indent. Group
+             rows (isGroupItem) indent by depth and hide the numeric columns,
+             giving the name the leftover width — atomGroupRow in the storyboard.
+
+             Bindings resolve through AtomFlatItem's ICustomPropertyProvider, and
+             every field commits on focus loss, as Cocoa's outline view does. -->
+        <DataTemplate x:Key="AtomRowTemplate">
+            <ItemContainer>
+                <StackPanel Orientation="Horizontal" Spacing="4"
+                            Margin="{Binding IndentMargin}"
+                            Background="Transparent" CanDrag="True">
+                    <!-- A table keeps its own text size: the columns are pinned to
+                         the header's and growing them with the system text setting
+                         would push the right-hand ones out of the pane. -->
+                    <StackPanel.Resources>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="IsTextScaleFactorEnabled" Value="False"/>
+                            <Setter Property="FontSize" Value="14"/>
+                        </Style>
+                        <Style TargetType="TextBox" BasedOn="{StaticResource DefaultTextBoxStyle}">
+                            <Setter Property="IsTextScaleFactorEnabled" Value="False"/>
+                            <Setter Property="FontSize" Value="14"/>
+                        </Style>
+                        <Style TargetType="ToggleButton" BasedOn="{StaticResource DefaultToggleButtonStyle}">
+                            <Setter Property="IsTextScaleFactorEnabled" Value="False"/>
+                            <Setter Property="FontSize" Value="14"/>
+                        </Style>
+                    </StackPanel.Resources>
+                    <!-- IsChecked is a nullable bool and null renders as the
+                         indeterminate '-' glyph. FallbackValue/TargetNullValue
+                         cover a null coming from the source and the style setter
+                         covers the first paint, but neither covers a recycled row:
+                         the binding's local value is cleared there and the box is
+                         left on null until it is handed its next atom, which is
+                         what DataContextChanged is for. Click writes the model, so
+                         a two-way setter cannot fire mid-recycle and hide the atom
+                         the box no longer belongs to. -->
+                    <!-- Right-align the control in the vis slot so a lone checkbox
+                         sits next to the expander/name instead of leaving a gap
+                         inside the 48px column. -->
+                    <Grid Width="48" VerticalAlignment="Center">
+                        <CheckBox IsChecked="{Binding Visible, Mode=OneWay, FallbackValue=True, TargetNullValue=True}"
+                                  IsThreeState="False"
+                                  Visibility="{Binding CheckVisibility}"
+                                  ToolTipService.ToolTip="{Binding VisibleTooltip}"
+                                  Click="OnVisibilityClick"
+                                  DataContextChanged="OnVisibilityBoxDataContextChanged"
+                                  Width="20" MinWidth="0" MinHeight="0" Padding="0"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <CheckBox.Style>
+                                <Style TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
+                                    <Setter Property="IsChecked" Value="True"/>
+                                    <Setter Property="IsTextScaleFactorEnabled" Value="False"/>
+                                </Style>
+                            </CheckBox.Style>
+                        </CheckBox>
+                        <!-- The atoms half rests on null when the gate is open but some atom under
+                             it is hidden, which draws as the indeterminate glyph. IsThreeState is
+                             off so a click can only open or shut the gate, never aim for that
+                             third reading. -->
+                        <StackPanel Orientation="Horizontal" Spacing="1"
+                                    Visibility="{Binding SegmentVisibility}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <ToggleButton Tag="atoms"
+                                          IsChecked="{Binding ShowsAtoms, Mode=OneWay, FallbackValue=True, TargetNullValue=True}"
+                                          IsThreeState="False" Content="A"
+                                          ToolTipService.ToolTip="Show the atoms of this group"
+                                          Click="OnShowsAtomsClick"
+                                          DataContextChanged="OnSegmentDataContextChanged"
+                                          Width="22" Height="22" MinWidth="0" MinHeight="0"
+                                          Padding="0" FontSize="12" CornerRadius="3,0,0,3"/>
+                            <ToggleButton Tag="ribbon"
+                                          IsChecked="{Binding ShowsRibbon, Mode=OneWay, FallbackValue=True, TargetNullValue=True}"
+                                          IsThreeState="False" Content="R"
+                                          ToolTipService.ToolTip="Show the ribbon of this group"
+                                          Click="OnShowsRibbonClick"
+                                          DataContextChanged="OnSegmentDataContextChanged"
+                                          Width="22" Height="22" MinWidth="0" MinHeight="0"
+                                          Padding="0" FontSize="12" CornerRadius="0,3,3,0"/>
+                        </StackPanel>
+                    </Grid>
+                    <!-- Expander hugs the name (Cocoa disclosure lives in the
+                         outline column), Spacing 0 so no gap before the field. -->
+                    <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
+                        <TextBlock Tag="expander" Text="{Binding ExpanderGlyph}" Width="16"
+                                   FontFamily="Consolas" FontSize="14" VerticalAlignment="Center"
+                                   TextAlignment="Center"/>
+                        <!-- 96 for atoms (50% over 64); groups use a wide NameWidth. -->
+                        <TextBox Text="{Binding Name, Mode=TwoWay}" Width="{Binding NameWidth}"
+                                 FontFamily="Consolas" FontSize="14" MinWidth="0" MinHeight="0"
+                                 Padding="4,2,4,3"/>
+                    </StackPanel>
+                    <!-- Cocoa NSLabelSegmentedControl: three segments toggle
+                         isFixed x/y/z, and the middle one carries the atom id. -->
+                    <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center"
+                                Visibility="{Binding FieldsVisibility}">
+                        <ToggleButton Tag="FixedX"
+                                      IsChecked="{Binding FixedX, Mode=TwoWay, FallbackValue=False, TargetNullValue=False}"
+                                      DataContextChanged="OnBinaryCheckDataContextChanged"
+                                      ToolTipService.ToolTip="Fix x" Width="15" MinWidth="0"
+                                      MinHeight="0" Padding="0" CornerRadius="3,0,0,3" Height="24"/>
+                        <ToggleButton Tag="FixedY"
+                                      IsChecked="{Binding FixedY, Mode=TwoWay, FallbackValue=False, TargetNullValue=False}"
+                                      DataContextChanged="OnBinaryCheckDataContextChanged"
+                                      ToolTipService.ToolTip="Fix y" Content="{Binding IdText}"
+                                      Width="34" MinWidth="0" MinHeight="0" Padding="0"
+                                      FontFamily="Consolas" FontSize="13" CornerRadius="0" Height="24"/>
+                        <ToggleButton Tag="FixedZ"
+                                      IsChecked="{Binding FixedZ, Mode=TwoWay, FallbackValue=False, TargetNullValue=False}"
+                                      DataContextChanged="OnBinaryCheckDataContextChanged"
+                                      ToolTipService.ToolTip="Fix z" Width="15" MinWidth="0"
+                                      MinHeight="0" Padding="0" CornerRadius="0,3,3,0" Height="24"/>
+                    </StackPanel>
+                    <TextBox Text="{Binding Element, Mode=TwoWay}" Width="36" FontFamily="Consolas"
+                             FontSize="14" MinWidth="0" MinHeight="0" Padding="4,2,4,3"
+                             Visibility="{Binding FieldsVisibility}"/>
+                    <TextBox Text="{Binding FfId, Mode=TwoWay}" Width="56" FontFamily="Consolas"
+                             FontSize="14" MinWidth="0" MinHeight="0" Padding="4,2,4,3"
+                             Visibility="{Binding FieldsVisibility}"/>
+                    <!-- Near Cocoa's widths (30 / 60 / 60 / 60 / 45); occ. is a
+                         little wider than Cocoa so 1.000 still reads cleanly. -->
+                    <TextBox Text="{Binding Occupancy, Mode=TwoWay}" Width="44" FontFamily="Consolas"
+                             FontSize="14" MinWidth="0" MinHeight="0" Padding="2,2,2,3"
+                             Visibility="{Binding FieldsVisibility}"/>
+                    <TextBox Text="{Binding X, Mode=TwoWay}" Width="60" FontFamily="Consolas"
+                             FontSize="14" MinWidth="0" MinHeight="0" Padding="2,2,2,3"
+                             Visibility="{Binding FieldsVisibility}"/>
+                    <TextBox Text="{Binding Y, Mode=TwoWay}" Width="60" FontFamily="Consolas"
+                             FontSize="14" MinWidth="0" MinHeight="0" Padding="2,2,2,3"
+                             Visibility="{Binding FieldsVisibility}"/>
+                    <TextBox Text="{Binding Z, Mode=TwoWay}" Width="60" FontFamily="Consolas"
+                             FontSize="14" MinWidth="0" MinHeight="0" Padding="2,2,2,3"
+                             Visibility="{Binding FieldsVisibility}"/>
+                    <TextBox Text="{Binding Charge, Mode=TwoWay}" Width="48" FontFamily="Consolas"
+                             FontSize="14" MinWidth="0" MinHeight="0" Padding="2,2,2,3"
+                             Visibility="{Binding FieldsVisibility}"/>
+                    <TextBlock Text="{Binding CountText}" FontFamily="Consolas" FontSize="14"
+                               VerticalAlignment="Center" Opacity="0.7"/>
+                </StackPanel>
+            </ItemContainer>
+        </DataTemplate>
+
+        <Style x:Key="ColumnHeaderStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Opacity" Value="0.75"/>
+            <Setter Property="IsTextScaleFactorEnabled" Value="False"/>
+        </Style>
+        <!-- TextBox-backed columns render their text 5px in (4px padding + 1px
+             border); the headers above them are nudged the same amount. -->
+        <Style x:Key="InsetColumnHeaderStyle" TargetType="TextBlock"
+               BasedOn="{StaticResource ColumnHeaderStyle}">
+            <Setter Property="Padding" Value="5,0,0,0"/>
+        </Style>
+
+        <!-- Cocoa's "Atom OutlineView Context Menu"
+             (StructureAtomDetail.storyboard). The labels, order and grouping live
+             here; each item is tagged with its command, which the code-behind
+             both dispatches on and derives the enabled state from. -->
+        <MenuFlyout x:Key="RowMenu">
+            <MenuFlyoutItem Text="Add Atom" Tag="add"/>
+            <MenuFlyoutItem Text="Add Atom Group" Tag="addgroup"/>
+            <MenuFlyoutItem Text="Flatten Hierarchy" Tag="flatten"/>
+            <MenuFlyoutItem Text="Make Super-Cell" Tag="supercell"/>
+            <MenuFlyoutSubItem Text="Symmetry">
+                <MenuFlyoutItem Text="Remove symmetry" Tag="removesymmetry"/>
+                <MenuFlyoutItem Text="Wrap atoms to cell" Tag="wrap"/>
+                <MenuFlyoutItem Text="Find primitive" Tag="primitive"/>
+                <MenuFlyoutItem Text="Find Niggli" Tag="niggli"/>
+                <MenuFlyoutItem Text="Find and Impose symmetry" Tag="impose"/>
+            </MenuFlyoutSubItem>
+            <MenuFlyoutSubItem Text="Selection">
+                <MenuFlyoutItem Text="Invert" Tag="invertselection"/>
+                <MenuFlyoutItem Text="Copy to new Movie" Tag="copytomovie"/>
+                <MenuFlyoutItem Text="Move to new Movie" Tag="movetomovie"/>
+            </MenuFlyoutSubItem>
+            <MenuFlyoutSubItem Text="Visibility">
+                <MenuFlyoutItem Text="Match selection" Tag="visibilitymatch"/>
+                <MenuFlyoutItem Text="Invert" Tag="visibilityinvert"/>
+            </MenuFlyoutSubItem>
+            <MenuFlyoutSubItem Text="Scroll To">
+                <MenuFlyoutItem Text="Top" Tag="scrolltop"/>
+                <MenuFlyoutItem Text="Bottom" Tag="scrollbottom"/>
+                <MenuFlyoutItem Text="First selected" Tag="scrollfirst"/>
+                <MenuFlyoutItem Text="Last selected" Tag="scrolllast"/>
+            </MenuFlyoutSubItem>
+            <MenuFlyoutSubItem Text="Export As">
+                <MenuFlyoutItem Text="PDB" Tag="exportpdb"/>
+                <MenuFlyoutItem Text="mmCIF" Tag="exportmmcif"/>
+                <MenuFlyoutItem Text="CIF" Tag="exportcif"/>
+                <MenuFlyoutItem Text="XYZ" Tag="exportxyz"/>
+                <MenuFlyoutItem Text="VASP POSCAR" Tag="exportposcar"/>
+            </MenuFlyoutSubItem>
+        </MenuFlyout>
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="*,Auto">
+        <Grid Grid.Row="0" Padding="12" RowDefinitions="Auto,*">
+            <TextBlock x:Name="Hint" Grid.RowSpan="2"
+                       Text="Open a structure with atoms to edit the atom list."
+                       Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+
+            <!-- Same widths as a leaf-atom row (groups indent and hide the
+                 numeric columns, so the header tracks the atom layout). -->
+            <StackPanel x:Name="Header" Orientation="Horizontal" Spacing="4" Margin="0,0,0,4">
+                <TextBlock Text="vis" Width="48" Style="{StaticResource ColumnHeaderStyle}"/>
+                <StackPanel Orientation="Horizontal" Spacing="0" Width="112">
+                    <TextBlock Width="16" Style="{StaticResource ColumnHeaderStyle}"/>
+                    <TextBlock Text="name" Width="96" Style="{StaticResource InsetColumnHeaderStyle}"/>
+                </StackPanel>
+                <TextBlock Text="atom id." Width="64" Style="{StaticResource ColumnHeaderStyle}"/>
+                <TextBlock Text="el" Width="36" Style="{StaticResource InsetColumnHeaderStyle}"/>
+                <TextBlock Text="ff id." Width="56" Style="{StaticResource InsetColumnHeaderStyle}"/>
+                <TextBlock Text="occ." Width="44" Style="{StaticResource InsetColumnHeaderStyle}"/>
+                <TextBlock Text="x" Width="60" Style="{StaticResource InsetColumnHeaderStyle}"/>
+                <TextBlock Text="y" Width="60" Style="{StaticResource InsetColumnHeaderStyle}"/>
+                <TextBlock Text="z" Width="60" Style="{StaticResource InsetColumnHeaderStyle}"/>
+                <TextBlock Text="q" Width="48" Style="{StaticResource InsetColumnHeaderStyle}"/>
+            </StackPanel>
+
+            <!-- Extended = native Windows multi-select: Ctrl+click toggles,
+                 Shift+click ranges, Ctrl+A selects all (Cocoa outline view
+                 parity). GotFocus is routed, so field focus arrives here. -->
+            <ItemsView x:Name="List" Grid.Row="1" SelectionMode="Extended" MinHeight="120"
+                       AllowDrop="True" ItemTemplate="{StaticResource AtomRowTemplate}"
+                       SelectionChanged="OnSelectionChanged" GotFocus="OnFieldGotFocus"
+                       DragOver="OnListDragOver" Drop="OnListDrop"/>
+        </Grid>
+
+        <!-- Pinned footer, as in Cocoa. -->
+        <Grid x:Name="Footer" Grid.Row="1" ColumnSpacing="6" Padding="12,4,12,12"
+              ColumnDefinitions="Auto,Auto,*,Auto">
+            <!-- Cocoa's add-button menu: a plain click adds an atom, right-click
+                 (or the context key) offers both node kinds. -->
+            <Button x:Name="AddButton" Content="+" MinWidth="32" Padding="0,4,0,5"
+                    Click="OnAddClick">
+                <Button.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Add Atom" Click="OnAddAtomMenuClick"/>
+                        <MenuFlyoutItem Text="Add Atom Group" Click="OnAddAtomGroupMenuClick"/>
+                    </MenuFlyout>
+                </Button.ContextFlyout>
+            </Button>
+            <Button x:Name="RemoveButton" Grid.Column="1" Content="&#x2212;" MinWidth="32"
+                    Padding="0,4,0,5" Click="OnRemoveClick"/>
+            <TextBox x:Name="SearchBox" Grid.Column="2" PlaceholderText="Search" MaxWidth="260"
+                     HorizontalAlignment="Left" TextChanged="OnSearchTextChanged"/>
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4"
+                        VerticalAlignment="Center">
+                <TextBlock Text="Net charge" VerticalAlignment="Center"/>
+                <TextBlock x:Name="NetChargeText" VerticalAlignment="Center"
+                           FontFamily="Consolas"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

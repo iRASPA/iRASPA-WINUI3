@@ -1,0 +1,1703 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="App">
+      <UniqueIdentifier>{343f86ac-616e-9a8f-959b-5c95d5d28941}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>{f1eaed9a-7bf7-4286-abe5-28503b8c5de8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Document">
+      <UniqueIdentifier>{98354509-da09-fbd1-f3de-a1c95a0da951}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Hosting">
+      <UniqueIdentifier>{d387b15b-1f18-b6c4-4ea0-bb2ac9149722}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits">
+      <UniqueIdentifier>{1fa477c0-cde3-2223-1910-cb17cd098907}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits\foundationkit">
+      <UniqueIdentifier>{adb8e6af-9e29-591e-70ce-e1f9b3f37c5a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits\iraspakit">
+      <UniqueIdentifier>{24419d6e-e71e-bbc4-fabc-283aac7086f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits\mathkit">
+      <UniqueIdentifier>{355d45bb-c299-d8ee-ee89-23c16417d53a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits\renderkit">
+      <UniqueIdentifier>{2accc849-51ae-d285-591c-9d01dc5e15ac}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits\renderkit\directx12">
+      <UniqueIdentifier>{898999b5-5f56-ddbc-d536-6f5279a86a96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits\renderkit\directx12\geometry">
+      <UniqueIdentifier>{eba921ac-3518-fad4-36b9-6972ca1c3fb7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits\simulationkit">
+      <UniqueIdentifier>{fe84a225-0e52-2a98-da15-be947c8a7679}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits\simulationkit\directx12">
+      <UniqueIdentifier>{e6ccadc8-1610-67ee-b1b0-b216e6802da9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Kits\symmetrykit">
+      <UniqueIdentifier>{6a62f2eb-c859-3c45-eeab-02e12f1be2e0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Views">
+      <UniqueIdentifier>{a83248ed-e04e-b072-0a67-40f657183598}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Filter>Views</Filter>
+    </ApplicationDefinition>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="App.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="MainWindow.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="AboutView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="ProjectView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="FrameView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="InfoDetailView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="CellDetailView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="CameraDetailView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="AppearanceDetailView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="ElementsDetailView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="AtomsDetailView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="BondsDetailView.xaml.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
+    <ClCompile Include="About.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="DocumentSave.cpp">
+      <Filter>Document</Filter>
+    </ClCompile>
+    <ClCompile Include="Help.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="DocumentController.cpp">
+      <Filter>Document</Filter>
+    </ClCompile>
+    <ClCompile Include="DocumentSceneFrame.cpp">
+      <Filter>Document</Filter>
+    </ClCompile>
+    <ClCompile Include="DocumentCell.cpp">
+      <Filter>Document</Filter>
+    </ClCompile>
+    <ClCompile Include="DocumentAtoms.cpp">
+      <Filter>Document</Filter>
+    </ClCompile>
+    <ClCompile Include="DocumentBonds.cpp">
+      <Filter>Document</Filter>
+    </ClCompile>
+    <ClCompile Include="GalleryDatabase.cpp">
+      <Filter>Document</Filter>
+    </ClCompile>
+    <ClCompile Include="PythonConsole.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="UndoRedo.cpp">
+      <Filter>Document</Filter>
+    </ClCompile>
+    <ClCompile Include="DetailControls.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="InlineRename.cpp">
+      <Filter>App</Filter>
+    </ClCompile>
+    <ClCompile Include="Hosting\Dx12SwapChainPanelHost.cpp">
+      <Filter>Hosting</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\double4x3.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\float3x4.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\matrix.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\ring.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\ringmatrix.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\simd_quatd.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\bool3.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\int3.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\int3x3.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\nsrect.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\nssize.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\float2.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\float3.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\float4.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\float3x3.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\float4x4.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\double2.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\double3.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\double4.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\double3x3.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\mathkit\double4x4.cpp">
+      <Filter>Kits\mathkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\foundationkit\binpacker.cpp">
+      <Filter>Kits\foundationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\foundationkit\binaryarchive.cpp">
+      <Filter>Kits\foundationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\foundationkit\rkstring.cpp">
+      <Filter>Kits\foundationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\foundationkit\indexpath.cpp">
+      <Filter>Kits\foundationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\foundationkit\scanner.cpp">
+      <Filter>Kits\foundationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\foundationkit\characterset.cpp">
+      <Filter>Kits\foundationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\foundationkit\logreporting.cpp">
+      <Filter>Kits\foundationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\foundationkit\zip.cpp">
+      <Filter>Kits\foundationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skasymmetricbond.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skasymmetricunit.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skatomcopy.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skcell.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skchgcarparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skcifwriter.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skcolorsets.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skcolorset.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skdsspsecondarystructureassigner.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skdsssecondarystructureassigner.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skelfcarparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skgaussiancubeparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skintegerchangeofbasis.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skintegersymmetryoperationset.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sklocpotparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skmmcifparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skmmcifwriter.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sknucleotide.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sknucleotidebase.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skpdbwriter.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skpointsymmetryset.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skposcarlegacyparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skposcarparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skposcarwriter.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skpseasecondarystructureassigner.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skrotationalchangeofbasis.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sksecondarystructure.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sksecondarystructuregeometry.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sksegnosecondarystructureassigner.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skseitzintegermatrix.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skseitzmatrix.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sksequoiasecondarystructureassigner.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skspacegroup.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skstrideramachandranmaps.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skstridesecondarystructureassigner.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skboundingbox.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skelement.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skcifparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skcifsymmetryoperationparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skcifspacegroupidentification.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skasymmetricatom.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skbond.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skatomtreecontroller.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skatomtreenode.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skbondsetcontroller.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skpdbparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skspacegroupdatabase.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skspacegroupsetting.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skrotationmatrix.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sksymmetrycell.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skpointgroup.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skonethirdseitzmatrix.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skrotationaloccurancetable.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sksymmetryoperationset.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\sktransformationmatrix.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skxyzparser.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skxyzwriter.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\symmetrykitprotocols.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\simulationkit\forcefieldsets.cpp">
+      <Filter>Kits\simulationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\simulationkit\forcefieldset.cpp">
+      <Filter>Kits\simulationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\simulationkit\forcefieldtype.cpp">
+      <Filter>Kits\simulationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\simulationkit\constants.cpp">
+      <Filter>Kits\simulationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\simulationkit\marchingcubes.cpp">
+      <Filter>Kits\simulationkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\simulationkit\directx12\skdx12.cpp">
+      <Filter>Kits\simulationkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\simulationkit\directx12\skcomputeenergygrid.cpp">
+      <Filter>Kits\simulationkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\simulationkit\directx12\skcomputeisosurface.cpp">
+      <Filter>Kits\simulationkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\simulationkit\directx12\skcomputevoidfraction.cpp">
+      <Filter>Kits\simulationkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\rkcamera.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\rkglobalaxes.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\rklight.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\rklocalaxes.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\rkrenderkitprotocols.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\trackball.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\rkrenderuniforms.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\rkribbonmesh.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\ribbonaolayout.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\ribbonaotexturepostprocess.cpp">
+      <Filter>Kits\renderkit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\arrowxgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\arrowygeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\arrowzgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\axessystemdefaultgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\backplanegeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylinderdoublebondgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylindergeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylinderpartialdoublebondgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylindersinglebondgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylindertriplebondgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\cappednsidedprismgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\cubegeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\cubeprimitivegeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\cylindergeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\nsidedprismgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\nspheregeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\octahedrongeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\quadgeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\spheregeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\uncappedcylindergeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\geometry\unitcubegeometry.cpp">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\rkfontatlas.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxuniformstringliterals.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxbackgroundshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxatomsphereshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxatomorthographicimpostershader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxatomperspectiveimpostershader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxatomshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxambientocclusionshadowmapshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxbondshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxobjectshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxunitcellshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxlocalaxesshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxribbonshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxribbonselectionshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxribbonambientocclusionshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxboundingboxshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxtextrenderingshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxglobalaxesshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxenergysurface.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxenergyvolumerenderedsurface.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxenergyvolumetransferfunctions.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxpickingshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxatomselectionworleynoise3dshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxatomselectionstripesshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxatomselectionglowshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxbondselectionshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxselectionshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxblurshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxcompositeshader.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\dx12devicecontext.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\renderkit\directx12\directxrenderer.cpp">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\project.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\projectgroup.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\projectstructure.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\iraspaproject.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\projecttreenode.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\projecttreecontroller.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\scenelist.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\scene.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\movie.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\documentdata.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\gaussiancubevolume.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\gridvolume.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\iraspaobject.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\crystalcylinderprimitive.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\crystalellipsoidprimitive.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\crystalpolygonalprismprimitive.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\cylinderprimitive.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\ellipsoidprimitive.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\object.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\polygonalprismprimitive.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\primitive.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\raspadensityvolume.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\structure.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\crystal.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\molecularcrystal.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteincrystal.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\molecule.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\protein.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteinatomtreebuilder.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteinbackbone.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteinbspline.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteincatmullromspline.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteinnucleicacidmesh.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteinribbonmesh.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteinribbonmeshparameters.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteinribbonmixin.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteinribbonsecondarystructure.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\ribbonstructureeditor.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\dnabackbone.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\dnanucleotidegeometry.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\proteinribbonsegmentsupport.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\vaspdensityvolume.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\vtkdensityvolume.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\annotationviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\atomstructureviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\atomviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\bondstructureviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\bondviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\displayable.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\infoviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\primitivestructureviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\spacegroupviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\structuralpropertyviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\unitcellviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\volumetricdataviewer.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+    <ClCompile Include="iraspa\iraspakit\iraspakitprotocols.cpp">
+      <Filter>Kits\iraspakit</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="App.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="MainWindow.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="AboutView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="ProjectView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="InfoDetailView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="CellDetailView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="CameraDetailView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="AppearanceDetailView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="ElementsDetailView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="AtomsDetailView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="BondsDetailView.xaml.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="CameraPaneHost.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="DetailControls.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="DocumentController.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="InlineRename.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="ObjectTypeMenu.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="StructureTypeTable.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="ProjectNodeUtil.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="RowProperty.h">
+      <Filter>App</Filter>
+    </ClInclude>
+    <ClInclude Include="Hosting\Dx12SwapChainPanelHost.h">
+      <Filter>Hosting</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\binaryarchive.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\binpacker.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\characterset.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\flatten.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\foundationkit.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\indexpath.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\logreporting.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\rkcache.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\rkcolor.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\rkdate.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\rkguid.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\rkimage.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\rkrect.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\rkstring.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\rkundostack.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\scanner.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\serialization.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\zipreader.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\foundationkit\zipwriter.h">
+      <Filter>Kits\foundationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\annotationviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\atomstructureviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\atomviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\bondstructureviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\bondviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\crystal.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\crystalcylinderprimitive.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\crystalellipsoidprimitive.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\crystalpolygonalprismprimitive.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\cylinderprimitive.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\displayable.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\dnabackbone.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\dnanucleotidegeometry.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\documentdata.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\ellipsoidprimitive.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\gaussiancubevolume.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\gridvolume.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\infoviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\iraspakit.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\iraspakitprotocols.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\iraspaobject.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\iraspaproject.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\molecularcrystal.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\molecule.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\movie.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\object.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\polygonalprismprimitive.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\primitive.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\primitivestructureviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\project.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\projectgroup.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\projectstructure.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\projecttreecontroller.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\projecttreenode.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\protein.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinatomtreebuilder.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinbackbone.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinbspline.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteincatmullromspline.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteincrystal.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinnucleicacidcartoon.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinnucleicacidmesh.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribboncenterlinepath.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribboncolorset.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribbonmesh.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribbonmeshparameters.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribbonmixin.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribbonrepresentationstyle.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribbonsecondarystructure.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribbonsecondarystructuremethod.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribbonsegmentsupport.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\proteinribbonsplinetype.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\raspadensityvolume.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\ribbonstructureeditor.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\scene.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\scenelist.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\spacegroupviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\structuralpropertyviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\structure.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\unitcellviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\vaspdensityvolume.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\volumetricdataviewer.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\iraspakit\vtkdensityvolume.h">
+      <Filter>Kits\iraspakit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\bool3.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\double2.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\double3.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\double3x3.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\double4.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\double4x3.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\double4x4.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\float2.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\float3.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\float3x3.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\float3x4.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\float4.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\float4x4.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\hashcombine.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\int3.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\int3x3.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\mathkit.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\matrix.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\nsrect.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\nssize.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\ring.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\ringmatrix.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\mathkit\simd_quatd.h">
+      <Filter>Kits\mathkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxambientocclusionshadowmapshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxatomorthographicimpostershader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxatomperspectiveimpostershader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxatomselectionglowshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxatomselectionstripesshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxatomselectionworleynoise3dshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxatomshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxatomsphereshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxbackgroundshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxblurshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxbondselectionshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxbondshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxboundingboxshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxcompositeshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxdevicehelpers.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxenergysurface.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxenergyvolumerenderedsurface.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxglobalaxesshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxlocalaxesshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxobjectshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxpickingshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxrenderer.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxribbonambientocclusionshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxribbonselectionshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxribbonshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxselectionshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxtextrenderingshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxuniformstringliterals.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\directxunitcellshader.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\dx12devicecontext.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\dx12input.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\arrowxgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\arrowygeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\arrowzgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\axessystemdefaultgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\backplanegeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylinderdoublebondgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylindergeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylinderpartialdoublebondgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylindersinglebondgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylindertriplebondgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\cappednsidedprismgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\cubegeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\cubeprimitivegeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\cylindergeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\nsidedprismgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\nspheregeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\octahedrongeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\quadgeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\spheregeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\uncappedcylindergeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\geometry\unitcubegeometry.h">
+      <Filter>Kits\renderkit\directx12\geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\directx12\rkfontatlas.h">
+      <Filter>Kits\renderkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\renderkit.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\ribbonaolayout.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\ribbonaotexturepostprocess.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\rkcamera.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\rkglobalaxes.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\rklight.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\rklocalaxes.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\rkrenderkitprotocols.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\rkrenderuniforms.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\rkribbonmesh.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\renderkit\trackball.h">
+      <Filter>Kits\renderkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\constants.h">
+      <Filter>Kits\simulationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\directx12\skcomputeenergygrid.h">
+      <Filter>Kits\simulationkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\directx12\skcomputeisosurface.h">
+      <Filter>Kits\simulationkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\directx12\skcomputevoidfraction.h">
+      <Filter>Kits\simulationkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\directx12\skdx12.h">
+      <Filter>Kits\simulationkit\directx12</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\forcefieldset.h">
+      <Filter>Kits\simulationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\forcefieldsets.h">
+      <Filter>Kits\simulationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\forcefieldtype.h">
+      <Filter>Kits\simulationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\lookuptable.h">
+      <Filter>Kits\simulationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\marchingcubes.h">
+      <Filter>Kits\simulationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\simulationkit\simulationkit.h">
+      <Filter>Kits\simulationkit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skasymmetricatom.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skasymmetricbond.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skasymmetricunit.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skatomcopy.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skatomtreecontroller.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skatomtreenode.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skbond.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skbondsetcontroller.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skboundingbox.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skcell.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skchgcarparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skcifparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skcifspacegroupidentification.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skcifsymmetryoperationparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skcifwriter.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skcolorset.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skcolorsets.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skdefinitions.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skdsspsecondarystructureassigner.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skdsssecondarystructureassigner.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skelement.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skelfcarparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skgaussiancubeparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skintegerchangeofbasis.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skintegersymmetryoperationset.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sklocpotparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skmmcifparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skmmcifwriter.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sknucleotide.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sknucleotidebase.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skonethirdseitzmatrix.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skpdbparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skpdbwriter.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skpointgroup.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skpointsymmetryset.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skposcarlegacyparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skposcarparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skposcarwriter.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skpseasecondarystructureassigner.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skrotationalchangeofbasis.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skrotationaloccurancetable.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skrotationmatrix.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sksecondarystructure.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sksecondarystructuregeometry.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sksegnosecondarystructureassigner.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skseitzintegermatrix.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skseitzmatrix.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sksequoiasecondarystructureassigner.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skspacegroup.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skspacegroupdatabase.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skspacegroupsetting.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skstrideramachandranmaps.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skstridesecondarystructureassigner.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skstructure.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sksymmetrycell.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sksymmetryoperationset.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\sktransformationmatrix.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skxyzparser.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skxyzwriter.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\symmetrykit.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\symmetrykitprotocols.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\SplashScreen.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square150x150Logo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\StoreLogo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Wide310x150Logo.png">
+      <Filter>Assets</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="iRASPA.rc">
+      <Filter>App</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="app.manifest">
+      <Filter>App</Filter>
+    </Manifest>
+  </ItemGroup>
+  <ItemGroup>
+    <Midl Include="App.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="MainWindow.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="AboutView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="ProjectView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="SceneView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="FrameView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="InfoDetailView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="CellDetailView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="CameraDetailView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="AppearanceDetailView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="ElementsDetailView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="AtomsDetailView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+    <Midl Include="BondsDetailView.idl">
+      <Filter>Views</Filter>
+    </Midl>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config">
+      <Filter>App</Filter>
+    </None>
+    <None Include="deploy_unpackaged_xaml.ps1">
+      <Filter>App</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="MainWindow.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="AboutView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="ProjectView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="SceneView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="FrameView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="InfoDetailView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="CellDetailView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="CameraDetailView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="AppearanceDetailView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="ElementsDetailView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="AtomsDetailView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+    <Page Include="BondsDetailView.xaml">
+      <Filter>Views</Filter>
+    </Page>
+  </ItemGroup>
+</Project>

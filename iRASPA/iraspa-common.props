@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Compile settings shared by iRASPAKit.vcxproj, iRASPA.vcxproj and
+       Export\iRASPA.Export.vcxproj. The kit is a static library linked into both
+       executables, so the CRT flavour, the conformance switches and the preprocessor
+       definitions have to agree across all three: a CRT mismatch links without a
+       diagnostic and only misbehaves at run time. Each project still owns its own
+       language standard, precompiled header, output directories and libraries. -->
+  <PropertyGroup>
+    <IraspaRoot Condition="'$(IraspaRoot)' == ''">$(MSBuildThisFileDirectory)iraspa</IraspaRoot>
+    <VcpkgRoot Condition="'$(VcpkgRoot)' == ''">C:\vcpkg</VcpkgRoot>
+    <!-- The "-md" triplet is static libraries against the dynamic CRT. Plain
+         x64-windows-static would pull a second, statically linked CRT into the process. -->
+    <IraspaVcpkgTriplet Condition="'$(IraspaVcpkgTriplet)' == '' and '$(Platform)' == 'x64'">x64-windows-static-md</IraspaVcpkgTriplet>
+    <IraspaVcpkgTriplet Condition="'$(IraspaVcpkgTriplet)' == '' and '$(Platform)' == 'ARM64'">arm64-windows-static-md</IraspaVcpkgTriplet>
+    <VcpkgStaticRoot Condition="'$(VcpkgStaticRoot)' == ''">$(VcpkgRoot)\installed\$(IraspaVcpkgTriplet)</VcpkgStaticRoot>
+    <!-- vcpkg's global MSBuild integration ("vcpkg integrate install") links every
+         library of the default dynamic triplet through a wildcard and app-locals their
+         DLLs. These projects name their vcpkg dependencies explicitly against the triplet
+         above, so the injection is switched off: it would otherwise silently satisfy
+         those references from the wrong triplet and make the build depend on machine-wide
+         vcpkg state. -->
+    <VcpkgEnabled>false</VcpkgEnabled>
+    <!-- The kits include each other's headers unqualified, so every kit directory is on
+         the search path. This is a property rather than an AdditionalIncludeDirectories
+         entry because the position of the list matters: iraspakit\object.h has the same
+         name as Python's object.h, so iRASPA.vcxproj has to keep the kit directories
+         ahead of the Python SDK. -->
+    <IraspaIncludeDirs>$(IraspaRoot);$(IraspaRoot)\mathkit;$(IraspaRoot)\foundationkit;$(IraspaRoot)\symmetrykit;$(IraspaRoot)\simulationkit;$(IraspaRoot)\simulationkit\directx12;$(IraspaRoot)\renderkit;$(IraspaRoot)\renderkit\directx12;$(IraspaRoot)\renderkit\directx12\geometry;$(IraspaRoot)\iraspakit;$(VcpkgStaticRoot)\include</IraspaIncludeDirs>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalOptions>/Zc:__cplusplus /permissive- /bigobj %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>USE_DIRECTX;IRASPA_NO_FFMPEG;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;WIN32;_WINDOWS;UNICODE;_UNICODE;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <ConformanceMode>true</ConformanceMode>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <Optimization>Disabled</Optimization>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="iRASPA_WinUI.CameraDetailView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!-- The Camera tab (Cocoa StructureCameraDetailViewController): the six
+         groups of StructureCameraDetail.storyboard, with the same cells, labels,
+         colour wells and slider-plus-field rows.
+
+         The camera edits are not undoable, as in Cocoa: they change how the
+         scene is looked at, not the scene. Each one redraws or reloads the
+         renderer directly. -->
+    <UserControl.Resources>
+        <Style x:Key="RowLabel" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <Style x:Key="GroupLabel" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,2,0,0"/>
+        </Style>
+
+        <Style x:Key="BoxHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Opacity" Value="0.8"/>
+        </Style>
+
+        <!-- NSBox stand-in: titled, line-bordered group. -->
+        <Style x:Key="TitledBox" TargetType="Border">
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#60808080"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="8,4,8,8"/>
+            <Setter Property="Margin" Value="0,6,0,2"/>
+        </Style>
+
+        <Style x:Key="Separator" TargetType="Border">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="#3C808080"/>
+            <Setter Property="Margin" Value="0,4,0,4"/>
+        </Style>
+
+        <Style x:Key="Readout" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Ranges and steps are set in the code-behind, per box. -->
+        <Style x:Key="Num" TargetType="NumberBox">
+            <Setter Property="SpinButtonPlacementMode" Value="Hidden"/>
+            <Setter Property="ValidationMode" Value="InvalidInputOverwritten"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="RowSlider" TargetType="Slider">
+            <Setter Property="IsThumbToolTipEnabled" Value="False"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="Radio" TargetType="RadioButton">
+            <!-- The default style top-aligns the label; centre it on the glyph. -->
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="8,0,0,0"/>
+        </Style>
+
+        <Style x:Key="WideButton" TargetType="Button">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+
+        <Style x:Key="ColorWell" TargetType="DropDownButton">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="6,4,6,4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="Swatch" TargetType="Border">
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Gray"/>
+        </Style>
+
+        <Style x:Key="Row" TargetType="Grid">
+            <Setter Property="Margin" Value="0,2,0,2"/>
+            <Setter Property="ColumnSpacing" Value="6"/>
+        </Style>
+
+        <Style x:Key="CameraSection" TargetType="Expander">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="HeaderTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" FontWeight="SemiBold"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <TextBlock x:Name="Hint" Text="Open a structure to edit camera details."
+                   Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+
+        <StackPanel x:Name="Sections">
+
+            <!-- ===================== Camera ===================== -->
+            <Expander Style="{StaticResource CameraSection}" Header="Camera" IsExpanded="True">
+                <StackPanel Spacing="4">
+
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                        <TextBlock Text="Reset to" Style="{StaticResource RowLabel}"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                            <NumberBox x:Name="ResetFraction" Style="{StaticResource Num}" MinWidth="80"
+                                       ValueChanged="OnResetFractionChanged"/>
+                            <TextBlock Text="%" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Reset Direction" Style="{StaticResource GroupLabel}"/>
+                    <Grid ColumnSpacing="8" ColumnDefinitions="*,Auto">
+                        <!-- Cocoa rows: -X -Y -Z above +X +Y +Z. -->
+                        <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto">
+                            <RadioButton x:Name="DirMinusX" Content="-X" GroupName="CamResetDir"
+                                         Style="{StaticResource Radio}" Margin="2" Checked="OnResetDirectionChecked"/>
+                            <RadioButton x:Name="DirMinusY" Grid.Column="1" Content="-Y" GroupName="CamResetDir"
+                                         Style="{StaticResource Radio}" Margin="2" Checked="OnResetDirectionChecked"/>
+                            <RadioButton x:Name="DirMinusZ" Grid.Column="2" Content="-Z" GroupName="CamResetDir"
+                                         Style="{StaticResource Radio}" Margin="2" Checked="OnResetDirectionChecked"/>
+                            <RadioButton x:Name="DirPlusX" Grid.Row="1" Content="+X" GroupName="CamResetDir"
+                                         Style="{StaticResource Radio}" Margin="2" Checked="OnResetDirectionChecked"/>
+                            <RadioButton x:Name="DirPlusY" Grid.Row="1" Grid.Column="1" Content="+Y" GroupName="CamResetDir"
+                                         Style="{StaticResource Radio}" Margin="2" Checked="OnResetDirectionChecked"/>
+                            <RadioButton x:Name="DirPlusZ" Grid.Row="1" Grid.Column="2" Content="+Z" GroupName="CamResetDir"
+                                         Style="{StaticResource Radio}" Margin="2" Checked="OnResetDirectionChecked"/>
+                        </Grid>
+                        <Button Grid.Column="1" Content="Reset Camera" VerticalAlignment="Center"
+                                Click="OnResetCamera"/>
+                    </Grid>
+
+                    <Border Style="{StaticResource Separator}"/>
+                    <TextBlock Text="Projection" Style="{StaticResource GroupLabel}"/>
+                    <Grid ColumnDefinitions="*,*">
+                        <RadioButton x:Name="Orthographic" Content="Orthographic" GroupName="CamProjection"
+                                     Style="{StaticResource Radio}" HorizontalAlignment="Stretch"
+                                     Checked="OnProjectionChecked"/>
+                        <RadioButton x:Name="Perspective" Grid.Column="1" Content="Perspective" GroupName="CamProjection"
+                                     Style="{StaticResource Radio}" HorizontalAlignment="Stretch"
+                                     Checked="OnProjectionChecked"/>
+                    </Grid>
+
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                        <TextBlock Text="Angle of View" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="AngleOfView" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnAngleOfViewChanged"/>
+                    </Grid>
+
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,*,*" ColumnSpacing="4">
+                        <TextBlock Text="Center of Scene" Style="{StaticResource RowLabel}"/>
+                        <TextBox x:Name="Center0" Grid.Column="1" Style="{StaticResource Readout}"/>
+                        <TextBox x:Name="Center1" Grid.Column="2" Style="{StaticResource Readout}"/>
+                        <TextBox x:Name="Center2" Grid.Column="3" Style="{StaticResource Readout}"/>
+                    </Grid>
+
+                    <Border Style="{StaticResource Separator}"/>
+
+                    <!-- Rotation: the angle field with the rotate buttons under
+                         it, and the Euler angles with their sliders on the right.
+                         Rows follow Cocoa: yaw, pitch, roll. -->
+                    <Grid ColumnSpacing="6" RowSpacing="4"
+                          ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                        <TextBlock Text="Rotation Angle" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="RotationAngle" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnRotationAngleChanged"/>
+                        <TextBlock Text="Euler Angles" Grid.Column="2" Grid.ColumnSpan="2"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                        <Button x:Name="YawPlus" Grid.Row="1" Style="{StaticResource WideButton}" Click="OnRotateClick"/>
+                        <Button x:Name="YawMinus" Grid.Row="1" Grid.Column="1" Style="{StaticResource WideButton}" Click="OnRotateClick"/>
+                        <NumberBox x:Name="EulerXBox" Grid.Row="1" Grid.Column="2" Style="{StaticResource Num}"/>
+                        <Slider x:Name="EulerXSlider" Grid.Row="1" Grid.Column="3" Style="{StaticResource RowSlider}"/>
+
+                        <Button x:Name="PitchPlus" Grid.Row="2" Style="{StaticResource WideButton}" Click="OnRotateClick"/>
+                        <Button x:Name="PitchMinus" Grid.Row="2" Grid.Column="1" Style="{StaticResource WideButton}" Click="OnRotateClick"/>
+                        <NumberBox x:Name="EulerZBox" Grid.Row="2" Grid.Column="2" Style="{StaticResource Num}"/>
+                        <Slider x:Name="EulerZSlider" Grid.Row="2" Grid.Column="3" Style="{StaticResource RowSlider}"/>
+
+                        <Button x:Name="RollPlus" Grid.Row="3" Style="{StaticResource WideButton}" Click="OnRotateClick"/>
+                        <Button x:Name="RollMinus" Grid.Row="3" Grid.Column="1" Style="{StaticResource WideButton}" Click="OnRotateClick"/>
+                        <NumberBox x:Name="EulerYBox" Grid.Row="3" Grid.Column="2" Style="{StaticResource Num}"/>
+                        <Slider x:Name="EulerYSlider" Grid.Row="3" Grid.Column="3" Style="{StaticResource RowSlider}"/>
+                    </Grid>
+
+                    <Border Style="{StaticResource Separator}"/>
+                    <TextBlock Text="View Matrix" Style="{StaticResource GroupLabel}"/>
+                    <Grid x:Name="ViewMatrix" ColumnSpacing="4" RowSpacing="4"
+                          ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto,Auto,Auto"/>
+
+                    <Border Style="{StaticResource Separator}"/>
+                    <TextBlock Text="Virtual Camera Position" Style="{StaticResource GroupLabel}"/>
+                    <Grid ColumnSpacing="4" ColumnDefinitions="*,*,*">
+                        <TextBox x:Name="Position0" Style="{StaticResource Readout}"/>
+                        <TextBox x:Name="Position1" Grid.Column="1" Style="{StaticResource Readout}"/>
+                        <TextBox x:Name="Position2" Grid.Column="2" Style="{StaticResource Readout}"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                        <TextBlock Text="Distance" Style="{StaticResource RowLabel}"/>
+                        <TextBox x:Name="Distance" Grid.Column="1" Style="{StaticResource Readout}"/>
+                    </Grid>
+                    <!-- Not in Cocoa, which zooms by scroll and pinch. -->
+                    <Grid ColumnSpacing="6" Margin="0,4,0,0" ColumnDefinitions="*,*">
+                        <Button Content="Zoom In" Style="{StaticResource WideButton}" Click="OnZoomIn"/>
+                        <Button Grid.Column="1" Content="Zoom Out" Style="{StaticResource WideButton}" Click="OnZoomOut"/>
+                    </Grid>
+                </StackPanel>
+            </Expander>
+
+            <!-- ===================== Selection ===================== -->
+            <Expander Style="{StaticResource CameraSection}" Header="Selection">
+                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                    <TextBlock Text="Overall Luminance" Style="{StaticResource RowLabel}"/>
+                    <Slider x:Name="BloomSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                    <NumberBox x:Name="BloomBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
+                </Grid>
+            </Expander>
+
+            <!-- ===================== Axes ===================== -->
+            <Expander Style="{StaticResource CameraSection}" Header="Axes">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="AxesHint" Text="Open a structure to edit axes."
+                               Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+                    <StackPanel x:Name="AxesBody" Spacing="4">
+
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Position" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AxesPosition" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      SelectionChanged="OnAxesPositionChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AxesStyle" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      SelectionChanged="OnAxesStyleChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Size" Style="{StaticResource RowLabel}"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                <NumberBox x:Name="AxesSize" Style="{StaticResource Num}" MinWidth="80"
+                                           ValueChanged="OnAxesSizeChanged"/>
+                                <TextBlock Text="%" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Border Offset" Style="{StaticResource RowLabel}"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                                <NumberBox x:Name="AxesOffset" Style="{StaticResource Num}" MinWidth="80"
+                                           ValueChanged="OnAxesOffsetChanged"/>
+                                <TextBlock Text="%" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,56">
+                            <TextBlock Text="Background Shape" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AxesBackgroundStyle" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      SelectionChanged="OnAxesBackgroundStyleChanged"/>
+                            <DropDownButton x:Name="AxesBackgroundWell" Grid.Column="2" Style="{StaticResource ColorWell}">
+                                <Border x:Name="AxesBackgroundSwatch" Style="{StaticResource Swatch}"/>
+                            </DropDownButton>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Background Additional Size" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="AxesBackgroundSize" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnAxesBackgroundSizeChanged"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Text Properties" Style="{StaticResource BoxHeader}"/>
+                                <StackPanel Spacing="2">
+                                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,*,*" ColumnSpacing="4">
+                                        <TextBlock Text="Scaling" Style="{StaticResource RowLabel}"/>
+                                        <NumberBox x:Name="TextScaleX" Grid.Column="1" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextScaleChanged"/>
+                                        <NumberBox x:Name="TextScaleY" Grid.Column="2" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextScaleChanged"/>
+                                        <NumberBox x:Name="TextScaleZ" Grid.Column="3" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextScaleChanged"/>
+                                    </Grid>
+                                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,*,*,56" ColumnSpacing="4">
+                                        <TextBlock Text="X-Text &#x0394;" Style="{StaticResource RowLabel}"/>
+                                        <NumberBox x:Name="TextXDispX" Grid.Column="1" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextDisplacementChanged"/>
+                                        <NumberBox x:Name="TextXDispY" Grid.Column="2" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextDisplacementChanged"/>
+                                        <NumberBox x:Name="TextXDispZ" Grid.Column="3" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextDisplacementChanged"/>
+                                        <DropDownButton x:Name="TextXWell" Grid.Column="4" Style="{StaticResource ColorWell}">
+                                            <Border x:Name="TextXSwatch" Style="{StaticResource Swatch}"/>
+                                        </DropDownButton>
+                                    </Grid>
+                                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,*,*,56" ColumnSpacing="4">
+                                        <TextBlock Text="Y-Text &#x0394;" Style="{StaticResource RowLabel}"/>
+                                        <NumberBox x:Name="TextYDispX" Grid.Column="1" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextDisplacementChanged"/>
+                                        <NumberBox x:Name="TextYDispY" Grid.Column="2" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextDisplacementChanged"/>
+                                        <NumberBox x:Name="TextYDispZ" Grid.Column="3" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextDisplacementChanged"/>
+                                        <DropDownButton x:Name="TextYWell" Grid.Column="4" Style="{StaticResource ColorWell}">
+                                            <Border x:Name="TextYSwatch" Style="{StaticResource Swatch}"/>
+                                        </DropDownButton>
+                                    </Grid>
+                                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,*,*,56" ColumnSpacing="4">
+                                        <TextBlock Text="Z-Text &#x0394;" Style="{StaticResource RowLabel}"/>
+                                        <NumberBox x:Name="TextZDispX" Grid.Column="1" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextDisplacementChanged"/>
+                                        <NumberBox x:Name="TextZDispY" Grid.Column="2" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextDisplacementChanged"/>
+                                        <NumberBox x:Name="TextZDispZ" Grid.Column="3" Style="{StaticResource Num}"
+                                                   ValueChanged="OnTextDisplacementChanged"/>
+                                        <DropDownButton x:Name="TextZWell" Grid.Column="4" Style="{StaticResource ColorWell}">
+                                            <Border x:Name="TextZSwatch" Style="{StaticResource Swatch}"/>
+                                        </DropDownButton>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ===================== Lights ===================== -->
+            <Expander Style="{StaticResource CameraSection}" Header="Lights">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="LightsHint" Text="Open a structure to edit lights."
+                               Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+                    <Border x:Name="LightsBody" Style="{StaticResource TitledBox}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Camera Light" Style="{StaticResource BoxHeader}"/>
+                            <StackPanel Spacing="2">
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="AmbientSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="AmbientBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
+                                    <DropDownButton x:Name="AmbientWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="AmbientSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="DiffuseSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="DiffuseBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
+                                    <DropDownButton x:Name="DiffuseWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="DiffuseSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="SpecularSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="SpecularBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
+                                    <DropDownButton x:Name="SpecularWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="SpecularSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="ShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="ShininessBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Expander>
+
+            <!-- ===================== Pictures / Movies ===================== -->
+            <Expander Style="{StaticResource CameraSection}" Header="Pictures/Movies">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="PicturesHint" Text="Open a structure to edit picture/movie settings."
+                               Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+                    <StackPanel x:Name="PicturesBody" Spacing="4">
+
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Dots-per-Inch" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="ImageDpi" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      SelectionChanged="OnImageDpiChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Quality/Type" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="ImageQuality" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      SelectionChanged="OnImageQualityChanged"/>
+                        </Grid>
+
+                        <!-- Physical size is stored in inches and shown in the
+                             selected units. The heights follow from the aspect
+                             ratio, and the pair not selected under "Edit
+                             Dimensions" is read-only, as in Cocoa. -->
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Physical Width" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="PhysicalWidth" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnPhysicalWidthChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Pixel Width" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="PixelWidth" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnPixelWidthChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Physical Height" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="PhysicalHeight" Grid.Column="1" Style="{StaticResource Readout}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Pixel Height" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="PixelHeight" Grid.Column="1" Style="{StaticResource Readout}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <TextBlock Text="Edit Dimensions" Style="{StaticResource GroupLabel}"/>
+                        <Grid ColumnDefinitions="*,*">
+                            <RadioButton x:Name="DimPhysical" Content="Physical" GroupName="CamEditDims"
+                                         Style="{StaticResource Radio}" Checked="OnImageDimensionsChecked"/>
+                            <RadioButton x:Name="DimPixels" Grid.Column="1" Content="Pixels" GroupName="CamEditDims"
+                                         Style="{StaticResource Radio}" Checked="OnImageDimensionsChecked"/>
+                        </Grid>
+                        <TextBlock Text="Units" Style="{StaticResource GroupLabel}"/>
+                        <Grid ColumnDefinitions="*,*">
+                            <RadioButton x:Name="UnitInch" Content="Inch" GroupName="CamUnits"
+                                         Style="{StaticResource Radio}" Checked="OnImageUnitsChecked"/>
+                            <RadioButton x:Name="UnitCm" Grid.Column="1" Content="cm" GroupName="CamUnits"
+                                         Style="{StaticResource Radio}" Checked="OnImageUnitsChecked"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Frames per Second" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="FramesPerSecond" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnFramesPerSecondChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Movie Type" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="MovieType" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      SelectionChanged="OnMovieTypeChanged"/>
+                        </Grid>
+                        <!-- Filled from the encoders Media Foundation actually finds on this
+                             machine, so the list is short on a box without hardware HEVC. -->
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Movie Format" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="MovieFormat" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid ColumnSpacing="6" Margin="0,4,0,0" ColumnDefinitions="*,*">
+                            <Button x:Name="MakePictureButton" Content="Make Picture"
+                                    Style="{StaticResource WideButton}" Click="OnMakePicture"/>
+                            <Button x:Name="MakeMovieButton" Grid.Column="1" Content="Make Movie"
+                                    Style="{StaticResource WideButton}" Click="OnMakeMovie"/>
+                        </Grid>
+                        <StackPanel x:Name="ExportPanel" Spacing="4" Margin="0,4,0,0" Visibility="Collapsed">
+                            <ProgressBar x:Name="ExportProgress" HorizontalAlignment="Stretch"/>
+                            <Grid ColumnSpacing="6" ColumnDefinitions="*,Auto">
+                                <TextBlock x:Name="ExportStatus" VerticalAlignment="Center"
+                                           TextWrapping="Wrap" Opacity="0.8"/>
+                                <Button x:Name="CancelExportButton" Grid.Column="1" Content="Cancel"
+                                        Click="OnCancelExport"/>
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ===================== Background ===================== -->
+            <Expander Style="{StaticResource CameraSection}" Header="Background">
+                <StackPanel Spacing="4">
+                    <Grid RowSpacing="2" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                        <RadioButton x:Name="BgColorRadio" Content="Color" GroupName="CamBgType"
+                                     Style="{StaticResource Radio}" Checked="OnBackgroundTypeChecked"/>
+                        <RadioButton x:Name="BgLinearRadio" Grid.Column="1" Content="Linear Gradient" GroupName="CamBgType"
+                                     Style="{StaticResource Radio}" Checked="OnBackgroundTypeChecked"/>
+                        <RadioButton x:Name="BgImageRadio" Grid.Row="1" Content="Image" GroupName="CamBgType"
+                                     Style="{StaticResource Radio}" Checked="OnBackgroundTypeChecked"/>
+                        <RadioButton x:Name="BgRadialRadio" Grid.Row="1" Grid.Column="1" Content="Radial Gradient" GroupName="CamBgType"
+                                     Style="{StaticResource Radio}" Checked="OnBackgroundTypeChecked"/>
+                    </Grid>
+                    <Border Style="{StaticResource Separator}"/>
+
+                    <StackPanel x:Name="BgColorPanel" Spacing="4">
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Color" Style="{StaticResource RowLabel}"/>
+                            <DropDownButton x:Name="BgColorWell" Grid.Column="1" Style="{StaticResource ColorWell}">
+                                <Border x:Name="BgColorSwatch" Style="{StaticResource Swatch}"/>
+                            </DropDownButton>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel x:Name="BgLinearPanel" Spacing="4">
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="From" Style="{StaticResource RowLabel}"/>
+                            <DropDownButton x:Name="LinearFromWell" Grid.Column="1" Style="{StaticResource ColorWell}">
+                                <Border x:Name="LinearFromSwatch" Style="{StaticResource Swatch}"/>
+                            </DropDownButton>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="To" Style="{StaticResource RowLabel}"/>
+                            <DropDownButton x:Name="LinearToWell" Grid.Column="1" Style="{StaticResource ColorWell}">
+                                <Border x:Name="LinearToSwatch" Style="{StaticResource Swatch}"/>
+                            </DropDownButton>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Angle" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="LinearAngleSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="LinearAngleBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel x:Name="BgRadialPanel" Spacing="4">
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="From" Style="{StaticResource RowLabel}"/>
+                            <DropDownButton x:Name="RadialFromWell" Grid.Column="1" Style="{StaticResource ColorWell}">
+                                <Border x:Name="RadialFromSwatch" Style="{StaticResource Swatch}"/>
+                            </DropDownButton>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="To" Style="{StaticResource RowLabel}"/>
+                            <DropDownButton x:Name="RadialToWell" Grid.Column="1" Style="{StaticResource ColorWell}">
+                                <Border x:Name="RadialToSwatch" Style="{StaticResource Swatch}"/>
+                            </DropDownButton>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Roundness" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RadialRoundnessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="RadialRoundnessBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel x:Name="BgImagePanel" Spacing="4">
+                        <Button Content="Select Image..." Style="{StaticResource WideButton}" Click="OnSelectBackgroundImage"/>
+                        <TextBlock x:Name="BackgroundImageName" TextWrapping="Wrap" Opacity="0.8"
+                                   Visibility="Collapsed"/>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

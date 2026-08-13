@@ -1,0 +1,8 @@
+namespace iRASPA_WinUI
+{
+    [default_interface]
+    runtimeclass ElementsDetailView : Microsoft.UI.Xaml.Controls.UserControl
+    {
+        ElementsDetailView();
+    }
+}

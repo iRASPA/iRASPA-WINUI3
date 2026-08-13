@@ -1,0 +1,78 @@
+/********************************************************************************************************************
+    iRASPA: GPU-accelated visualisation software for materials scientists
+    Copyright (c) 2016-2021 David Dubbeldam, Sofia Calero, Thijs J.H. Vlugt.
+    D.Dubbeldam@uva.nl            https://www.uva.nl/en/profile/d/u/d.dubbeldam/d.dubbeldam.html
+    S.Calero@tue.nl               https://www.tue.nl/en/research/researchers/sofia-calero/
+    t.j.h.vlugt@tudelft.nl        http://homepage.tudelft.nl/v9k6y
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ ********************************************************************************************************************/
+
+#pragma once
+
+#include <cmath>
+#include "double3.h"
+
+union simd_quatd
+{
+  double v[4];
+  struct {double ix, iy, iz, r;};
+
+  simd_quatd(double ix, double iy, double iz, double r);
+  simd_quatd(double real, double3 imag);
+  simd_quatd(double3 EulerAngles);
+  static simd_quatd smallRandomQuaternion(double angleRange);
+  static simd_quatd fromAxisAngle(double angle, double3 axis);
+  double3 EulerAngles();
+  simd_quatd normalized();
+  static simd_quatd random();
+  static simd_quatd yaw(double angle);
+  static simd_quatd pitch(double angle);
+  static simd_quatd roll(double angle);
+
+  static const simd_quatd data120[120];
+  static const simd_quatd data60[60];
+  static const simd_quatd data600[600];
+  static const simd_quatd data300[300];
+  static const simd_quatd data1992[1992];
+  static const double weights1992[1992];
+  static const simd_quatd data360[360];
+  static const double weights360[360];
+
+  /// Interactive AO uses Data300 + Data60 (360); picture quality uses Data1992.
+  static simd_quatd ambientOcclusionDirection(int index, int directionCount);
+  static double ambientOcclusionDirectionWeight(int index, int directionCount);
+  static float ambientOcclusionBlendWeight(int index, int directionCount);
+
+  friend BinaryArchive &operator<<(BinaryArchive &, const simd_quatd &);
+  friend BinaryArchive &operator>>(BinaryArchive &, simd_quatd &);
+};
+
+inline simd_quatd operator+(const simd_quatd& a, const simd_quatd& b)
+{
+  return simd_quatd(a.ix + b.ix, a.iy + b.iy, a.iz + b.iz, a.r  + b.r);
+}
+
+inline simd_quatd operator/(const simd_quatd& a, const double& b)
+{
+  return simd_quatd(a.ix / b, a.iy / b, a.iz / b, a.r  / b);
+}
+
+inline simd_quatd operator*(const simd_quatd& a, const simd_quatd& b)
+{
+  return simd_quatd(a.r * b.r  - a.ix * b.ix - a.iy * b.iy - a.iz * b.iz,
+            double3(a.r * b.ix + a.ix * b.r  + a.iy * b.iz - a.iz * b.iy,
+                    a.r * b.iy - a.ix * b.iz + a.iy * b.r  + a.iz * b.ix,
+                    a.r * b.iz + a.ix * b.iy - a.iy * b.ix + a.iz * b.r));
+}

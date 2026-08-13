@@ -1,0 +1,87 @@
+/********************************************************************************************************************
+    iRASPA: GPU-accelated visualisation software for materials scientists
+    Copyright (c) 2016-2021 David Dubbeldam, Sofia Calero, Thijs J.H. Vlugt.
+    D.Dubbeldam@uva.nl            https://www.uva.nl/en/profile/d/u/d.dubbeldam/d.dubbeldam.html
+    S.Calero@tue.nl               https://www.tue.nl/en/research/researchers/sofia-calero/
+    t.j.h.vlugt@tudelft.nl        http://homepage.tudelft.nl/v9k6y
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ ********************************************************************************************************************/
+
+#pragma once
+
+#include "rkstring.h"
+#include <vector>
+#include <array>
+#include "rkstring.h"
+#include <optional>
+#include "skpointsymmetryset.h"
+#include "sksymmetryoperationset.h"
+#include "skspacegroupsetting.h"
+#include "skrotationalchangeofbasis.h"
+#include "skspacegroupdatabase.h"
+#include "sksymmetrycell.h"
+
+class SKSpaceGroup
+{
+public:
+  struct FoundSpaceGroupInfo
+  {
+     int HallNumber;
+     double3 origin;
+     SKSymmetryCell cell;
+     SKRotationalChangeOfBasis changeOfBasis;
+     double3x3 transformationMatrix;
+     double3x3 rotationMatrix;
+     std::vector<std::tuple<double3, int, double>> atoms;
+     std::vector<std::tuple<double3, int, double>> asymmetricAtoms;
+  };
+
+  struct FoundNiggliCellInfo
+  {
+     int HallNumber;
+     SKSymmetryCell cell;
+     std::vector<std::tuple<double3, int, double>> atoms;
+  };
+
+  struct FoundPrimitiveCellInfo
+  {
+     SKSymmetryCell cell;
+     std::vector<std::tuple<double3, int, double>> atoms;
+  };
+
+  SKSpaceGroup(int HallNumber);
+  std::vector<double3> listOfSymmetricPositions(double3 pos);
+  const SKSpaceGroupSetting &spaceGroupSetting() const {return _spaceGroupSetting;}
+
+  static std::vector<RKString> latticeTranslationStrings(int HallNumber);
+  static RKString inversionCenterString(int HallNumber);
+  static std::optional<int> HallNumberFromHMString(RKString inputString);
+  static std::optional<int> HallNumberFromSpaceGroupNumber(int);
+  static std::optional<int> HallNumber(RKString inputString);
+  static std::optional<FoundPrimitiveCellInfo> SKFindPrimitive(double3x3 unitCell, std::vector<std::tuple<double3, int, double>> atoms, bool allowPartialOccupancies, double symmetryPrecision);
+  static std::optional<FoundNiggliCellInfo> findNiggliCell(double3x3 unitCell, std::vector<std::tuple<double3, int, double> > atoms, bool allowPartialOccupancies, double symmetryPrecision);
+  static std::optional<FoundSpaceGroupInfo> findSpaceGroup(double3x3 unitCell, std::vector<std::tuple<double3, int, double> > atoms, bool allowPartialOccupancies, double symmetryPrecision);
+
+  static SKSymmetryOperationSet findSpaceGroupSymmetry(double3x3 unitCell, std::vector<std::tuple<double3, int, double>> reducedAtoms, std::vector<std::tuple<double3, int, double>> atoms, SKPointSymmetrySet latticeSymmetries, bool allowPartialOccupancies, double symmetryPrecision);
+  static std::optional<std::pair<double3, SKRotationalChangeOfBasis>> matchSpaceGroup(int HallNumber, double3x3 lattice, Centring entering, std::vector<SKSeitzMatrix> seitzMatrices, double symmetryPrecision);
+  static std::optional<double3> getOriginShift(int HallNumber, Centring centering, SKRotationalChangeOfBasis changeOfBasis, std::vector<SKSeitzMatrix> seitzMatrices, double symmetryPrecision);
+private:
+  SKSpaceGroupSetting _spaceGroupSetting = SKSpaceGroupDataBase::spaceGroupData[1];
+  
+  static bool matchSpacegroup(RKString spaceSearchGroupString, RKString storedSpaceGroupString);
+
+  friend BinaryArchive &operator<<(BinaryArchive &, const SKSpaceGroup &);
+  friend BinaryArchive &operator>>(BinaryArchive &, SKSpaceGroup &);
+};

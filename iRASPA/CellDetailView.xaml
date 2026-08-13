@@ -1,0 +1,632 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="iRASPA_WinUI.CellDetailView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!-- The Cell tab (Cocoa StructureCellDetailViewController): the same four
+         collapsible groups its NSStaticViewBasedOutlineView has. Edits write
+         through to every selected object; the read-only readouts (bounding box,
+         box matrix, volume, symmetry information) are refreshed in place.
+
+         Row labels run smaller than body text so the common ones stay on one
+         line even when Windows text scaling is above 100%. The label columns are
+         195 and 375 wide: like Cocoa's, wide enough for the longest label in the
+         group ("Largest diameter along a viable path (Dif):"). -->
+    <UserControl.Resources>
+        <x:Double x:Key="RowLabelFontSize">11</x:Double>
+
+        <Style x:Key="RowLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{StaticResource RowLabelFontSize}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+
+        <!-- Single-word labels have no sensible break point, so they spill rather
+             than split "Maximum:" over two lines at large text scales. -->
+        <Style x:Key="TightLabel" TargetType="TextBlock" BasedOn="{StaticResource RowLabel}">
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+        </Style>
+
+        <Style x:Key="UnitLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{StaticResource RowLabelFontSize}"/>
+            <Setter Property="Opacity" Value="0.75"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+        </Style>
+
+        <Style x:Key="BoxHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{StaticResource RowLabelFontSize}"/>
+            <Setter Property="Opacity" Value="0.75"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
+
+        <!-- Cocoa's titled NSBox: a thin frame with the title above its contents. -->
+        <Style x:Key="TitledBox" TargetType="Border">
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#46808080"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="8,6,8,8"/>
+            <Setter Property="Margin" Value="0,4,0,4"/>
+        </Style>
+
+        <!-- Cocoa shows read-only values in bezeled (non-editable) text fields. -->
+        <Style x:Key="Readout" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="FontSize" Value="{StaticResource RowLabelFontSize}"/>
+            <Setter Property="Padding" Value="6,2,6,2"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+
+        <!-- Ranges, step sizes and the fixed number of decimals Cocoa's number
+             formatters show are set in the code-behind, per box. -->
+        <Style x:Key="Num" TargetType="NumberBox">
+            <Setter Property="SpinButtonPlacementMode" Value="Compact"/>
+            <Setter Property="ValidationMode" Value="InvalidInputOverwritten"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="{StaticResource RowLabelFontSize}"/>
+            <Setter Property="MinHeight" Value="26"/>
+        </Style>
+
+        <Style x:Key="Recompute" TargetType="Button">
+            <Setter Property="Padding" Value="6,2,6,2"/>
+            <Setter Property="MinWidth" Value="32"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+        </Style>
+
+        <Style x:Key="RotateButton" TargetType="Button">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="FontSize" Value="{StaticResource RowLabelFontSize}"/>
+            <Setter Property="Padding" Value="4,3,4,3"/>
+            <Setter Property="Margin" Value="0,2,4,2"/>
+        </Style>
+
+        <Style x:Key="AxisSlider" TargetType="Slider">
+            <Setter Property="Minimum" Value="-180"/>
+            <Setter Property="Maximum" Value="180"/>
+            <Setter Property="StepFrequency" Value="1"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="FlipCheck" TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
+            <Setter Property="FontSize" Value="{StaticResource RowLabelFontSize}"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="IsThreeState" Value="False"/>
+            <Setter Property="IsTextScaleFactorEnabled" Value="False"/>
+        </Style>
+
+        <Style x:Key="Row" TargetType="Grid">
+            <Setter Property="Margin" Value="0,2,0,2"/>
+        </Style>
+
+        <!-- A plain string header, so each group carries its own name for screen
+             readers, drawn in the group weight the panes use. -->
+        <Style x:Key="CellSection" TargetType="Expander">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="HeaderTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" FontWeight="SemiBold"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <TextBlock x:Name="Hint" Text="Open a structure to edit the unit cell."
+                   Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+
+        <StackPanel x:Name="Sections">
+
+            <!-- ================= Cell / bounding box ================= -->
+            <Expander Style="{StaticResource CellSection}"
+                      Header="Cell/Bounding-box properties" IsExpanded="True">
+                <StackPanel Spacing="4">
+
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="195,*">
+                        <TextBlock Text="Material type:" Style="{StaticResource RowLabel}"/>
+                        <ComboBox x:Name="TypeCombo" Grid.Column="1"
+                                  HorizontalAlignment="Stretch"
+                                  SelectionChanged="OnStructureTypeChanged"/>
+                    </Grid>
+
+                    <!-- Cocoa's first titled box, maximum above minimum. -->
+                    <Border Style="{StaticResource TitledBox}">
+                        <StackPanel>
+                            <TextBlock Text="Bounding box" Style="{StaticResource BoxHeader}"/>
+                            <StackPanel Spacing="2">
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="96,*">
+                                    <TextBlock Text="Maximum:" Style="{StaticResource TightLabel}"/>
+                                    <Grid Grid.Column="1" ColumnDefinitions="*,*,*">
+                                        <TextBox x:Name="BbMax0" Style="{StaticResource Readout}" Margin="0,0,4,0"/>
+                                        <TextBox x:Name="BbMax1" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,4,0"/>
+                                        <TextBox x:Name="BbMax2" Grid.Column="2" Style="{StaticResource Readout}"/>
+                                    </Grid>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="96,*">
+                                    <TextBlock Text="Minimum:" Style="{StaticResource TightLabel}"/>
+                                    <Grid Grid.Column="1" ColumnDefinitions="*,*,*">
+                                        <TextBox x:Name="BbMin0" Style="{StaticResource Readout}" Margin="0,0,4,0"/>
+                                        <TextBox x:Name="BbMin1" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,4,0"/>
+                                        <TextBox x:Name="BbMin2" Grid.Column="2" Style="{StaticResource Readout}"/>
+                                    </Grid>
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Lengths and angles pairwise on one line, as Cocoa's
+                         A/alpha, B/beta, C/gamma rows are. -->
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="22,*,22,*">
+                        <TextBlock Text="A:" Style="{StaticResource TightLabel}"/>
+                        <NumberBox x:Name="LengthA" Grid.Column="1" Style="{StaticResource Num}"
+                                   Margin="0,0,8,0" ValueChanged="OnUnitCellChanged"/>
+                        <TextBlock Text="&#x03B1;:" Grid.Column="2" Style="{StaticResource TightLabel}"/>
+                        <NumberBox x:Name="AngleAlpha" Grid.Column="3" Style="{StaticResource Num}"
+                                   ValueChanged="OnUnitCellChanged"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="22,*,22,*">
+                        <TextBlock Text="B:" Style="{StaticResource TightLabel}"/>
+                        <NumberBox x:Name="LengthB" Grid.Column="1" Style="{StaticResource Num}"
+                                   Margin="0,0,8,0" ValueChanged="OnUnitCellChanged"/>
+                        <TextBlock Text="&#x03B2;:" Grid.Column="2" Style="{StaticResource TightLabel}"/>
+                        <NumberBox x:Name="AngleBeta" Grid.Column="3" Style="{StaticResource Num}"
+                                   ValueChanged="OnUnitCellChanged"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="22,*,22,*">
+                        <TextBlock Text="C:" Style="{StaticResource TightLabel}"/>
+                        <NumberBox x:Name="LengthC" Grid.Column="1" Style="{StaticResource Num}"
+                                   Margin="0,0,8,0" ValueChanged="OnUnitCellChanged"/>
+                        <TextBlock Text="&#x03B3;:" Grid.Column="2" Style="{StaticResource TightLabel}"/>
+                        <NumberBox x:Name="AngleGamma" Grid.Column="3" Style="{StaticResource Num}"
+                                   ValueChanged="OnUnitCellChanged"/>
+                    </Grid>
+
+                    <!-- Cocoa's second titled box. -->
+                    <Border Style="{StaticResource TitledBox}">
+                        <StackPanel>
+                            <TextBlock Text="Box matrix" Style="{StaticResource BoxHeader}"/>
+                            <StackPanel Spacing="2">
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="32,*,32,*,32,*">
+                                    <TextBlock Text="AX" Style="{StaticResource TightLabel}"/>
+                                    <TextBox x:Name="MatAX" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="BX" Grid.Column="2" Style="{StaticResource TightLabel}"/>
+                                    <TextBox x:Name="MatBX" Grid.Column="3" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="CX" Grid.Column="4" Style="{StaticResource TightLabel}"/>
+                                    <TextBox x:Name="MatCX" Grid.Column="5" Style="{StaticResource Readout}"/>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="32,*,32,*,32,*">
+                                    <TextBlock Text="AY" Style="{StaticResource TightLabel}"/>
+                                    <TextBox x:Name="MatAY" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="BY" Grid.Column="2" Style="{StaticResource TightLabel}"/>
+                                    <TextBox x:Name="MatBY" Grid.Column="3" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="CY" Grid.Column="4" Style="{StaticResource TightLabel}"/>
+                                    <TextBox x:Name="MatCY" Grid.Column="5" Style="{StaticResource Readout}"/>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="32,*,32,*,32,*">
+                                    <TextBlock Text="AZ" Style="{StaticResource TightLabel}"/>
+                                    <TextBox x:Name="MatAZ" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="BZ" Grid.Column="2" Style="{StaticResource TightLabel}"/>
+                                    <TextBox x:Name="MatBZ" Grid.Column="3" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="CZ" Grid.Column="4" Style="{StaticResource TightLabel}"/>
+                                    <TextBox x:Name="MatCZ" Grid.Column="5" Style="{StaticResource Readout}"/>
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="195,*,Auto">
+                        <TextBlock Text="Volume:" Style="{StaticResource RowLabel}"/>
+                        <TextBox x:Name="VolumeBox" Grid.Column="1" Style="{StaticResource Readout}"/>
+                        <TextBlock Text="[&#x00C5;&#x00B3;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="195,*">
+                        <TextBlock Text="Perpendicular widths:" Style="{StaticResource RowLabel}"/>
+                        <Grid Grid.Column="1" ColumnDefinitions="*,*,*">
+                            <TextBox x:Name="Perp0" Style="{StaticResource Readout}" Margin="0,0,4,0"/>
+                            <TextBox x:Name="Perp1" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,4,0"/>
+                            <TextBox x:Name="Perp2" Grid.Column="2" Style="{StaticResource Readout}"/>
+                        </Grid>
+                    </Grid>
+
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="195,*">
+                        <TextBlock Text="Maximum replicas:" Style="{StaticResource RowLabel}"/>
+                        <Grid Grid.Column="1" ColumnDefinitions="*,*,*">
+                            <NumberBox x:Name="MaxReplicaX" Style="{StaticResource Num}" Margin="0,0,4,0"
+                                       ValueChanged="OnReplicaChanged"/>
+                            <NumberBox x:Name="MaxReplicaY" Grid.Column="1" Style="{StaticResource Num}" Margin="0,0,4,0"
+                                       ValueChanged="OnReplicaChanged"/>
+                            <NumberBox x:Name="MaxReplicaZ" Grid.Column="2" Style="{StaticResource Num}"
+                                       ValueChanged="OnReplicaChanged"/>
+                        </Grid>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="195,*">
+                        <TextBlock Text="Minimum replicas:" Style="{StaticResource RowLabel}"/>
+                        <Grid Grid.Column="1" ColumnDefinitions="*,*,*">
+                            <NumberBox x:Name="MinReplicaX" Style="{StaticResource Num}" Margin="0,0,4,0"
+                                       ValueChanged="OnReplicaChanged"/>
+                            <NumberBox x:Name="MinReplicaY" Grid.Column="1" Style="{StaticResource Num}" Margin="0,0,4,0"
+                                       ValueChanged="OnReplicaChanged"/>
+                            <NumberBox x:Name="MinReplicaZ" Grid.Column="2" Style="{StaticResource Num}"
+                                       ValueChanged="OnReplicaChanged"/>
+                        </Grid>
+                    </Grid>
+
+                    <!-- Cocoa's orientation grid: rotate buttons on the left,
+                         Euler angles with their sliders on the right, the
+                         rotation angle above them. -->
+                    <Border Style="{StaticResource TitledBox}">
+                        <StackPanel>
+                            <TextBlock Text="Orientation" Style="{StaticResource BoxHeader}"/>
+                            <Grid ColumnDefinitions="1*,1*,10,1.1*,1*"
+                                  RowDefinitions="Auto,Auto,Auto,Auto">
+                                <Grid Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                      ColumnDefinitions="Auto,*">
+                                    <TextBlock Text="Rotation angle:" Style="{StaticResource TightLabel}"
+                                               TextAlignment="Left"/>
+                                    <NumberBox x:Name="RotationDelta" Grid.Column="1" Style="{StaticResource Num}"
+                                               ValueChanged="OnRotationDeltaChanged"/>
+                                </Grid>
+                                <TextBlock Text="Euler angles" Grid.Row="0" Grid.Column="3" Grid.ColumnSpan="2"
+                                           FontSize="{StaticResource RowLabelFontSize}" Opacity="0.75"
+                                           TextAlignment="Center" VerticalAlignment="Center"/>
+
+                                <Border Grid.Row="0" Grid.RowSpan="4" Grid.Column="2" Width="1"
+                                        HorizontalAlignment="Center" Background="#46808080"/>
+
+                                <Button x:Name="RotatePlusX" Grid.Row="1" Grid.Column="0"
+                                        Style="{StaticResource RotateButton}" Click="OnRotateClick"/>
+                                <Button x:Name="RotateMinusX" Grid.Row="1" Grid.Column="1"
+                                        Style="{StaticResource RotateButton}" Click="OnRotateClick"/>
+                                <NumberBox x:Name="EulerX" Grid.Row="1" Grid.Column="3"
+                                           Style="{StaticResource Num}" Margin="0,2,4,2"
+                                           ValueChanged="OnEulerBoxChanged"/>
+                                <Slider x:Name="SliderX" Grid.Row="1" Grid.Column="4"
+                                        Style="{StaticResource AxisSlider}" ValueChanged="OnEulerSliderChanged"/>
+
+                                <Button x:Name="RotatePlusY" Grid.Row="2" Grid.Column="0"
+                                        Style="{StaticResource RotateButton}" Click="OnRotateClick"/>
+                                <Button x:Name="RotateMinusY" Grid.Row="2" Grid.Column="1"
+                                        Style="{StaticResource RotateButton}" Click="OnRotateClick"/>
+                                <NumberBox x:Name="EulerY" Grid.Row="2" Grid.Column="3"
+                                           Style="{StaticResource Num}" Margin="0,2,4,2"
+                                           ValueChanged="OnEulerBoxChanged"/>
+                                <Slider x:Name="SliderY" Grid.Row="2" Grid.Column="4"
+                                        Style="{StaticResource AxisSlider}" ValueChanged="OnEulerSliderChanged"/>
+
+                                <Button x:Name="RotatePlusZ" Grid.Row="3" Grid.Column="0"
+                                        Style="{StaticResource RotateButton}" Click="OnRotateClick"/>
+                                <Button x:Name="RotateMinusZ" Grid.Row="3" Grid.Column="1"
+                                        Style="{StaticResource RotateButton}" Click="OnRotateClick"/>
+                                <NumberBox x:Name="EulerZ" Grid.Row="3" Grid.Column="3"
+                                           Style="{StaticResource Num}" Margin="0,2,4,2"
+                                           ValueChanged="OnEulerBoxChanged"/>
+                                <Slider x:Name="SliderZ" Grid.Row="3" Grid.Column="4"
+                                        Style="{StaticResource AxisSlider}" ValueChanged="OnEulerSliderChanged"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="195,*">
+                        <TextBlock Text="Origin:" Style="{StaticResource RowLabel}"/>
+                        <Grid Grid.Column="1" ColumnDefinitions="*,*,*">
+                            <NumberBox x:Name="OriginX" Style="{StaticResource Num}" Margin="0,0,4,0"
+                                       ValueChanged="OnOriginChanged"/>
+                            <NumberBox x:Name="OriginY" Grid.Column="1" Style="{StaticResource Num}" Margin="0,0,4,0"
+                                       ValueChanged="OnOriginChanged"/>
+                            <NumberBox x:Name="OriginZ" Grid.Column="2" Style="{StaticResource Num}"
+                                       ValueChanged="OnOriginChanged"/>
+                        </Grid>
+                    </Grid>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Transform content ================= -->
+            <Expander Style="{StaticResource CellSection}" Header="Transform content">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="TransformHint" Text="No unit cell on selection."
+                               Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+                    <Border x:Name="TransformBody" Style="{StaticResource TitledBox}">
+                        <StackPanel>
+                            <TextBlock Text="Cell content" Style="{StaticResource BoxHeader}"/>
+                            <StackPanel Spacing="2">
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="70,*">
+                                    <TextBlock Text="Flip:" Style="{StaticResource TightLabel}"/>
+                                    <Grid Grid.Column="1" ColumnDefinitions="*,*,*">
+                                        <CheckBox x:Name="FlipA" Content="a-Axis" Style="{StaticResource FlipCheck}"
+                                                  Checked="OnFlipToggled" Unchecked="OnFlipToggled"/>
+                                        <CheckBox x:Name="FlipB" Grid.Column="1" Content="b-Axis" Style="{StaticResource FlipCheck}"
+                                                  Checked="OnFlipToggled" Unchecked="OnFlipToggled"/>
+                                        <CheckBox x:Name="FlipC" Grid.Column="2" Content="c-Axis" Style="{StaticResource FlipCheck}"
+                                                  Checked="OnFlipToggled" Unchecked="OnFlipToggled"/>
+                                    </Grid>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="70,*">
+                                    <TextBlock Text="Shift:" Style="{StaticResource TightLabel}"/>
+                                    <Grid Grid.Column="1" ColumnDefinitions="*,*,*">
+                                        <NumberBox x:Name="ShiftX" Style="{StaticResource Num}" Margin="0,0,4,0"
+                                                   ValueChanged="OnShiftChanged"/>
+                                        <NumberBox x:Name="ShiftY" Grid.Column="1" Style="{StaticResource Num}" Margin="0,0,4,0"
+                                                   ValueChanged="OnShiftChanged"/>
+                                        <NumberBox x:Name="ShiftZ" Grid.Column="2" Style="{StaticResource Num}"
+                                                   ValueChanged="OnShiftChanged"/>
+                                    </Grid>
+                                </Grid>
+                                <!-- Bakes the flip/shift into the atom positions
+                                     and clears the live transform. -->
+                                <Button Content="Apply" HorizontalAlignment="Right" Margin="0,6,0,0"
+                                        Click="OnApplyContentShift"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Structural properties ================= -->
+            <Expander Style="{StaticResource CellSection}" Header="Structural properties">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="StructuralHint" Text="No structural properties on selection."
+                               Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+                    <StackPanel x:Name="StructuralBody" Spacing="4">
+
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*">
+                            <TextBlock Text="Material type:" Style="{StaticResource RowLabel}"/>
+                            <!-- Cocoa's material name is editable: pick a
+                                 classification or type a name. -->
+                            <ComboBox x:Name="MaterialCombo" Grid.Column="1" IsEditable="True"
+                                      HorizontalAlignment="Stretch"
+                                      FontSize="{StaticResource RowLabelFontSize}"
+                                      SelectionChanged="OnMaterialSelectionChanged"
+                                      TextSubmitted="OnMaterialTextSubmitted"/>
+                        </Grid>
+
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Mass:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="MassBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[g/mol]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Density:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="DensityBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[kg/m&#x00B3;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto,Auto">
+                            <TextBlock Text="Helium void fraction:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="VoidFractionBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeVoidFraction">
+                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                            </Button>
+                        </Grid>
+
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Specific volume:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="SpecificVolumeBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[cm&#x00B3;/g]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Accessible pore volume:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="PoreVolumeBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[cm&#x00B3;/g]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*">
+                            <TextBlock Text="Probe molecule:" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="ProbeCombo" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      FontSize="{StaticResource RowLabelFontSize}"
+                                      SelectionChanged="OnProbeMoleculeChanged"/>
+                        </Grid>
+
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto,Auto">
+                            <TextBlock Text="Volumetric surface area (nitrogen):" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="VolumetricAreaBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[m&#x00B2;/cm&#x00B3;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeSurfaceArea">
+                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto,Auto">
+                            <TextBlock Text="Gravimetric surface area (nitrogen):" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="GravimetricAreaBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[m&#x00B2;/g]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeSurfaceArea">
+                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                            </Button>
+                        </Grid>
+
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Number of channel systems:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="ChannelSystemsBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Number of inaccessible pockets:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="PocketsBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel>
+                                <TextBlock Text="Channel information" Style="{StaticResource BoxHeader}"/>
+                                <StackPanel Spacing="2">
+                                    <Grid Style="{StaticResource Row}"
+                                          ColumnDefinitions="375,*,Auto">
+                                        <TextBlock Text="Dimensionality of pore system:" Style="{StaticResource RowLabel}"/>
+                                        <NumberBox x:Name="DimensionalityBox" Grid.Column="1" Style="{StaticResource Num}"
+                                                   ValueChanged="OnStructuralChanged"/>
+                                        <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                                    </Grid>
+                                    <Grid Style="{StaticResource Row}"
+                                          ColumnDefinitions="375,*,Auto">
+                                        <TextBlock Text="Largest overall cavity diameter (Di):" Style="{StaticResource RowLabel}"/>
+                                        <NumberBox x:Name="CavityDiameterBox" Grid.Column="1" Style="{StaticResource Num}"
+                                                   ValueChanged="OnStructuralChanged"/>
+                                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                                    </Grid>
+                                    <Grid Style="{StaticResource Row}"
+                                          ColumnDefinitions="375,*,Auto">
+                                        <TextBlock Text="Restricting pore diameter (Df):" Style="{StaticResource RowLabel}"/>
+                                        <NumberBox x:Name="PoreDiameterBox" Grid.Column="1" Style="{StaticResource Num}"
+                                                   ValueChanged="OnStructuralChanged"/>
+                                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                                    </Grid>
+                                    <Grid Style="{StaticResource Row}"
+                                          ColumnDefinitions="375,*,Auto">
+                                        <TextBlock Text="Largest diameter along a viable path (Dif):" Style="{StaticResource RowLabel}"/>
+                                        <NumberBox x:Name="ViablePathDiameterBox" Grid.Column="1" Style="{StaticResource Num}"
+                                                   ValueChanged="OnStructuralChanged"/>
+                                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Symmetry properties ================= -->
+            <Expander Style="{StaticResource CellSection}" Header="Symmetry properties">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="SymmetryHint" Text="No space group on selection."
+                               Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+                    <StackPanel x:Name="SymmetryBody" Spacing="4">
+
+                        <!-- Cocoa shows the number and the Hall symbol next to
+                             each other on the space-group row. -->
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*">
+                            <TextBlock Text="Space group:" Style="{StaticResource RowLabel}"/>
+                            <Grid Grid.Column="1" ColumnDefinitions="1*,1.6*">
+                                <ComboBox x:Name="NumberCombo" HorizontalAlignment="Stretch" Margin="0,0,6,0"
+                                          FontSize="{StaticResource RowLabelFontSize}"
+                                          SelectionChanged="OnSpaceGroupNumberChanged"/>
+                                <ComboBox x:Name="HallCombo" Grid.Column="1" HorizontalAlignment="Stretch"
+                                          FontSize="{StaticResource RowLabelFontSize}"
+                                          SelectionChanged="OnHallNumberChanged"/>
+                            </Grid>
+                        </Grid>
+
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*">
+                            <TextBlock Text="Qualifier:" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="QualifierCombo" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      FontSize="{StaticResource RowLabelFontSize}"
+                                      SelectionChanged="OnQualifierChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*">
+                            <TextBlock Text="Holohedry:" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="HolohedryBox" Grid.Column="1" Style="{StaticResource Readout}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*">
+                            <TextBlock Text="Precision:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="PrecisionBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnPrecisionChanged"/>
+                        </Grid>
+
+                        <!-- Cocoa's SymmetryCenteringCell is two rows of three
+                             equal fields: type + first two translations on top,
+                             the remaining two under those translations. Cramming
+                             all five into one row leaves the last vectors
+                             unreadably narrow for face-centred groups. -->
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*,*,*"
+                              RowDefinitions="Auto,Auto">
+                            <TextBlock Text="Centring:" Style="{StaticResource RowLabel}"
+                                       VerticalAlignment="Center"/>
+                            <TextBox x:Name="CenteringBox" Grid.Column="1" Style="{StaticResource Readout}"
+                                     Margin="0,0,4,4"/>
+                            <TextBox x:Name="Lattice0" Grid.Column="2" Style="{StaticResource Readout}"
+                                     Margin="0,0,4,4"/>
+                            <TextBox x:Name="Lattice1" Grid.Column="3" Style="{StaticResource Readout}"
+                                     Margin="0,0,0,4"/>
+                            <TextBox x:Name="Lattice2" Grid.Row="1" Grid.Column="2"
+                                     Style="{StaticResource Readout}" Margin="0,0,4,0"/>
+                            <TextBox x:Name="Lattice3" Grid.Row="1" Grid.Column="3"
+                                     Style="{StaticResource Readout}"/>
+                        </Grid>
+
+                        <!-- Cocoa pairs the derived point-group properties two
+                             per row. -->
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*,Auto,*">
+                            <TextBlock Text="Inversion:" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="InversionBox" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                            <TextBlock Text="Inversion center:" Grid.Column="2" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="InversionCenterBox" Grid.Column="3" Style="{StaticResource Readout}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*,Auto,*">
+                            <TextBlock Text="Centrosymmetric:" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="CentrosymmetricBox" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                            <TextBlock Text="Enantiomorphic:" Grid.Column="2" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="EnantiomorphicBox" Grid.Column="3" Style="{StaticResource Readout}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*,Auto,*">
+                            <TextBlock Text="Laue group:" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="LaueBox" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                            <TextBlock Text="Point group:" Grid.Column="2" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="PointGroupBox" Grid.Column="3" Style="{StaticResource Readout}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*,Auto,*">
+                            <TextBlock Text="Schoenflies:" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="SchoenfliesBox" Grid.Column="1" Style="{StaticResource Readout}" Margin="0,0,8,0"/>
+                            <TextBlock Text="Symmorphicity:" Grid.Column="2" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="SymmorphicityBox" Grid.Column="3" Style="{StaticResource Readout}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="195,*">
+                            <TextBlock Text="Number of elements:" Style="{StaticResource RowLabel}"/>
+                            <TextBox x:Name="ElementsBox" Grid.Column="1" Style="{StaticResource Readout}"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

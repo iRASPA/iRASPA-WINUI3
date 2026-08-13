@@ -1,0 +1,38 @@
+# Build
+build/
+obj/
+packages/
+**/Generated Files/
+*.user
+*.suo
+*.ipch
+.vs/
+*.opendb
+*.db
+*.aps
+
+# MSIX packaging output
+packaging/AppPackages/
+packaging/BundleArtifacts/
+packaging/bin/
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.appxsym
+*.appxupload
+
+# Scratch from investigating the packaged resource index: extracted MSIX payloads and
+# dumped PRI files, which run to gigabytes because they carry copies of the databases.
+_pri_dump/
+_pri_check/
+# Code-signing keys: private key material, never commit. The files still need to
+# be present locally for SideloadOnly builds; StoreOnly submissions do not need them.
+*.pfx
+*.snk
+*.p12
+
+# Logs / local
+*.log
+_build_log.txt
+_pkg_diag*.txt

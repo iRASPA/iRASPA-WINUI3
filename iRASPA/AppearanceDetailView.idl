@@ -1,0 +1,8 @@
+namespace iRASPA_WinUI
+{
+    [default_interface]
+    runtimeclass AppearanceDetailView : Microsoft.UI.Xaml.Controls.UserControl
+    {
+        AppearanceDetailView();
+    }
+}

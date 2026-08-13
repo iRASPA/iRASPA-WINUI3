@@ -1,0 +1,151 @@
+/********************************************************************************************************************
+    iRASPA: GPU-accelated visualisation software for materials scientists
+    Copyright (c) 2016-2021 David Dubbeldam, Sofia Calero, Thijs J.H. Vlugt.
+    D.Dubbeldam@uva.nl            https://www.uva.nl/en/profile/d/u/d.dubbeldam/d.dubbeldam.html
+    S.Calero@tue.nl               https://www.tue.nl/en/research/researchers/sofia-calero/
+    t.j.h.vlugt@tudelft.nl        http://homepage.tudelft.nl/v9k6y
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ ********************************************************************************************************************/
+
+#include "skspacegroupsetting.h"
+#include "rkstring.h"
+#include <iostream>
+#include <cassert>
+#include "skpointgroup.h"
+
+SKSpaceGroupSetting::SKSpaceGroupSetting(int64_t number, int64_t spaceGroupNumber, int64_t order, char ext, RKString qualifier, RKString HM, RKString Hall,
+                                         bool inversionAtOrigin, int3 inversionCenter, Symmorphicity symmorphicity, bool standard, Centring centring,
+                                         std::vector<int3> latticeTranslations, int64_t pointGroupNumber, std::string schoenflies, std::string generators,
+                                         std::string encoding, SKAsymmetricUnit asymmetricUnit, SKTransformationMatrix transformationMatrix)
+{
+  _HallNumber = number;
+  _spaceGroupNumber = spaceGroupNumber;
+  _order = order;
+  _ext = ext;
+  _qualifier = qualifier;
+  _HMString = HM;
+  _HallString = Hall;
+  _encodedGenerators = generators;
+  _encodedSeitz =  encoding;
+  _inversionAtOrigin = inversionAtOrigin;
+  _inversionCenter = inversionCenter;
+  _standard = standard;
+  _symmorphicity = symmorphicity;
+  _centring = centring;
+  _latticeTranslations = latticeTranslations;
+  _schoenflies = schoenflies;
+  _pointGroupNumber = pointGroupNumber;
+  _asymmetricUnit = asymmetricUnit;
+  _transformationMatrix = transformationMatrix;
+}
+
+RKString SKSpaceGroupSetting::symmorphicityString() const
+{
+  switch(_symmorphicity)
+  {
+  case Symmorphicity::asymmorphic:
+      return "asymmorphic";
+  case Symmorphicity::symmorphic:
+      return "symmorphic";
+  case Symmorphicity::hemisymmorphic:
+      return "hemisymmorphic";
+  }
+  return RKString();
+}
+
+RKString SKSpaceGroupSetting::centringString() const
+{
+  switch(_centring)
+  {
+  case Centring::none:
+        return "none";
+  case Centring::primitive:
+      return "primitive";
+  case Centring::body:
+      return "body";
+  case Centring::a_face:
+      return "a";
+  case Centring::b_face:
+      return "b";
+  case Centring::c_face:
+      return "c";
+  case Centring::face:
+      return "face";
+  case Centring::base:
+      return "base";
+  case Centring::r:
+      return "r";
+  case Centring::h:
+      return "h";
+  case Centring::d:
+      return "d";
+  }
+  return RKString();
+}
+
+std::ostream& operator<<(std::ostream& os, const SKSpaceGroupSetting& setting)
+{
+    os << "SpaceGroupSetting: " << setting._HallNumber << '/' << setting._spaceGroupNumber << '/' << setting._encodedSeitz;
+    return os;
+}
+
+// The encoding carries the group in full, the inversion and the centring copies
+// among them, so it is only decoded. It used to hold one coset and the copies
+// were derived here; deriving them from a full encoding yields each of them
+// twice.
+SKIntegerSymmetryOperationSet SKSpaceGroupSetting::fullSeitzMatrices() const
+{
+  return SKIntegerSymmetryOperationSet(SKSeitzIntegerMatrix::SeitzMatrices(_encodedSeitz));
+}
+
+std::vector<SKSeitzIntegerMatrix> SKSpaceGroupSetting::SeitzMatricesWithoutTranslation() const
+{
+  assert(_encodedSeitz.size() % 3 == 0);
+  assert(_encodedSeitz.size()>0);
+
+  bool centrosymmetric = SKPointGroup::pointGroupData[_pointGroupNumber].centrosymmetric();
+  size_t m = _encodedSeitz.size()/3;
+
+  size_t size = centrosymmetric ? 2 * m : m;
+  std::vector<int3> translationVectors = _latticeTranslations;
+  std::vector<SKSeitzIntegerMatrix> matrices = std::vector<SKSeitzIntegerMatrix>();
+  matrices.resize(size);
+
+  for(size_t i=0;i<m;i++)
+  {
+    char x = _encodedSeitz[3 * i];
+    char y = _encodedSeitz[3 * i + 1];
+    char z = _encodedSeitz[3 * i + 2];
+
+    matrices[i] = SKSeitzIntegerMatrix(x,y,z);
+  }
+
+  if (centrosymmetric)
+  {
+    for(size_t i=0;i<m;i++)
+    {
+      char x = _encodedSeitz[3 * i];
+      char y = _encodedSeitz[3 * i + 1];
+      char z = _encodedSeitz[3 * i + 2];
+
+      SKSeitzIntegerMatrix seitz = SKSeitzIntegerMatrix(x,y,z);
+
+      int3 translation = seitz.translation + seitz.rotation * _inversionCenter;
+      matrices[m+i] = SKSeitzIntegerMatrix(-seitz.rotation, translation);
+    }
+  }
+
+  return matrices;
+}

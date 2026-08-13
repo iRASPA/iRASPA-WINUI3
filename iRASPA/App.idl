@@ -1,0 +1,8 @@
+namespace iRASPA_WinUI
+{
+    [default_interface]
+    runtimeclass App : Microsoft.UI.Xaml.Application
+    {
+        App();
+    }
+}

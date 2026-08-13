@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="iRASPA_WinUI.FrameView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:iRASPA_WinUI">
+    <UserControl.Resources>
+        <!-- Cocoa FrameTableCellView: material-type icon + display name. Same
+             ItemContainer row as the project and scene lists, so a selected frame
+             gets the identical accent-outlined row. Bindings resolve through
+             FrameRowItem's ICustomPropertyProvider. -->
+        <DataTemplate x:Key="FrameRowTemplate">
+            <ItemContainer>
+                <StackPanel Orientation="Horizontal" Spacing="6" MinHeight="26" Margin="4,0,0,0"
+                            Background="Transparent" CanDrag="True" Opacity="{Binding RowOpacity}">
+                    <Border Width="18" Height="16" CornerRadius="3" VerticalAlignment="Center"
+                            Background="{Binding ChipBrush}" Visibility="{Binding ChipVisibility}">
+                        <TextBlock Text="{Binding ChipLabel}" FontSize="8" FontWeight="Bold"
+                                   Foreground="White" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="{Binding Title}" Visibility="{Binding TitleVisibility}"
+                               VerticalAlignment="Center" TextWrapping="NoWrap"/>
+                    <!-- Cocoa TableListNameTextField: the same field, editable, once
+                         the row is double-clicked. Its text is filled in by
+                         InlineRenameController. No explicit Height: it has to follow
+                         the row font's line height, or the text is clipped halfway
+                         down. -->
+                    <TextBox Tag="editor" Visibility="{Binding EditVisibility}" MinWidth="90"
+                             MinHeight="0" Padding="4,0,4,0" VerticalAlignment="Center"/>
+                </StackPanel>
+            </ItemContainer>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <!-- Cocoa-style bottom bar (same look as the Atoms tab): [+] [-]. -->
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Cocoa's frame table selects multiple rows (Ctrl/Shift click) and never
+             sits without a selection (allowsEmptySelection = false). Dragging rows
+             reorders the frames of the movie, so the list accepts its own drop. -->
+        <ItemsView x:Name="List"
+                   Grid.Row="0"
+                   SelectionMode="Extended"
+                   AllowDrop="True"
+                   IsTabStop="True"
+                   ItemTemplate="{StaticResource FrameRowTemplate}"
+                   SelectionChanged="OnListSelectionChanged"
+                   DragOver="OnListDragOver"
+                   Drop="OnListDrop"
+                   KeyDown="OnListKeyDown"/>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+            <!-- Cocoa hangs an add menu off the [+] button; a plain click adds a
+                 frame of the movie's own type, the button's default action. The menu
+                 is built from the shared object-type table in the code-behind. -->
+            <Button x:Name="AddButton" Content="+" MinWidth="32" Padding="0,4,0,5"
+                    Click="OnAddClick"/>
+            <Button Content="&#x2212;" MinWidth="32" Padding="0,4,0,5" Click="OnRemoveClick"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="iRASPA_WinUI.ProjectView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:iRASPA_WinUI">
+    <UserControl.Resources>
+        <!-- Virtualized ItemsView row: ItemContainer root (required by ItemsView),
+             expander glyph + icon + title. Two title TextBlocks so the Cocoa
+             section-root style (bold ~11pt light-gray) is baked into the template
+             instead of patched into containers after layout. Bindings resolve
+             through ProjectFlatItem's ICustomPropertyProvider. -->
+        <DataTemplate x:Key="ProjectRowTemplate">
+            <ItemContainer>
+                <!-- The row height used to come from the title's untrimmed line box.
+                     Trimming that box below would shrink the rows, and unevenly, since
+                     the section titles keep their full box, so the height is stated
+                     here instead of being a side effect of how the font is measured. -->
+                <StackPanel Orientation="Horizontal" Spacing="2" Margin="{Binding IndentMargin}"
+                            Background="Transparent" CanDrag="True" MinHeight="35">
+                    <TextBlock Tag="expander" Text="{Binding ExpanderGlyph}" Width="18"
+                               FontSize="12" VerticalAlignment="Center" TextAlignment="Center"/>
+                    <!-- Cocoa ProjectTableCellView: leading infoPanelIcon on every
+                         non-section row (folder / project / cloud). -->
+                    <FontIcon Glyph="{Binding IconGlyph}" FontSize="16" Width="20"
+                              Visibility="{Binding NormalVisibility}" VerticalAlignment="Center"
+                              Margin="0,0,4,0"/>
+                    <!-- Tight trims the layout box to cap-height..baseline, so centring it
+                         centres the glyphs rather than the ascent and descent; see the
+                         same change in SceneView. -->
+                    <TextBlock Text="{Binding Title}" Visibility="{Binding TitleVisibility}"
+                               TextLineBounds="Tight"
+                               VerticalAlignment="Center" TextWrapping="NoWrap" Margin="0,3,0,3"/>
+                    <TextBlock Text="{Binding Title}" Visibility="{Binding SectionVisibility}"
+                               FontWeight="SemiBold" FontSize="11" Foreground="#FF98989D"
+                               VerticalAlignment="Center" TextWrapping="NoWrap" Margin="0,3,0,3"/>
+                    <!-- Cocoa TableListNameTextField: the same field, editable, once
+                         the row is double-clicked. Its text is filled in by
+                         InlineRenameController. No explicit Height: it has to follow
+                         the row font's line height, or the text is clipped halfway
+                         down. -->
+                    <TextBox Tag="editor" Visibility="{Binding EditVisibility}" MinWidth="90"
+                             MinHeight="0" Padding="4,0,4,0" VerticalAlignment="Center"/>
+                </StackPanel>
+            </ItemContainer>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <!-- Cocoa-style bottom bar (same look as the Atoms tab): [+] [-] [search]. -->
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Virtualized project list (flattened ProjectTreeNode hierarchy); the
+             WinUI TreeView realized one container per node and was far too slow.
+             Single selection: click selects and switches project, delete/drag act
+             on the selected node. -->
+        <ItemsView x:Name="List"
+                   Grid.Row="0"
+                   SelectionMode="Single"
+                   AllowDrop="True"
+                   IsTabStop="True"
+                   ItemTemplate="{StaticResource ProjectRowTemplate}"
+                   KeyboardAcceleratorPlacementMode="Hidden"
+                   SelectionChanged="OnListSelectionChanged"
+                   DragOver="OnListDragOver"
+                   Drop="OnListDrop">
+            <ItemsView.KeyboardAccelerators>
+                <KeyboardAccelerator Key="Delete" Invoked="OnDeleteAccelerator"/>
+            </ItemsView.KeyboardAccelerators>
+        </ItemsView>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+            <!-- Cocoa hangs an add menu off each [+] button (its menu outlet); a
+                 plain click still performs the button's default action. -->
+            <Button Content="+" MinWidth="32" Padding="0,4,0,5" Click="OnAddStructureClick">
+                <Button.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem Text="Add Structure Project" Click="OnAddStructureClick"/>
+                        <MenuFlyoutItem Text="Add Project group" Click="OnAddGroupClick"/>
+                    </MenuFlyout>
+                </Button.ContextFlyout>
+            </Button>
+            <Button Content="&#x2212;" MinWidth="32" Padding="0,4,0,5" Click="OnRemoveClick"/>
+            <TextBox x:Name="SearchBox" PlaceholderText="Search" Width="170"
+                     TextChanged="OnSearchTextChanged"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

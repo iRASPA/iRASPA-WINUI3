@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '15.0'">
+    <VisualStudioVersion>15.0</VisualStudioVersion>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup>
+    <WapProjPath Condition="'$(WapProjPath)'==''">$(MSBuildExtensionsPath)\Microsoft\DesktopBridge\</WapProjPath>
+  </PropertyGroup>
+  <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.props" />
+  <PropertyGroup>
+    <ProjectGuid>ccffc877-d60b-4f89-b1e5-da03d1ebcd1e</ProjectGuid>
+    <TargetPlatformVersion>10.0.26100.0</TargetPlatformVersion>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <!-- Signing keys live outside the repository so private key material is never
+         committed. Override CertificateDir to point somewhere else, e.g. on a build
+         agent. StoreOnly submission packages are unsigned and need neither. -->
+    <CertificateDir Condition="'$(CertificateDir)' == ''">$(MSBuildThisFileDirectory)..\..\certificate_files\</CertificateDir>
+    <PackageCertificateKeyFile>..\..\certificate_files\IRASPAPackaging_StoreKey.pfx</PackageCertificateKeyFile>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <EntryPointProjectUniqueName>..\iRASPA\iRASPA.vcxproj</EntryPointProjectUniqueName>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <AppxBundle>Always</AppxBundle>
+    <AppxBundlePlatforms>x64|arm64</AppxBundlePlatforms>
+    <!-- Keep all qualifiers in the main architecture package. Splitting Scale/Language
+         into satellite resource packages produced invalid/incomplete PRIs and omitted
+         WinUI .mui language folders, which fail at runtime with
+         "resource loader cache doesn't have loaded MUI entry" (0x80073B01). -->
+    <AppxBundleAutoResourcePackageQualifiers></AppxBundleAutoResourcePackageQualifiers>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+  </PropertyGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest">
+      <SubType>Designer</SubType>
+    </AppxManifest>
+    <None Include="Package.StoreAssociation.xml" />
+    <None Include="fix_winui_appx_registrations.ps1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Images\LargeTile.scale-100.png" />
+    <Content Include="Images\LargeTile.scale-125.png" />
+    <Content Include="Images\LargeTile.scale-150.png" />
+    <Content Include="Images\LargeTile.scale-200.png" />
+    <Content Include="Images\LargeTile.scale-400.png" />
+    <Content Include="Images\LockScreenLogo.scale-200.png" />
+    <Content Include="Images\SmallTile.scale-100.png" />
+    <Content Include="Images\SmallTile.scale-125.png" />
+    <Content Include="Images\SmallTile.scale-150.png" />
+    <Content Include="Images\SmallTile.scale-200.png" />
+    <Content Include="Images\SmallTile.scale-400.png" />
+    <Content Include="Images\SplashScreen.scale-100.png" />
+    <Content Include="Images\SplashScreen.scale-125.png" />
+    <Content Include="Images\SplashScreen.scale-150.png" />
+    <Content Include="Images\SplashScreen.scale-200.png" />
+    <Content Include="Images\SplashScreen.scale-400.png" />
+    <Content Include="Images\Square150x150Logo.scale-100.png" />
+    <Content Include="Images\Square150x150Logo.scale-125.png" />
+    <Content Include="Images\Square150x150Logo.scale-150.png" />
+    <Content Include="Images\Square150x150Logo.scale-200.png" />
+    <Content Include="Images\Square150x150Logo.scale-400.png" />
+    <Content Include="Images\Square44x44Logo.altform-unplated_targetsize-16.png" />
+    <Content Include="Images\Square44x44Logo.altform-unplated_targetsize-256.png" />
+    <Content Include="Images\Square44x44Logo.altform-unplated_targetsize-32.png" />
+    <Content Include="Images\Square44x44Logo.altform-unplated_targetsize-48.png" />
+    <Content Include="Images\Square44x44Logo.scale-100.png" />
+    <Content Include="Images\Square44x44Logo.scale-125.png" />
+    <Content Include="Images\Square44x44Logo.scale-150.png" />
+    <Content Include="Images\Square44x44Logo.scale-200.png" />
+    <Content Include="Images\Square44x44Logo.scale-400.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-16.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-24.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-256.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-32.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-48.png" />
+    <Content Include="Images\StoreLogo.scale-100.png" />
+    <Content Include="Images\StoreLogo.scale-125.png" />
+    <Content Include="Images\StoreLogo.scale-150.png" />
+    <Content Include="Images\StoreLogo.scale-200.png" />
+    <Content Include="Images\StoreLogo.scale-400.png" />
+    <Content Include="Images\Wide310x150Logo.scale-200.png" />
+    <Content Include="Images\WideTile.scale-100.png" />
+    <Content Include="Images\WideTile.scale-125.png" />
+    <Content Include="Images\WideTile.scale-150.png" />
+    <Content Include="Images\WideTile.scale-200.png" />
+    <Content Include="Images\WideTile.scale-400.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The app project's DeployGalleryDatabase/DeployAppIcon targets copy these next
+         to the loose exe, but post-build copies are invisible to the packaging
+         harvester, so the package has to pick them up from source itself. Both are
+         resolved at runtime relative to the executable, i.e. the package root. -->
+    <Content Include="..\iRASPA\iraspa\datafiles\libraryofstructures.irspdoc">
+      <Link>libraryofstructures.irspdoc</Link>
+    </Content>
+    <Content Include="..\iRASPA\iraspa\datafiles\databasecoremof.irspdoc">
+      <Link>databasecoremof.irspdoc</Link>
+    </Content>
+    <Content Include="..\iRASPA\iraspa\datafiles\databasecoremofddec.irspdoc">
+      <Link>databasecoremofddec.irspdoc</Link>
+    </Content>
+    <Content Include="..\iRASPA\iraspa\datafiles\databaseiza.irspdoc">
+      <Link>databaseiza.irspdoc</Link>
+    </Content>
+    <Content Include="..\iRASPA\iraspa\datafiles\iraspa.iconset\icon_512x512.png">
+      <Link>Assets\AppIcon.png</Link>
+    </Content>
+    <!-- Embeddable CPython, picked for the architecture currently being built. Each
+         platform of the bundle is a separate pass over this project, so $(Platform)
+         selects the matching runtime and an ARM64 package never carries x64 binaries.
+         Mirrors the app project's DeployPythonRuntime layout, which PythonConsole.cpp
+         resolves relative to the executable. -->
+    <Content Include="..\PythonRunTimes\$(Platform)\**\*">
+      <Link>Python\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+    <!-- Out-of-process picture and movie renderer. Not an entry point, so it needs no
+         manifest entry; it only has to sit beside iRASPA.exe, which is where the app
+         looks for it (ExportJobWriter.cpp resolves it relative to the running
+         executable). Built by iRASPA.Export.vcxproj into the same per-platform output
+         directory the app project uses, so $(Platform) keeps an ARM64 package from
+         carrying the x64 helper. -->
+    <Content Include="..\build\$(Platform)\$(Configuration)\iRASPA.Export.exe">
+      <Link>iRASPA.Export.exe</Link>
+    </Content>
+    <!-- App XAML must be in the package resource index. The WAP harvester ships the
+         compiled .xbf files but MakePri does not index them, so LoadComponent
+         (ms-appx:///ProjectView.xaml, ...) fail-fasts inside Microsoft.UI.Xaml.dll.
+         These .xaml files are written next to the exe by DeployUnpackagedXaml; indexing
+         them here matches the unpackaged resources.pri layout that already works. -->
+    <Content Include="..\build\$(Platform)\$(Configuration)\*.xaml">
+      <Link>%(Filename)%(Extension)</Link>
+    </Content>
+    <!-- WinUI ships Microsoft.ui.xaml.dll.mui under en-US\, en-GB\, … . The WAP
+         payload only keeps a couple of root .mui files, so packaged en-GB (and
+         other) locales hit "resource loader cache doesn't have loaded MUI entry".
+         Mirror the unpackaged OutDir layout. -->
+    <Content Include="..\build\$(Platform)\$(Configuration)\**\*.mui">
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Self-contained app project: its output already carries the Windows App SDK
+         runtime and the compiled XAML (.xbf). -->
+    <ProjectReference Include="..\iRASPA\iRASPA.vcxproj" />
+  </ItemGroup>
+  <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
+
+  <!-- Self-contained WASDK: winmd harvesting maps types to the wrong InProcessServer
+       Path (AppWindow -> Microsoft.UI.dll, XamlControlsResources -> Microsoft.UI.Xaml.dll,
+       DispatcherQueue missing CoreMessagingXP.dll, …). Packaged activation then fails
+       with CLASS_E_CLASSNOTAVAILABLE (0x80040111 / 0xc000027b). Skip the broken Xaml
+       winmd harvest and replace harvested WASDK servers with the official fragments. -->
+  <Target Name="SkipBrokenWinUIWinmdHarvest"
+          AfterTargets="_CalculateInputsForGenerateCurrentProjectAppxManifest"
+          BeforeTargets="_GenerateCurrentProjectAppxManifest">
+    <ItemGroup>
+      <_AppxWinmdFilesToHarvest Remove="@(_AppxWinmdFilesToHarvest)" Condition="'%(Filename)' == 'Microsoft.UI.Xaml'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="InjectWinUIAppxRegistrations"
+          AfterTargets="_GenerateCurrentProjectAppxManifest">
+    <PropertyGroup>
+      <_PackagesDir>$(MSBuildThisFileDirectory)..\packages</_PackagesDir>
+      <_FixRegistrationsScript>$(MSBuildThisFileDirectory)fix_winui_appx_registrations.ps1</_FixRegistrationsScript>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(_PackagesDir)')"
+           Text="NuGet packages directory not found at $(_PackagesDir). Restore NuGet packages." />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(_FixRegistrationsScript)&quot; -ManifestPath &quot;$(FinalAppxManifestName)&quot; -PackagesDir &quot;$(_PackagesDir)&quot;" />
+  </Target>
+</Project>

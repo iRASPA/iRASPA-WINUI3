@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="iRASPA_WinUI.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:iRASPA_WinUI">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- The check glyph is drawn in a 20px box that the text-size setting
+                 does not grow, so an enlarged glyph is clipped to its middle
+                 stroke and a ticked box reads as the '-' of a mixed one. The box
+                 keeps its own text size. -->
+            <Style TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
+                <Setter Property="IsTextScaleFactorEnabled" Value="False"/>
+            </Style>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

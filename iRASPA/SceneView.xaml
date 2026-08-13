@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="iRASPA_WinUI.SceneView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:iRASPA_WinUI">
+    <UserControl.Resources>
+        <!-- Cocoa MovieListViewController: scenes are always-expanded source-list
+             group rows (uppercase small bold gray, no disclosure chevron), movies
+             show visibility checkbox + type icon + name. Bindings resolve through
+             SceneRowItem's ICustomPropertyProvider. -->
+        <DataTemplate x:Key="SceneRowTemplate">
+            <ItemContainer>
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="{Binding IndentMargin}"
+                            Background="Transparent" MinHeight="26">
+                    <TextBlock Text="{Binding Title}" Visibility="{Binding SceneTitleVisibility}"
+                               FontWeight="SemiBold" FontSize="11" Foreground="#FF98989D"
+                               VerticalAlignment="Center" TextWrapping="NoWrap"/>
+                    <!-- The style setter keeps a recycled row out of the
+                         indeterminate '-' glyph: clearing the binding falls back to
+                         the property default, which is null for the nullable
+                         IsChecked. The box shows what the movie is and reports what
+                         the user did through Click, as Cocoa's toggleMovieVisibility
+                         does: a two-way binding would also fire while rows are being
+                         rebuilt or recycled, when the box belongs to another movie. -->
+                    <CheckBox IsChecked="{Binding Visible, Mode=OneWay, FallbackValue=True, TargetNullValue=True}"
+                              Click="OnMovieVisibilityClick"
+                              DataContextChanged="OnMovieVisibilityBoxDataContextChanged"
+                              Visibility="{Binding MovieVisibility}" Width="20" MinWidth="0"
+                              MinHeight="0" Padding="0" VerticalAlignment="Center">
+                        <CheckBox.Style>
+                            <Style TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
+                                <Setter Property="IsChecked" Value="True"/>
+                            </Style>
+                        </CheckBox.Style>
+                    </CheckBox>
+                    <!-- Stands in for Cocoa's MovieSingleFrameIcon / MovieMultipleFramesIcon.
+                         16 is the usual size for a leading icon in a list row, and a glyph
+                         below that reads as smaller than the name beside it because the
+                         icon font leaves padding inside its em box. The fixed width matches
+                         the checkbox and keeps the names aligned, which they otherwise are
+                         not: the single-frame and multi-frame glyphs differ in advance. -->
+                    <FontIcon Glyph="{Binding IconGlyph}" FontSize="16" Width="20"
+                              Visibility="{Binding MovieVisibility}" VerticalAlignment="Center"/>
+                    <!-- Tight trims the layout box to cap-height..baseline. Centring the
+                         full line box centres the ascent and descent rather than the
+                         glyphs, which leaves the name sitting low against the square edge
+                         of the checkbox even though both boxes share a centre. -->
+                    <TextBlock Text="{Binding Title}" Visibility="{Binding MovieTitleVisibility}"
+                               TextLineBounds="Tight"
+                               VerticalAlignment="Center" TextWrapping="NoWrap"/>
+                    <!-- Cocoa TableListNameTextField: the same field, editable, once
+                         the row is double-clicked. Its text is filled in by
+                         InlineRenameController. No explicit Height: it has to follow
+                         the row font's line height, or the text is clipped halfway
+                         down. -->
+                    <TextBox Tag="editor" Visibility="{Binding EditVisibility}" MinWidth="90"
+                             MinHeight="0" Padding="4,0,4,0" VerticalAlignment="Center"/>
+                </StackPanel>
+            </ItemContainer>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <!-- Cocoa-style bottom bar (same look as the Atoms tab): [+] [-]. -->
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Flat virtualized rows: a scene group row followed by its movie rows.
+             Movie rows select the scene+movie; scene group rows are not
+             selectable (Cocoa group rows refuse selection). Extended, because
+             Cocoa's movie list takes a selection spanning movies and scenes,
+             which the inspector then edits as one. -->
+        <ItemsView x:Name="List"
+                   Grid.Row="0"
+                   SelectionMode="Extended"
+                   ItemTemplate="{StaticResource SceneRowTemplate}"
+                   SelectionChanged="OnListSelectionChanged"/>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+            <!-- Cocoa hangs an add menu off the [+] button (its menu outlet); a
+                 plain click still adds a crystal, the button's default action.
+                 The menu itself is built from the object-type table in the
+                 code-behind rather than spelled out here, so the types stay in
+                 one place instead of being matched up by name. -->
+            <Button x:Name="AddButton" Content="+" MinWidth="32" Padding="0,4,0,5"
+                    Click="OnAddCrystalClick"/>
+            <Button Content="&#x2212;" MinWidth="32" Padding="0,4,0,5" Click="OnRemoveClick"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

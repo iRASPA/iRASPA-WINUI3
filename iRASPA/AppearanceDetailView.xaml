@@ -1,0 +1,915 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="iRASPA_WinUI.AppearanceDetailView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <!-- The Appearance tab (Qt AppearanceTreeWidgetController / Cocoa
+         StructureAppearanceDetailViewController): seven groups, each the cells of
+         the corresponding Cocoa view. A group whose interface the selection does
+         not implement shows "Not available for this structure." instead of its
+         rows, as the Qt controller greys its whole page out.
+
+         Every control is wired in the code-behind, where it is paired with the
+         property it edits; nothing here binds. -->
+    <UserControl.Resources>
+        <Style x:Key="RowLabel" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <Style x:Key="BoxHeader" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Opacity" Value="0.8"/>
+        </Style>
+
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Opacity" Value="0.7"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- NSBox stand-in: titled, line-bordered group. -->
+        <Style x:Key="TitledBox" TargetType="Border">
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#60808080"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="8,4,8,8"/>
+            <Setter Property="Margin" Value="0,6,0,2"/>
+        </Style>
+
+        <Style x:Key="Separator" TargetType="Border">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="#3C808080"/>
+            <Setter Property="Margin" Value="0,4,0,4"/>
+        </Style>
+
+        <!-- Ranges, steps and decimals are set per box in the code-behind. -->
+        <Style x:Key="Num" TargetType="NumberBox">
+            <Setter Property="SpinButtonPlacementMode" Value="Compact"/>
+            <Setter Property="ValidationMode" Value="InvalidInputOverwritten"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- The field half of a slider row, which has no spinner. -->
+        <Style x:Key="SliderNum" TargetType="NumberBox">
+            <Setter Property="SpinButtonPlacementMode" Value="Hidden"/>
+            <Setter Property="ValidationMode" Value="InvalidInputOverwritten"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="MinWidth" Value="64"/>
+        </Style>
+
+        <Style x:Key="RowSlider" TargetType="Slider">
+            <Setter Property="IsThumbToolTipEnabled" Value="False"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="WideButton" TargetType="Button">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+
+        <Style x:Key="ColorWell" TargetType="DropDownButton">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="6,4,6,4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="Swatch" TargetType="Border">
+            <Setter Property="MinWidth" Value="28"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="Gray"/>
+        </Style>
+
+        <Style x:Key="Row" TargetType="Grid">
+            <Setter Property="Margin" Value="0,2,0,2"/>
+            <Setter Property="ColumnSpacing" Value="6"/>
+        </Style>
+
+        <!-- Appearance checkboxes are never meant to sit in the mixed glyph
+             except while SetCheckOrMultiple deliberately enables three-state. -->
+        <Style TargetType="CheckBox" BasedOn="{StaticResource DefaultCheckBoxStyle}">
+            <Setter Property="IsThreeState" Value="False"/>
+            <Setter Property="IsTextScaleFactorEnabled" Value="False"/>
+        </Style>
+
+        <Style x:Key="Section" TargetType="Expander">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="HeaderTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" FontWeight="SemiBold"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <StackPanel>
+
+            <!-- ================= Primitive Properties ================= -->
+            <Expander x:Name="PrimitiveSection" Style="{StaticResource Section}" Header="Primitive Properties" Visibility="Collapsed">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="PrimitiveHint" Style="{StaticResource Hint}"
+                               Text="Not available for this structure." Visibility="Collapsed"/>
+                    <StackPanel x:Name="PrimitiveBody" Spacing="6">
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Properties" Style="{StaticResource BoxHeader}"/>
+                                <!-- Rows follow Cocoa: yaw, pitch, roll, each with
+                                     its Euler angle and slider on the right. -->
+                                <Grid ColumnSpacing="6" RowSpacing="4"
+                                      ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                    <TextBlock Text="Rotation Angle" Style="{StaticResource RowLabel}"/>
+                                    <NumberBox x:Name="PrimRotDelta" Grid.Column="1" Style="{StaticResource SliderNum}"/>
+                                    <TextBlock Text="Euler Angles" Grid.Column="2" Grid.ColumnSpan="2"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                                    <Button x:Name="PrimYawPlus" Grid.Row="1" Style="{StaticResource WideButton}"/>
+                                    <Button x:Name="PrimYawMinus" Grid.Row="1" Grid.Column="1" Style="{StaticResource WideButton}"/>
+                                    <NumberBox x:Name="PrimEulerXBox" Grid.Row="1" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <Slider x:Name="PrimEulerXSlider" Grid.Row="1" Grid.Column="3" Style="{StaticResource RowSlider}"/>
+
+                                    <Button x:Name="PrimPitchPlus" Grid.Row="2" Style="{StaticResource WideButton}"/>
+                                    <Button x:Name="PrimPitchMinus" Grid.Row="2" Grid.Column="1" Style="{StaticResource WideButton}"/>
+                                    <NumberBox x:Name="PrimEulerZBox" Grid.Row="2" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <Slider x:Name="PrimEulerZSlider" Grid.Row="2" Grid.Column="3" Style="{StaticResource RowSlider}"/>
+
+                                    <Button x:Name="PrimRollPlus" Grid.Row="3" Style="{StaticResource WideButton}"/>
+                                    <Button x:Name="PrimRollMinus" Grid.Row="3" Grid.Column="1" Style="{StaticResource WideButton}"/>
+                                    <NumberBox x:Name="PrimEulerYBox" Grid.Row="3" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <Slider x:Name="PrimEulerYSlider" Grid.Row="3" Grid.Column="3" Style="{StaticResource RowSlider}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <!-- The transformation matrix, in Cocoa's row-major UI
+                             order: ax bx cx / ay by cy / az bz cz. -->
+                        <Grid ColumnSpacing="4" RowSpacing="4"
+                              ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto">
+                            <NumberBox x:Name="PrimTransAX" Style="{StaticResource SliderNum}"/>
+                            <NumberBox x:Name="PrimTransBX" Grid.Column="1" Style="{StaticResource SliderNum}"/>
+                            <NumberBox x:Name="PrimTransCX" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                            <NumberBox x:Name="PrimTransAY" Grid.Row="1" Style="{StaticResource SliderNum}"/>
+                            <NumberBox x:Name="PrimTransBY" Grid.Row="1" Grid.Column="1" Style="{StaticResource SliderNum}"/>
+                            <NumberBox x:Name="PrimTransCY" Grid.Row="1" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                            <NumberBox x:Name="PrimTransAZ" Grid.Row="2" Style="{StaticResource SliderNum}"/>
+                            <NumberBox x:Name="PrimTransBZ" Grid.Row="2" Grid.Column="1" Style="{StaticResource SliderNum}"/>
+                            <NumberBox x:Name="PrimTransCZ" Grid.Row="2" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <CheckBox x:Name="PrimCapped" Content="Capped"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Opacity" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="PrimOpacitySlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="PrimOpacityBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Number of Sides" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="PrimSidesSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="PrimSidesBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Selection Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="PrimSelStyle" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,Auto,*,Auto,*">
+                            <TextBlock Text="Style Parameters" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Grid.Column="1" Text="&#x1D708;" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="PrimSelFreq" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                            <TextBlock Grid.Column="3" Text="&#x1D70C;" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="PrimSelDensity" Grid.Column="4" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Selection Intensity" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="PrimSelIntensitySlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="PrimSelIntensityBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Selection Radial Scaling" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="PrimSelScalingSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="PrimSelScalingBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Hue" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="PrimHueSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="PrimHueBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Saturation" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="PrimSatSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="PrimSatBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Value" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="PrimValSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="PrimValBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Outside Properties" Style="{StaticResource BoxHeader}"/>
+                                <CheckBox x:Name="PrimFrontHDR" Content="High Dynamic Range"/>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Exposure" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimFrontHDRExpSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimFrontHDRExpBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimFrontAmbSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimFrontAmbBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="PrimFrontAmbWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="PrimFrontAmbSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimFrontDiffSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimFrontDiffBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="PrimFrontDiffWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="PrimFrontDiffSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimFrontSpecSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimFrontSpecBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="PrimFrontSpecWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="PrimFrontSpecSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimFrontShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimFrontShininessBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Inside Properties" Style="{StaticResource BoxHeader}"/>
+                                <CheckBox x:Name="PrimBackHDR" Content="High Dynamic Range"/>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Exposure" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimBackHDRExpSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimBackHDRExpBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimBackAmbSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimBackAmbBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="PrimBackAmbWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="PrimBackAmbSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimBackDiffSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimBackDiffBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="PrimBackDiffWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="PrimBackDiffSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimBackSpecSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimBackSpecBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="PrimBackSpecWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="PrimBackSpecSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="PrimBackShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="PrimBackShininessBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Ribbon ================= -->
+            <Expander x:Name="RibbonSection" Style="{StaticResource Section}" Header="Ribbon" Visibility="Collapsed">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="RibbonHint" Style="{StaticResource Hint}"
+                               Text="Only available for proteins." Visibility="Collapsed"/>
+                    <StackPanel x:Name="RibbonBody" Spacing="6">
+                        <CheckBox x:Name="RibbonDraw" Content="Show Ribbons"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Ribbon Size Scaling" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RibbonScaleSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="RibbonScaleBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Secondary Structure" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="RibbonSecondary" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Spline Type" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="RibbonSpline" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Representation Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="RibbonStyle" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Color Set" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="RibbonColorSet" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Selection Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="RibbonSelStyle" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,Auto,*,Auto,*">
+                            <TextBlock Text="Style Parameters" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Grid.Column="1" Text="&#x1D708;" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="RibbonSelFreq" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                            <TextBlock Grid.Column="3" Text="&#x1D70C;" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="RibbonSelDensity" Grid.Column="4" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Selection Intensity" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RibbonSelIntensitySlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="RibbonSelIntensityBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Selection Radial Scaling" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RibbonSelScalingSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="RibbonSelScalingBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <CheckBox x:Name="RibbonHDR" Content="High Dynamic Range"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Exposure" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RibbonHDRExpSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="RibbonHDRExpBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Hue" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RibbonHueSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="RibbonHueBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Saturation" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RibbonSatSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="RibbonSatBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Value" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="RibbonValSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="RibbonValBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Ribbon Lighting" Style="{StaticResource BoxHeader}"/>
+                                <CheckBox x:Name="RibbonAO" Content="Ambient Occlusion"/>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="RibbonAmbSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="RibbonAmbBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="RibbonAmbWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="RibbonAmbSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="RibbonDiffSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="RibbonDiffBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="RibbonDiffWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="RibbonDiffSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="RibbonSpecSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="RibbonSpecBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="RibbonSpecWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="RibbonSpecSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="RibbonShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="RibbonShininessBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Atoms ================= -->
+            <Expander Style="{StaticResource Section}" Header="Atoms" IsExpanded="True">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="AtomsHint" Style="{StaticResource Hint}"
+                               Text="Not available for this structure." Visibility="Collapsed"/>
+                    <StackPanel x:Name="AtomsBody" Spacing="6">
+                        <CheckBox x:Name="AtomDraw" Content="Show Atoms"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Atom Size Scaling" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="AtomScaleSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="AtomScaleBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Representation Type" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AtomType" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Representation Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AtomStyle" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Color Set" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AtomColorScheme" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Order" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AtomColorOrder" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Force Field" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AtomFF" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Order" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AtomFFOrder" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Selection Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AtomSelStyle" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,Auto,*,Auto,*">
+                            <TextBlock Text="Style Parameters" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Grid.Column="1" Text="&#x1D708;" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="AtomSelFreq" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                            <TextBlock Grid.Column="3" Text="&#x1D70C;" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="AtomSelDensity" Grid.Column="4" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Selection Intensity" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="AtomSelIntensitySlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="AtomSelIntensityBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Selection Radial Scaling" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="AtomSelScalingSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="AtomSelScalingBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <CheckBox x:Name="AtomHDR" Content="High Dynamic Range"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Exposure" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="AtomHDRExpSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="AtomHDRExpBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Hue" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="AtomHueSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="AtomHueBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Saturation" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="AtomSatSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="AtomSatBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Value" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="AtomValSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="AtomValBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Atom Lighting" Style="{StaticResource BoxHeader}"/>
+                                <CheckBox x:Name="AtomAO" Content="Ambient Occlusion"/>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="AtomAmbSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="AtomAmbBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="AtomAmbWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="AtomAmbSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="AtomDiffSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="AtomDiffBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="AtomDiffWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="AtomDiffSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="AtomSpecSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="AtomSpecBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="AtomSpecWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="AtomSpecSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="AtomShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="AtomShininessBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Bonds ================= -->
+            <Expander Style="{StaticResource Section}" Header="Bonds">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="BondsHint" Style="{StaticResource Hint}"
+                               Text="Not available for this structure." Visibility="Collapsed"/>
+                    <StackPanel x:Name="BondsBody" Spacing="6">
+                        <CheckBox x:Name="BondDraw" Content="Show Bonds"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Bond Scale Factor" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="BondScaleSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="BondScaleBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Bond Type" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="BondColorMode" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Selection Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="BondSelStyle" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,Auto,*,Auto,*">
+                            <TextBlock Text="Style Parameters" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Grid.Column="1" Text="&#x1D708;" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="BondSelFreq" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                            <TextBlock Grid.Column="3" Text="&#x1D70C;" VerticalAlignment="Center"/>
+                            <NumberBox x:Name="BondSelDensity" Grid.Column="4" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Selection Intensity" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="BondSelIntensitySlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="BondSelIntensityBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Selection Radial Scaling" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="BondSelScalingSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="BondSelScalingBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <CheckBox x:Name="BondHDR" Content="High Dynamic Range"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Exposure" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="BondHDRExpSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="BondHDRExpBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Hue" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="BondHueSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="BondHueBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Saturation" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="BondSatSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="BondSatBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Value" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="BondValSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="BondValBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Bond Lighting" Style="{StaticResource BoxHeader}"/>
+                                <CheckBox x:Name="BondAO" Content="Ambient Occlusion"/>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="BondAmbSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="BondAmbBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="BondAmbWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="BondAmbSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="BondDiffSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="BondDiffBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="BondDiffWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="BondDiffSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="BondSpecSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="BondSpecBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="BondSpecWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="BondSpecSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="BondShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="BondShininessBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Unit Cell ================= -->
+            <Expander Style="{StaticResource Section}" Header="Unit Cell">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="UnitCellHint" Style="{StaticResource Hint}"
+                               Text="Not available for this structure." Visibility="Collapsed"/>
+                    <StackPanel x:Name="UnitCellBody" Spacing="6">
+                        <CheckBox x:Name="UnitCellDraw" Content="Show Unit Cell"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Unit Cell Size Scaling" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="UnitCellScaleSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="UnitCellScaleBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                            <TextBlock Text="Light Intensity" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="UnitCellDiffSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="UnitCellDiffBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                            <DropDownButton x:Name="UnitCellWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                <Border x:Name="UnitCellSwatch" Style="{StaticResource Swatch}"/>
+                            </DropDownButton>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Local Axes ================= -->
+            <Expander Style="{StaticResource Section}" Header="Local Axes">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="LocalAxesHint" Style="{StaticResource Hint}"
+                               Text="Not available for this structure." Visibility="Collapsed"/>
+                    <StackPanel x:Name="LocalAxesBody" Spacing="6">
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Position" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="LocalPos" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="LocalStyle" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Scaling Type" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="LocalScale" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Length" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="LocalLengthSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="LocalLengthBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Width" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="LocalWidthSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="LocalWidthBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Offset X" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="LocalOffsetX" Grid.Column="1" Style="{StaticResource Num}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Offset Y" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="LocalOffsetY" Grid.Column="1" Style="{StaticResource Num}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Offset Z" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="LocalOffsetZ" Grid.Column="1" Style="{StaticResource Num}"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Volumetric Data ================= -->
+            <Expander Style="{StaticResource Section}" Header="Volumetric Data">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="VolumetricHint" Style="{StaticResource Hint}"
+                               Text="Not available for this structure." Visibility="Collapsed"/>
+                    <StackPanel x:Name="VolumetricBody" Spacing="6">
+                        <CheckBox x:Name="VolDraw" Content="Show Grid Data"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Rendering Method" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="VolMethod" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Probe Particle" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="VolProbe" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Transfer Function" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="VolTF" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Step Length" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="VolStep" Grid.Column="1" Style="{StaticResource Num}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Isocontour Value" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="VolIsoSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="VolIsoBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Opacity" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="VolOpacitySlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="VolOpacityBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Threshold" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="VolThresholdSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="VolThresholdBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Quality" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="VolQuality" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource Separator}"/>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Hue" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="VolHueSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="VolHueBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Saturation" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="VolSatSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="VolSatBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Value" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="VolValSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="VolValBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Outside Surface" Style="{StaticResource BoxHeader}"/>
+                                <CheckBox x:Name="VolFrontHDR" Content="High Dynamic Range"/>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Exposure" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolFrontHDRExpSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolFrontHDRExpBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolFrontAmbSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolFrontAmbBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="VolFrontAmbWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="VolFrontAmbSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolFrontDiffSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolFrontDiffBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="VolFrontDiffWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="VolFrontDiffSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolFrontSpecSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolFrontSpecBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="VolFrontSpecWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="VolFrontSpecSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolFrontShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolFrontShininessBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Inside Surface" Style="{StaticResource BoxHeader}"/>
+                                <CheckBox x:Name="VolBackHDR" Content="High Dynamic Range"/>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Exposure" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolBackHDRExpSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolBackHDRExpBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolBackAmbSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolBackAmbBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="VolBackAmbWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="VolBackAmbSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolBackDiffSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolBackDiffBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="VolBackDiffWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="VolBackDiffSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolBackSpecSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolBackSpecBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="VolBackSpecWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="VolBackSpecSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="VolBackShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="VolBackShininessBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Annotation ================= -->
+            <Expander Style="{StaticResource Section}" Header="Annotation">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="AnnotationHint" Style="{StaticResource Hint}"
+                               Text="Not available for this structure." Visibility="Collapsed"/>
+                    <StackPanel x:Name="AnnotationBody" Spacing="6">
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Type" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AnnType" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Font" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AnnFont" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Alignment" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AnnAlign" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AnnStyle" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Color" Style="{StaticResource RowLabel}"/>
+                            <DropDownButton x:Name="AnnColorWell" Grid.Column="1" Style="{StaticResource ColorWell}">
+                                <Border x:Name="AnnColorSwatch" Style="{StaticResource Swatch}"/>
+                            </DropDownButton>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                            <TextBlock Text="Scaling" Style="{StaticResource RowLabel}"/>
+                            <Slider x:Name="AnnScalingSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                            <NumberBox x:Name="AnnScalingBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Text Offset X" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="AnnOffsetX" Grid.Column="1" Style="{StaticResource Num}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Y" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="AnnOffsetY" Grid.Column="1" Style="{StaticResource Num}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Z" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="AnnOffsetZ" Grid.Column="1" Style="{StaticResource Num}"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+        </StackPanel>
+    </StackPanel>
+</UserControl>
