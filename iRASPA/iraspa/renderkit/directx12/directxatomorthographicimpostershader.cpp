@@ -24,8 +24,16 @@ void DirectXAtomOrthographicImposterShader::loadShader(ID3D12Device * /*device*/
 void DirectXAtomOrthographicImposterShader::initialize(ID3D12Device *device, ID3D12RootSignature *rootSignature,
                                                        DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat)
 {
+  initializePSO(device, rootSignature, rtvFormat, dsvFormat, true);
+  initializePSO(device, rootSignature, rtvFormat, dsvFormat, false);
+}
+
+void DirectXAtomOrthographicImposterShader::initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,
+                                                          DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat,
+                                                          bool perSample)
+{
   ComPtr<ID3DBlob> vs = compileShader(_vertexShaderSource, "VSMain", "vs_5_0");
-  ComPtr<ID3DBlob> ps = compileShader(_pixelShaderSource, "PSMain", "ps_5_0");
+  ComPtr<ID3DBlob> ps = compileShader(pixelShaderSource(perSample), "PSMain", "ps_5_0");
   if (!vs || !ps)
     return;
 
@@ -68,12 +76,15 @@ void DirectXAtomOrthographicImposterShader::initialize(ID3D12Device *device, ID3
   psoDesc.DSVFormat = dsvFormat;
   psoDesc.SampleDesc = DirectXDeviceHelpers::sceneSampleDesc();
 
-  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&_pso))))
+  ComPtr<ID3D12PipelineState> &pso = perSample ? _pso : _perPixelPso;
+  bool &ready = perSample ? _psoReady : _perPixelPsoReady;
+  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso))))
   {
-    std::cerr << "DirectXAtomOrthographicImposterShader: failed to create PSO";
+    std::cerr << "DirectXAtomOrthographicImposterShader: failed to create "
+              << (perSample ? "per-sample" : "per-pixel") << " PSO";
     return;
   }
-  _psoReady = true;
+  ready = true;
 }
 
 void DirectXAtomOrthographicImposterShader::setRenderStructures(std::vector<std::vector<std::shared_ptr<RKRenderObject>>> structures)
@@ -124,10 +135,13 @@ void DirectXAtomOrthographicImposterShader::paint(ID3D12GraphicsCommandList *com
                                                   UINT structureCBVStride,
                                                   DirectXAmbientOcclusionShadowMapShader *aoShader)
 {
-  if (!_psoReady || !_pso)
+  const bool perSample = DirectXDeviceHelpers::perSampleImposterShading();
+  ID3D12PipelineState *pso = perSample ? (_psoReady ? _pso.Get() : nullptr)
+                                       : (_perPixelPsoReady ? _perPixelPso.Get() : nullptr);
+  if (!pso)
     return;
 
-  commandList->SetPipelineState(_pso.Get());
+  commandList->SetPipelineState(pso);
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
   size_t index = 0;
@@ -246,7 +260,16 @@ VSOutput VSMain(VSInput input)
 }
 )foo");
 
-const std::string DirectXAtomOrthographicImposterShader::_pixelShaderSource =
+std::string DirectXAtomOrthographicImposterShader::pixelShaderSource(bool perSample)
+{
+  // Under MSAA the sphere silhouette, the clipping and the per-pixel depth are all decided inside
+  // the pixel shader, so multisampling alone only smooths the quad edges. Marking the varyings the
+  // ray is built from `sample` makes the pixel shader run once per sample and anti-aliases those
+  // edges too, at the cost of shading every covered sample. The quality path uses it; the fast
+  // path used while the camera is moving does not.
+  const char *s = perSample ? "sample " : "";
+
+  return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
@@ -259,12 +282,12 @@ struct PSInput
 {
   float4 position : SV_POSITION;
   float4 eye_position : TEXCOORD0;
-  float2 texcoords : TEXCOORD1;
+  )foo") + s + std::string(R"foo(float2 texcoords : TEXCOORD1;
   nointerpolation float4 instancePosition : TEXCOORD2;
   nointerpolation float4 ambient : COLOR0;
   nointerpolation float4 diffuse : COLOR1;
   nointerpolation float4 specular : COLOR2;
-  float3 frag_pos : TEXCOORD3;
+  )foo") + s + std::string(R"foo(float3 frag_pos : TEXCOORD3;
   float3 N : NORMAL0;
   float3 L : TEXCOORD4;
   float3 V : TEXCOORD5;
@@ -357,3 +380,4 @@ PSOutput PSMain(PSInput input)
   return output;
 }
 )foo");
+}

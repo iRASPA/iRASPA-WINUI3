@@ -14,7 +14,6 @@ DirectXAtomShader::DirectXAtomShader()
 
 void DirectXAtomShader::loadShader(ID3D12Device *device)
 {
-  _atomSphereShader.loadShader(device);
   _atomOrthographicImposterShader.loadShader(device);
   _atomPerspectiveImposterShader.loadShader(device);
   _atomAmbientOcclusionShader.loadShader(device);
@@ -24,7 +23,6 @@ void DirectXAtomShader::initialize(ID3D12Device *device, ID3D12CommandQueue *que
                                    ID3D12RootSignature *rootSignature,
                                    DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat)
 {
-  _atomSphereShader.initialize(device, rootSignature, rtvFormat, dsvFormat);
   _atomOrthographicImposterShader.initialize(device, rootSignature, rtvFormat, dsvFormat);
   _atomPerspectiveImposterShader.initialize(device, rootSignature, rtvFormat, dsvFormat);
   _atomAmbientOcclusionShader.initialize(device, queue);
@@ -37,7 +35,6 @@ void DirectXAtomShader::setRenderStructures(std::vector<std::vector<std::shared_
   _atomOrthographicImposterShader.setRenderStructures(structures);
   _atomPerspectiveImposterShader.setRenderStructures(structures);
   _atomAmbientOcclusionShader.setRenderStructures(structures);
-  _numberOfAtoms = 0;
 }
 
 void DirectXAtomShader::reloadData(ID3D12Device *device)
@@ -45,13 +42,6 @@ void DirectXAtomShader::reloadData(ID3D12Device *device)
   _atomSphereShader.reloadData(device);
   _atomOrthographicImposterShader.reloadData(device);
   _atomPerspectiveImposterShader.reloadData(device);
-
-  _numberOfAtoms = 0;
-  for (size_t i = 0; i < _renderStructures.size(); ++i)
-  {
-    for (size_t j = 0; j < _renderStructures[i].size(); ++j)
-      _numberOfAtoms += _atomSphereShader.instanceCount(i, j);
-  }
 }
 
 void DirectXAtomShader::reloadAmbientOcclusionData(ID3D12Device *device, ID3D12CommandQueue *queue,
@@ -70,16 +60,14 @@ void DirectXAtomShader::invalidateCachedAmbientOcclusionTextures(
 void DirectXAtomShader::paint(ID3D12GraphicsCommandList *commandList,
                               D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
                               UINT structureCBVStride,
-                              std::shared_ptr<RKCamera> camera,
-                              RKRenderQuality quality)
+                              std::shared_ptr<RKCamera> camera)
 {
+  // Atoms are always ray-traced sphere imposters; the only choice left is which projection the
+  // ray is set up for. The quality/speed trade-off is made inside the imposter shaders, which
+  // shade per-sample or per-pixel depending on the render quality of this frame.
   DirectXAmbientOcclusionShadowMapShader *ao = &_atomAmbientOcclusionShader;
 
-  if ((quality == RKRenderQuality::high && _numberOfAtoms < 10000) || quality == RKRenderQuality::picture)
-  {
-    _atomSphereShader.paint(commandList, structureCBVBase, structureCBVStride, ao);
-  }
-  else if (camera && camera->isOrthographic())
+  if (camera && camera->isOrthographic())
   {
     _atomOrthographicImposterShader.paint(commandList, structureCBVBase, structureCBVStride, ao);
   }

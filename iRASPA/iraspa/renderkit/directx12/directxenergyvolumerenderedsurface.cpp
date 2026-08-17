@@ -1016,11 +1016,11 @@ bool DirectXEnergyVolumeRenderedSurface::needsSceneDepth() const
   return false;
 }
 
-void DirectXEnergyVolumeRenderedSurface::paintCommon(
+bool DirectXEnergyVolumeRenderedSurface::paintCommon(
     ID3D12GraphicsCommandList *commandList, ID3D12PipelineState *pso, bool opaquePass,
     D3D12_GPU_VIRTUAL_ADDRESS frameCBV, D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
     UINT structureCBVStride, D3D12_GPU_VIRTUAL_ADDRESS isosurfaceCBVBase, UINT isosurfaceCBVStride,
-    D3D12_GPU_VIRTUAL_ADDRESS lightsCBV)
+    D3D12_GPU_VIRTUAL_ADDRESS lightsCBV, size_t sceneIndex, size_t movieIndex, size_t structureIndex)
 {
   if (!commandList || !pso || !_rootSignature || !_srvHeap)
   {
@@ -1032,8 +1032,32 @@ void DirectXEnergyVolumeRenderedSurface::paintCommon(
                 + " heap=" + (_srvHeap ? "ok" : "null"));
       logged = true;
     }
-    return;
+    return false;
   }
+
+  if (sceneIndex >= _renderStructures.size() || movieIndex >= _renderStructures[sceneIndex].size())
+    return false;
+  if (sceneIndex >= _buffers.size() || movieIndex >= _buffers[sceneIndex].size())
+    return false;
+
+  auto *source = dynamic_cast<RKRenderVolumetricDataSource *>(_renderStructures[sceneIndex][movieIndex].get());
+  const MeshBuffers &bufs = _buffers[sceneIndex][movieIndex];
+  if (!_renderStructures[sceneIndex][movieIndex]
+      || !_renderStructures[sceneIndex][movieIndex]->isVisible()
+      || !source
+      || !source->drawAdsorptionSurface()
+      || source->adsorptionSurfaceRenderingMethod() != RKEnergySurfaceType::volumeRendering
+      || !bufs.volumeValid
+      || bufs.indexCount == 0
+      || !bufs.vertexBuffer
+      || !bufs.indexBuffer)
+    return false;
+
+  // RASPA_PES writes depth and so belongs to the opaque pass; the other transfer functions blend.
+  const bool isPES =
+      source->adsorptionVolumeTransferFunction() == RKPredefinedVolumeRenderingTransferFunction::RASPA_PES;
+  if (opaquePass != isPES)
+    return false;
 
   commandList->SetGraphicsRootSignature(_rootSignature.Get());
   ID3D12DescriptorHeap *heaps[] = { _srvHeap.Get() };
@@ -1043,82 +1067,49 @@ void DirectXEnergyVolumeRenderedSurface::paintCommon(
   commandList->SetPipelineState(pso);
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
-  size_t index = 0;
-  int drawCount = 0;
-  for (size_t i = 0; i < _renderStructures.size(); ++i)
-  {
-    for (size_t j = 0; j < _renderStructures[i].size(); ++j)
-    {
-      auto *source = dynamic_cast<RKRenderVolumetricDataSource *>(_renderStructures[i][j].get());
-      const MeshBuffers &bufs = _buffers[i][j];
-      const bool visible = _renderStructures[i][j]
-          && _renderStructures[i][j]->isVisible()
-          && source
-          && source->drawAdsorptionSurface()
-          && source->adsorptionSurfaceRenderingMethod() == RKEnergySurfaceType::volumeRendering
-          && bufs.volumeValid
-          && bufs.indexCount > 0
-          && bufs.vertexBuffer
-          && bufs.indexBuffer;
-
-      bool passMatch = false;
-      if (visible)
-      {
-        const auto tf = source->adsorptionVolumeTransferFunction();
-        if (opaquePass)
-          passMatch = (tf == RKPredefinedVolumeRenderingTransferFunction::RASPA_PES);
-        else
-          passMatch = (tf != RKPredefinedVolumeRenderingTransferFunction::RASPA_PES);
-      }
-
-      if (passMatch)
-      {
-        commandList->SetGraphicsRootConstantBufferView(
-            1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(index) * structureCBVStride);
-        commandList->SetGraphicsRootConstantBufferView(
-            4, isosurfaceCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(index) * isosurfaceCBVStride);
-        commandList->SetGraphicsRootDescriptorTable(3, gpuHandle(static_cast<UINT>(index) * 3u));
-        commandList->IASetVertexBuffers(0, 1, &bufs.vbv);
-        commandList->IASetIndexBuffer(&bufs.ibv);
-        commandList->DrawIndexedInstanced(bufs.indexCount, 1, 0, 0, 0);
-        ++drawCount;
-      }
-      ++index;
-    }
-  }
+  commandList->SetGraphicsRootConstantBufferView(
+      1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(structureIndex) * structureCBVStride);
+  commandList->SetGraphicsRootConstantBufferView(
+      4, isosurfaceCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(structureIndex) * isosurfaceCBVStride);
+  commandList->SetGraphicsRootDescriptorTable(3, gpuHandle(static_cast<UINT>(structureIndex) * 3u));
+  commandList->IASetVertexBuffers(0, 1, &bufs.vbv);
+  commandList->IASetIndexBuffer(&bufs.ibv);
+  commandList->DrawIndexedInstanced(bufs.indexCount, 1, 0, 0, 0);
 
   static int paintLogCount = 0;
   if (paintLogCount < 8)
   {
     volumeLog(std::string("paintCommon ") + (opaquePass ? "opaque" : "transparent")
-              + " draws=" + std::to_string(drawCount)
-              + " structures=" + std::to_string(index));
+              + " drew structure " + std::to_string(structureIndex));
     ++paintLogCount;
   }
+  return true;
 }
 
-void DirectXEnergyVolumeRenderedSurface::paintOpaque(
+bool DirectXEnergyVolumeRenderedSurface::paintOpaque(
     ID3D12GraphicsCommandList *commandList, D3D12_GPU_VIRTUAL_ADDRESS frameCBV,
     D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase, UINT structureCBVStride,
     D3D12_GPU_VIRTUAL_ADDRESS isosurfaceCBVBase, UINT isosurfaceCBVStride,
-    D3D12_GPU_VIRTUAL_ADDRESS lightsCBV)
+    D3D12_GPU_VIRTUAL_ADDRESS lightsCBV, size_t sceneIndex, size_t movieIndex, size_t structureIndex)
 {
   if (!_opaquePsoReady || !_opaquePso)
-    return;
-  paintCommon(commandList, _opaquePso.Get(), true, frameCBV, structureCBVBase, structureCBVStride,
-              isosurfaceCBVBase, isosurfaceCBVStride, lightsCBV);
+    return false;
+  return paintCommon(commandList, _opaquePso.Get(), true, frameCBV, structureCBVBase, structureCBVStride,
+                     isosurfaceCBVBase, isosurfaceCBVStride, lightsCBV,
+                     sceneIndex, movieIndex, structureIndex);
 }
 
-void DirectXEnergyVolumeRenderedSurface::paintTransparent(
+bool DirectXEnergyVolumeRenderedSurface::paintTransparent(
     ID3D12GraphicsCommandList *commandList, D3D12_GPU_VIRTUAL_ADDRESS frameCBV,
     D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase, UINT structureCBVStride,
     D3D12_GPU_VIRTUAL_ADDRESS isosurfaceCBVBase, UINT isosurfaceCBVStride,
-    D3D12_GPU_VIRTUAL_ADDRESS lightsCBV)
+    D3D12_GPU_VIRTUAL_ADDRESS lightsCBV, size_t sceneIndex, size_t movieIndex, size_t structureIndex)
 {
   if (!_transparentPsoReady || !_transparentPso)
-    return;
-  paintCommon(commandList, _transparentPso.Get(), false, frameCBV, structureCBVBase, structureCBVStride,
-              isosurfaceCBVBase, isosurfaceCBVStride, lightsCBV);
+    return false;
+  return paintCommon(commandList, _transparentPso.Get(), false, frameCBV, structureCBVBase, structureCBVStride,
+                     isosurfaceCBVBase, isosurfaceCBVStride, lightsCBV,
+                     sceneIndex, movieIndex, structureIndex);
 }
 
 const std::string DirectXEnergyVolumeRenderedSurface::_vertexShaderSource =

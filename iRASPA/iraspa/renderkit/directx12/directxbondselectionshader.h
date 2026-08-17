@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include "directxshader.h"
+#include "directxbondimposter.h"
 #include "directxdevicehelpers.h"
 #include "rkrenderkitprotocols.h"
 #include "rkrenderuniforms.h"
@@ -77,14 +78,14 @@ private:
   std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
   std::vector<std::vector<StructureBondBuffers>> _internalBuffers;
   std::vector<std::vector<StructureBondBuffers>> _externalBuffers;
-  DirectXDeviceHelpers::IndexedMesh _meshSingle;
-  DirectXDeviceHelpers::IndexedMesh _meshDouble;
-  DirectXDeviceHelpers::IndexedMesh _meshPartialDouble;
-  DirectXDeviceHelpers::IndexedMesh _meshTriple;
+  // The overlay rasterizes the same imposter hulls as the bond it marks, inflated by the
+  // selection scaling.
+  DirectXBondImposter::Hulls _hulls;
 
+  enum class Style { glow, striped, worleyNoise3D };
+
+  // Internal and external bonds share the hull; only the pixel shader differs, clipping the
+  // ray-traced cylinder at the unit cell for external bonds.
   static const std::string _vertexShaderSource;
-  static const std::string _externalVertexShaderSource;
-  static const std::string _stripesPixelShaderSource;
-  static const std::string _worleyPixelShaderSource;
-  static const std::string _glowPixelShaderSource;
+  static std::string pixelShaderSource(Style style, bool external);
 };

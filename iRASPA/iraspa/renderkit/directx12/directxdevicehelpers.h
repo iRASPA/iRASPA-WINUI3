@@ -36,6 +36,19 @@ namespace DirectXDeviceHelpers
     return desc;
   }
 
+  // Shade the ray-traced imposters per-sample under MSAA, anti-aliasing their silhouettes,
+  // clipping and depth. Cleared for a "fast" quality mode that shades once per pixel, in which
+  // case MSAA only smooths the hull edges and not the ray-traced ones. The renderer sets this
+  // once per frame from the render quality, so every imposter pass of a frame agrees.
+  inline bool &perSampleImposterShadingStorage()
+  {
+    static bool enabled = true;
+    return enabled;
+  }
+
+  inline bool perSampleImposterShading() { return perSampleImposterShadingStorage(); }
+  inline void setPerSampleImposterShading(bool enabled) { perSampleImposterShadingStorage() = enabled; }
+
   inline uint32_t alignedCBSize(uint32_t size)
   {
     return (size + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1)

@@ -552,23 +552,11 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
-    <ClCompile Include="renderkit\directx12\geometry\cappedcylinderdoublebondgeometry.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-    </ClCompile>
     <ClCompile Include="renderkit\directx12\geometry\cappedcylindergeometry.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
-    <ClCompile Include="renderkit\directx12\geometry\cappedcylinderpartialdoublebondgeometry.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-    </ClCompile>
     <ClCompile Include="renderkit\directx12\geometry\cappedcylindersinglebondgeometry.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-    </ClCompile>
-    <ClCompile Include="renderkit\directx12\geometry\cappedcylindertriplebondgeometry.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -1080,6 +1068,7 @@
     <ClInclude Include="mathkit\ringmatrix.h" />
     <ClInclude Include="mathkit\simd_quatd.h" />
     <ClInclude Include="renderkit\directx12\directxambientocclusionshadowmapshader.h" />
+    <ClInclude Include="renderkit\directx12\directxatomimposter.h" />
     <ClInclude Include="renderkit\directx12\directxatomorthographicimpostershader.h" />
     <ClInclude Include="renderkit\directx12\directxatomperspectiveimpostershader.h" />
     <ClInclude Include="renderkit\directx12\directxatomselectionglowshader.h" />
@@ -1089,6 +1078,7 @@
     <ClInclude Include="renderkit\directx12\directxatomsphereshader.h" />
     <ClInclude Include="renderkit\directx12\directxbackgroundshader.h" />
     <ClInclude Include="renderkit\directx12\directxblurshader.h" />
+    <ClInclude Include="renderkit\directx12\directxbondimposter.h" />
     <ClInclude Include="renderkit\directx12\directxbondselectionshader.h" />
     <ClInclude Include="renderkit\directx12\directxbondshader.h" />
     <ClInclude Include="renderkit\directx12\directxboundingboxshader.h" />
@@ -1116,11 +1106,8 @@
     <ClInclude Include="renderkit\directx12\geometry\arrowzgeometry.h" />
     <ClInclude Include="renderkit\directx12\geometry\axessystemdefaultgeometry.h" />
     <ClInclude Include="renderkit\directx12\geometry\backplanegeometry.h" />
-    <ClInclude Include="renderkit\directx12\geometry\cappedcylinderdoublebondgeometry.h" />
     <ClInclude Include="renderkit\directx12\geometry\cappedcylindergeometry.h" />
-    <ClInclude Include="renderkit\directx12\geometry\cappedcylinderpartialdoublebondgeometry.h" />
     <ClInclude Include="renderkit\directx12\geometry\cappedcylindersinglebondgeometry.h" />
-    <ClInclude Include="renderkit\directx12\geometry\cappedcylindertriplebondgeometry.h" />
     <ClInclude Include="renderkit\directx12\geometry\cappednsidedprismgeometry.h" />
     <ClInclude Include="renderkit\directx12\geometry\cubegeometry.h" />
     <ClInclude Include="renderkit\directx12\geometry\cubeprimitivegeometry.h" />

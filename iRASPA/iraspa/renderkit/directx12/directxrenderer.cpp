@@ -602,6 +602,7 @@ std::array<int, 4> DirectXRenderer::pickTexture(int x, int y, int width, int hei
     m_device.waitForGPU(m_fence);
   updateConstantBuffers();
 
+  m_pickingShader.setOrthographic(m_camera && m_camera->isOrthographic());
   return m_pickingShader.pickTexture(frameCB()->GetGPUVirtualAddress(),
                                      structureCB()->GetGPUVirtualAddress(),
                                      m_structureCBVStride,
@@ -1010,6 +1011,51 @@ void DirectXRenderer::updateTransformUniforms()
   DirectXDeviceHelpers::writeUploadBuffer(frameCB(), &transformationUniforms, sizeof(transformationUniforms));
 }
 
+// Transparent objects must be composited back-to-front (farthest from the camera first),
+// otherwise the blending between overlapping transparent movies is wrong.
+std::vector<DirectXRenderer::RenderOrderItem> DirectXRenderer::backToFrontRenderOrder() const
+{
+  struct Entry
+  {
+    RenderOrderItem item;
+    double depth;
+  };
+
+  std::vector<Entry> entries;
+  size_t index = 0;
+  for (size_t i = 0; i < m_structures.size(); ++i)
+  {
+    for (size_t j = 0; j < m_structures[i].size(); ++j)
+    {
+      double depth = 0.0;
+      const std::shared_ptr<RKRenderObject> &structure = m_structures[i][j];
+      if (m_camera && structure && structure->cell())
+      {
+        const double3 center = structure->cell()->boundingBox().center();
+        const double4x4 modelMatrix =
+            double4x4::AffinityMatrixToTransformationAroundArbitraryPointWithTranslation(
+                double4x4(structure->orientation()), center, structure->origin());
+        const double4 worldCenter = modelMatrix * double4(center.x, center.y, center.z, 1.0);
+        const double4 viewCenter = m_camera->modelViewMatrix() * worldCenter;
+        depth = viewCenter.z;
+      }
+      entries.push_back({{i, j, index}, depth});
+      ++index;
+    }
+  }
+
+  // The camera looks along the negative z-axis in view space, so the most negative
+  // view-space z is farthest away and must be drawn first.
+  std::stable_sort(entries.begin(), entries.end(),
+                   [](const Entry &a, const Entry &b) { return a.depth < b.depth; });
+
+  std::vector<RenderOrderItem> order;
+  order.reserve(entries.size());
+  for (const Entry &entry : entries)
+    order.push_back(entry.item);
+  return order;
+}
+
 void DirectXRenderer::updateStructureUniforms()
 {
   if (!structureCB())
@@ -1220,6 +1266,13 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
                                       D3D12_CPU_DESCRIPTOR_HANDLE dsv,
                                       int width, int height)
 {
+  // "Fast" imposter mode while interacting (rotating, panning, zooming): the render quality drops
+  // to medium/low during interaction and the imposters are then shaded per-pixel; per-sample
+  // anti-aliased shading is used for high-quality still frames and pictures. Set once here so
+  // every imposter pass of this frame (scene, selection glow) agrees.
+  DirectXDeviceHelpers::setPerSampleImposterShading(m_quality == RKRenderQuality::high ||
+                                                    m_quality == RKRenderQuality::picture);
+
   ID3D12Device *dev = m_device.device();
   m_backgroundShader.ensureTextureUploaded(dev, m_commandList.Get());
   m_textShader.ensureTexturesUploaded(dev, m_commandList.Get());
@@ -1262,7 +1315,7 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
       m_commandList->SetDescriptorHeaps(1, aoHeaps);
     }
     m_atomShader.paint(m_commandList.Get(), structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                       m_camera, m_quality);
+                       m_camera);
 
     ID3D12DescriptorHeap *windowHeaps[] = {m_srvHeap.Get()};
     m_commandList->SetDescriptorHeaps(1, windowHeaps);
@@ -1302,39 +1355,63 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
       m_commandList->RSSetScissorRects(1, &scissor);
     };
 
+    // The volume shader swaps in its own root signature and descriptor heap, so the main
+    // ones have to be restored before any other shader draws again.
+    auto bindSceneRootSignature = [&]() {
+      m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+      ID3D12DescriptorHeap *sceneHeaps[] = {m_srvHeap.Get()};
+      m_commandList->SetDescriptorHeaps(1, sceneHeaps);
+      m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
+      m_commandList->SetGraphicsRootConstantBufferView(1, structureCB()->GetGPUVirtualAddress());
+      m_commandList->SetGraphicsRootConstantBufferView(2, lightsCB()->GetGPUVirtualAddress());
+      if (isosurfaceCB())
+        m_commandList->SetGraphicsRootConstantBufferView(4, isosurfaceCB()->GetGPUVirtualAddress());
+      if (globalAxesCB())
+        m_commandList->SetGraphicsRootConstantBufferView(5, globalAxesCB()->GetGPUVirtualAddress());
+    };
+
+    const std::vector<RenderOrderItem> renderOrder = backToFrontRenderOrder();
+
     // QT resolves depth before opaque volume and again before transparent volume so
     // CoolWarm rays stop at RASPA_PES walls written into the DSV.
     copySceneDepthForVolume();
 
-    m_energyVolumeShader.paintOpaque(m_commandList.Get(),
-                                     frameCB()->GetGPUVirtualAddress(),
-                                     structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                     isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
-                                     lightsCB()->GetGPUVirtualAddress());
+    for (const RenderOrderItem &item : renderOrder)
+    {
+      m_energyVolumeShader.paintOpaque(m_commandList.Get(),
+                                       frameCB()->GetGPUVirtualAddress(),
+                                       structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
+                                       isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                       lightsCB()->GetGPUVirtualAddress(),
+                                       item.sceneIndex, item.movieIndex, item.structureIndex);
+    }
 
     copySceneDepthForVolume();
 
-    m_energyVolumeShader.paintTransparent(m_commandList.Get(),
-                                          frameCB()->GetGPUVirtualAddress(),
-                                          structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                          isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
-                                          lightsCB()->GetGPUVirtualAddress());
+    bindSceneRootSignature();
 
-    m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
-    ID3D12DescriptorHeap *afterVolumeHeaps[] = {m_srvHeap.Get()};
-    m_commandList->SetDescriptorHeaps(1, afterVolumeHeaps);
-    m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
-    m_commandList->SetGraphicsRootConstantBufferView(1, structureCB()->GetGPUVirtualAddress());
-    m_commandList->SetGraphicsRootConstantBufferView(2, lightsCB()->GetGPUVirtualAddress());
-    if (isosurfaceCB())
-      m_commandList->SetGraphicsRootConstantBufferView(4, isosurfaceCB()->GetGPUVirtualAddress());
-    if (globalAxesCB())
-      m_commandList->SetGraphicsRootConstantBufferView(5, globalAxesCB()->GetGPUVirtualAddress());
+    // Composite all transparent objects back-to-front per structure, interleaving the shader
+    // types, so overlapping transparent objects from different movies blend correctly.
+    for (const RenderOrderItem &item : renderOrder)
+    {
+      if (m_energyVolumeShader.paintTransparent(m_commandList.Get(),
+                                                frameCB()->GetGPUVirtualAddress(),
+                                                structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
+                                                isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                                lightsCB()->GetGPUVirtualAddress(),
+                                                item.sceneIndex, item.movieIndex, item.structureIndex))
+      {
+        bindSceneRootSignature();
+      }
 
-    m_objectShader.paintTransparent(m_commandList.Get(), structureCB()->GetGPUVirtualAddress(), m_structureCBVStride);
-    m_energySurfaceShader.paintTransparent(m_commandList.Get(),
-                                           structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                           isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride);
+      m_objectShader.paintTransparent(m_commandList.Get(),
+                                      structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
+                                      item.sceneIndex, item.movieIndex, item.structureIndex);
+      m_energySurfaceShader.paintTransparent(m_commandList.Get(),
+                                             structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
+                                             isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                             item.sceneIndex, item.movieIndex, item.structureIndex);
+    }
 
     m_ribbonSelectionShader.paintOverlay(m_commandList.Get(),
                                          structureCB()->GetGPUVirtualAddress(),
@@ -1342,7 +1419,8 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
 
     m_selectionShader.paintOverlays(m_commandList.Get(),
                                     structureCB()->GetGPUVirtualAddress(),
-                                    m_structureCBVStride);
+                                    m_structureCBVStride,
+                                    m_camera && m_camera->isOrthographic());
 
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
     m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
@@ -1413,7 +1491,8 @@ void DirectXRenderer::recordSelectionGlow(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
 
     m_selectionShader.paintGlow(m_commandList.Get(),
                                 structureCB()->GetGPUVirtualAddress(),
-                                m_structureCBVStride);
+                                m_structureCBVStride,
+                                m_camera && m_camera->isOrthographic());
 
     m_ribbonSelectionShader.paintGlow(m_commandList.Get(),
                                       structureCB()->GetGPUVirtualAddress(),

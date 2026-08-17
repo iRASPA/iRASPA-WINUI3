@@ -36,20 +36,25 @@ public:
   ID3D12Resource *copySceneDepthAndBind(ID3D12Device *device, ID3D12GraphicsCommandList *commandList,
                                         ID3D12Resource *sceneDepthResource);
 
-  void paintOpaque(ID3D12GraphicsCommandList *commandList,
+  // Both draw a single structure and return whether they issued a draw; the renderer calls them
+  // in back-to-front order so overlapping transparent volumes blend correctly. A true return
+  // also tells the caller that this shader's own root signature and descriptor heap are bound.
+  bool paintOpaque(ID3D12GraphicsCommandList *commandList,
                    D3D12_GPU_VIRTUAL_ADDRESS frameCBV,
                    D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
                    UINT structureCBVStride,
                    D3D12_GPU_VIRTUAL_ADDRESS isosurfaceCBVBase,
                    UINT isosurfaceCBVStride,
-                   D3D12_GPU_VIRTUAL_ADDRESS lightsCBV);
-  void paintTransparent(ID3D12GraphicsCommandList *commandList,
+                   D3D12_GPU_VIRTUAL_ADDRESS lightsCBV,
+                   size_t sceneIndex, size_t movieIndex, size_t structureIndex);
+  bool paintTransparent(ID3D12GraphicsCommandList *commandList,
                         D3D12_GPU_VIRTUAL_ADDRESS frameCBV,
                         D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
                         UINT structureCBVStride,
                         D3D12_GPU_VIRTUAL_ADDRESS isosurfaceCBVBase,
                         UINT isosurfaceCBVStride,
-                        D3D12_GPU_VIRTUAL_ADDRESS lightsCBV);
+                        D3D12_GPU_VIRTUAL_ADDRESS lightsCBV,
+                        size_t sceneIndex, size_t movieIndex, size_t structureIndex);
 
 private:
   struct MeshBuffers
@@ -72,7 +77,7 @@ private:
   void initializeVertexBuffers(ID3D12Device *device, ID3D12CommandQueue *commandQueue);
   void ensureUploadInfrastructure(ID3D12Device *device);
   void executeAndWait(ID3D12CommandQueue *queue);
-  void paintCommon(ID3D12GraphicsCommandList *commandList,
+  bool paintCommon(ID3D12GraphicsCommandList *commandList,
                    ID3D12PipelineState *pso,
                    bool opaquePass,
                    D3D12_GPU_VIRTUAL_ADDRESS frameCBV,
@@ -80,7 +85,8 @@ private:
                    UINT structureCBVStride,
                    D3D12_GPU_VIRTUAL_ADDRESS isosurfaceCBVBase,
                    UINT isosurfaceCBVStride,
-                   D3D12_GPU_VIRTUAL_ADDRESS lightsCBV);
+                   D3D12_GPU_VIRTUAL_ADDRESS lightsCBV,
+                   size_t sceneIndex, size_t movieIndex, size_t structureIndex);
   void ensureFarDepthTexture(ID3D12Device *device, ID3D12CommandQueue *commandQueue);
   void bindFarDepthToAllSlots(ID3D12Device *device);
   void createDepthCopyPipeline(ID3D12Device *device);

@@ -294,45 +294,42 @@ void DirectXEnergySurface::paintTransparent(ID3D12GraphicsCommandList *commandLi
                                             D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
                                             UINT structureCBVStride,
                                             D3D12_GPU_VIRTUAL_ADDRESS isosurfaceCBVBase,
-                                            UINT isosurfaceCBVStride)
+                                            UINT isosurfaceCBVStride,
+                                            size_t sceneIndex, size_t movieIndex, size_t structureIndex)
 {
   if (!_transparentPsoReady || !_transparentFrontCullPso || !_transparentBackCullPso)
     return;
+  if (sceneIndex >= _renderStructures.size() || movieIndex >= _renderStructures[sceneIndex].size())
+    return;
+  if (sceneIndex >= _buffers.size() || movieIndex >= _buffers[sceneIndex].size())
+    return;
 
-  size_t index = 0;
-  for (size_t i = 0; i < _renderStructures.size(); ++i)
-  {
-    for (size_t j = 0; j < _renderStructures[i].size(); ++j)
-    {
-      auto *source = dynamic_cast<RKRenderVolumetricDataSource *>(_renderStructures[i][j].get());
-      const MeshBuffers &bufs = _buffers[i][j];
-      if (source
-          && _renderStructures[i][j]->isVisible()
-          && source->drawAdsorptionSurface()
-          && source->adsorptionSurfaceRenderingMethod() == RKEnergySurfaceType::isoSurface
-          && source->adsorptionSurfaceOpacity() <= 0.99999
-          && bufs.numberOfIndices > 0
-          && bufs.instanceCount > 0
-          && bufs.vertexBuffer && bufs.instanceBuffer)
-      {
-        commandList->SetGraphicsRootConstantBufferView(
-            1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(index) * structureCBVStride);
-        commandList->SetGraphicsRootConstantBufferView(
-            4, isosurfaceCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(index) * isosurfaceCBVStride);
+  auto *source = dynamic_cast<RKRenderVolumetricDataSource *>(_renderStructures[sceneIndex][movieIndex].get());
+  const MeshBuffers &bufs = _buffers[sceneIndex][movieIndex];
+  if (!source
+      || !_renderStructures[sceneIndex][movieIndex]->isVisible()
+      || !source->drawAdsorptionSurface()
+      || source->adsorptionSurfaceRenderingMethod() != RKEnergySurfaceType::isoSurface
+      || source->adsorptionSurfaceOpacity() > 0.99999
+      || bufs.numberOfIndices == 0
+      || bufs.instanceCount == 0
+      || !bufs.vertexBuffer || !bufs.instanceBuffer)
+    return;
 
-        commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-        D3D12_VERTEX_BUFFER_VIEW views[2] = { bufs.vbv, bufs.instanceVbv };
-        commandList->IASetVertexBuffers(0, 2, views);
+  commandList->SetGraphicsRootConstantBufferView(
+      1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(structureIndex) * structureCBVStride);
+  commandList->SetGraphicsRootConstantBufferView(
+      4, isosurfaceCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(structureIndex) * isosurfaceCBVStride);
 
-        commandList->SetPipelineState(_transparentFrontCullPso.Get());
-        commandList->DrawInstanced(bufs.vertexCount, bufs.instanceCount, 0, 0);
+  commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  D3D12_VERTEX_BUFFER_VIEW views[2] = { bufs.vbv, bufs.instanceVbv };
+  commandList->IASetVertexBuffers(0, 2, views);
 
-        commandList->SetPipelineState(_transparentBackCullPso.Get());
-        commandList->DrawInstanced(bufs.vertexCount, bufs.instanceCount, 0, 0);
-      }
-      ++index;
-    }
-  }
+  commandList->SetPipelineState(_transparentFrontCullPso.Get());
+  commandList->DrawInstanced(bufs.vertexCount, bufs.instanceCount, 0, 0);
+
+  commandList->SetPipelineState(_transparentBackCullPso.Get());
+  commandList->DrawInstanced(bufs.vertexCount, bufs.instanceCount, 0, 0);
 }
 
 const std::string DirectXEnergySurface::_vertexShaderSource =

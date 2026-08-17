@@ -5,10 +5,10 @@
 
 #include "directxatomselectionglowshader.h"
 #include <iostream>
+#include "directxatomimposter.h"
 #include "directxatomselectionworleynoise3dshader.h"
 #include "directxdevicehelpers.h"
 #include "directxuniformstringliterals.h"
-#include "geometry/quadgeometry.h"
 #include <cstddef>
 
 void DirectXAtomSelectionGlowShader::loadShader(ID3D12Device * /*device*/)
@@ -18,26 +18,21 @@ void DirectXAtomSelectionGlowShader::loadShader(ID3D12Device * /*device*/)
 void DirectXAtomSelectionGlowShader::initialize(ID3D12Device *device, ID3D12RootSignature *rootSignature,
                                                 DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat)
 {
-  ComPtr<ID3DBlob> vs = compileShader(_vertexShaderSource, "VSMain", "vs_5_0");
-  ComPtr<ID3DBlob> ps = compileShader(_pixelShaderSource, "PSMain", "ps_5_0");
+  initializePSO(device, rootSignature, rtvFormat, dsvFormat, true);
+  initializePSO(device, rootSignature, rtvFormat, dsvFormat, false);
+}
+
+void DirectXAtomSelectionGlowShader::initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,
+                                                   DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat,
+                                                   bool orthographic)
+{
+  ComPtr<ID3DBlob> vs = compileShader(vertexShaderSource(orthographic), "VSMain", "vs_5_0");
+  ComPtr<ID3DBlob> ps = compileShader(pixelShaderSource(orthographic), "PSMain", "ps_5_0");
   if (!vs || !ps)
     return;
 
-  D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
-    { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-    { "INSTANCEPOSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
-      static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, position)),
-      D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-    { "INSTANCEAMBIENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
-      static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, ambient)),
-      D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-    { "INSTANCEDIFFUSE", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
-      static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, diffuse)),
-      D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-    { "INSTANCESCALE", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
-      static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, scale)),
-      D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-  };
+  D3D12_INPUT_ELEMENT_DESC inputLayout[DirectXAtomImposter::selectionInputLayoutSize];
+  DirectXAtomImposter::fillSelectionInputLayout(inputLayout);
 
   D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
   psoDesc.pRootSignature = rootSignature;
@@ -51,19 +46,24 @@ void DirectXAtomSelectionGlowShader::initialize(ID3D12Device *device, ID3D12Root
   psoDesc.DepthStencilState.DepthEnable = TRUE;
   psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
   psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-  psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
+  psoDesc.InputLayout = { inputLayout, DirectXAtomImposter::selectionInputLayoutSize };
   psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   psoDesc.NumRenderTargets = 1;
   psoDesc.RTVFormats[0] = rtvFormat;
   psoDesc.DSVFormat = dsvFormat;
+  // The glow is drawn into the 1x glow target against the resolved scene depth, never into the
+  // multisampled scene, so it stays single-sampled whatever the scene's sample count is.
   psoDesc.SampleDesc.Count = 1;
 
-  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&_pso))))
+  ComPtr<ID3D12PipelineState> &pso = orthographic ? _orthographicPso : _perspectivePso;
+  bool &ready = orthographic ? _orthographicPsoReady : _perspectivePsoReady;
+  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso))))
   {
-    std::cerr << "DirectXAtomSelectionGlowShader: failed to create PSO";
+    std::cerr << "DirectXAtomSelectionGlowShader: failed to create "
+              << (orthographic ? "orthographic" : "perspective") << " PSO";
     return;
   }
-  _psoReady = true;
+  ready = true;
 }
 
 void DirectXAtomSelectionGlowShader::setRenderStructures(
@@ -72,29 +72,27 @@ void DirectXAtomSelectionGlowShader::setRenderStructures(
   _renderStructures = std::move(structures);
 }
 
-void DirectXAtomSelectionGlowShader::reloadData(ID3D12Device *device)
+void DirectXAtomSelectionGlowShader::reloadData(ID3D12Device * /*device*/)
 {
-  if (!device)
-    return;
-
-  QuadGeometry quad;
-  const auto vertices = quad.vertices();
-  const auto indices = quad.indices();
-  DirectXDeviceHelpers::uploadIndexedMesh(device, _quadMesh,
-                                          vertices.data(), vertices.size() * sizeof(RKVertex), sizeof(RKVertex),
-                                          indices.data(), indices.size() * sizeof(short));
 }
 
 void DirectXAtomSelectionGlowShader::paint(ID3D12GraphicsCommandList *commandList,
                                            D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
                                            UINT structureCBVStride,
-                                           const DirectXAtomSelectionWorleyNoise3DShader &instanceSource)
+                                           const DirectXAtomSelectionWorleyNoise3DShader &instanceSource,
+                                           bool orthographic)
 {
-  if (!_psoReady || !_pso || _quadMesh.indexCount == 0)
+  ID3D12PipelineState *pso = orthographic ? (_orthographicPsoReady ? _orthographicPso.Get() : nullptr)
+                                          : (_perspectivePsoReady ? _perspectivePso.Get() : nullptr);
+  if (!pso || !instanceSource.isQuadReady())
     return;
 
-  commandList->SetPipelineState(_pso.Get());
+  commandList->SetPipelineState(pso);
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+  const D3D12_VERTEX_BUFFER_VIEW quadVbv = instanceSource.quadVbv();
+  const D3D12_INDEX_BUFFER_VIEW quadIbv = instanceSource.quadIbv();
+  const UINT quadIndexCount = instanceSource.quadIndexCount();
 
   size_t index = 0;
   for (size_t i = 0; i < _renderStructures.size(); ++i)
@@ -109,95 +107,44 @@ void DirectXAtomSelectionGlowShader::paint(ID3D12GraphicsCommandList *commandLis
         commandList->SetGraphicsRootConstantBufferView(
             1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(index) * structureCBVStride);
 
-        D3D12_VERTEX_BUFFER_VIEW views[2] = { _quadMesh.vbv, instanceSource.instanceVbv(i, j) };
+        D3D12_VERTEX_BUFFER_VIEW views[2] = { quadVbv, instanceSource.instanceVbv(i, j) };
         commandList->IASetVertexBuffers(0, 2, views);
-        commandList->IASetIndexBuffer(&_quadMesh.ibv);
-        commandList->DrawIndexedInstanced(_quadMesh.indexCount, instanceSource.instanceCount(i, j), 0, 0, 0);
+        commandList->IASetIndexBuffer(&quadIbv);
+        commandList->DrawIndexedInstanced(quadIndexCount, instanceSource.instanceCount(i, j), 0, 0, 0);
       }
       ++index;
     }
   }
 }
 
-const std::string DirectXAtomSelectionGlowShader::_vertexShaderSource =
+std::string DirectXAtomSelectionGlowShader::vertexShaderSource(bool orthographic)
+{
+  return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
-std::string(R"foo(
-struct VSInput
-{
-  float4 vertexPosition : POSITION;
-  float4 instancePosition : INSTANCEPOSITION;
-  float4 instanceAmbientColor : INSTANCEAMBIENT;
-  float4 instanceDiffuseColor : INSTANCEDIFFUSE;
-  float4 instanceScale : INSTANCESCALE;
-};
-
-struct VSOutput
-{
-  float4 position : SV_POSITION;
-  float4 eyePosition : TEXCOORD0;
-  float2 texcoords : TEXCOORD1;
-  nointerpolation float4 ambient : COLOR0;
-  nointerpolation float4 diffuse : COLOR1;
-  nointerpolation float4 sphereRadius : COLOR2;
-};
-
-VSOutput VSMain(VSInput input)
-{
-  VSOutput output;
-  float4 scale = structureUniforms.atomSelectionScaling * structureUniforms.atomScaleFactor * input.instanceScale;
-  output.ambient = lightUniforms.lights[0].ambient * structureUniforms.atomAmbientColor * input.instanceAmbientColor;
-  output.diffuse = lightUniforms.lights[0].diffuse * structureUniforms.atomDiffuseColor * input.instanceDiffuseColor;
-  output.eyePosition = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, input.instancePosition));
-  output.texcoords = input.vertexPosition.xy;
-  output.sphereRadius = scale;
-
-  float4 pos2 = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, input.instancePosition));
-  pos2.xy += scale.xy * float2(input.vertexPosition.x, input.vertexPosition.y);
-
-  float4 clip = mul(frameUniforms.projectionMatrix, pos2);
-  clip.z = clip.z * 0.5f + clip.w * 0.5f;
-  output.position = clip;
-  return output;
+DirectXAtomImposter::SelectionVertexInputStringLiteral +
+"struct VSOutput\n{" + DirectXAtomImposter::SelectionVaryingsStringLiteral + "};\n" +
+DirectXAtomImposter::selectionVertexShaderBody(orthographic);
 }
-)foo");
 
-const std::string DirectXAtomSelectionGlowShader::_pixelShaderSource =
+std::string DirectXAtomSelectionGlowShader::pixelShaderSource(bool orthographic)
+{
+  return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+"struct PSInput\n{" + DirectXAtomImposter::SelectionVaryingsStringLiteral + "};\n" +
+DirectXAtomImposter::DepthOutputStringLiteral +
 std::string(R"foo(
-struct PSInput
-{
-  float4 position : SV_POSITION;
-  float4 eyePosition : TEXCOORD0;
-  float2 texcoords : TEXCOORD1;
-  nointerpolation float4 ambient : COLOR0;
-  nointerpolation float4 diffuse : COLOR1;
-  nointerpolation float4 sphereRadius : COLOR2;
-};
-
-struct PSOutput
-{
-  float4 color : SV_TARGET;
-  float depth : SV_Depth;
-};
-
 PSOutput PSMain(PSInput input)
 {
   PSOutput output;
-  float x = input.texcoords.x;
-  float y = input.texcoords.y;
-  float zz = 1.0 - x * x - y * y;
-  if (zz <= 0.0)
-    discard;
-
-  float z = sqrt(zz);
-  float4 pos = input.eyePosition;
-  pos.z += input.sphereRadius.z * z;
-  pos = mul(frameUniforms.projectionMatrix, pos);
-  output.depth = 0.5 * (pos.z / pos.w) + 0.5;
+)foo") + DirectXAtomImposter::hitStringLiteral(orthographic) + std::string(R"foo(
+  // The glow is a flat silhouette that the blur pass turns into a halo, so the hit only
+  // contributes its depth and the atom's own colour.
   output.color = float4(structureUniforms.atomSelectionIntensity * (input.ambient.xyz + input.diffuse.xyz), 1.0);
   return output;
 }
 )foo");
+}

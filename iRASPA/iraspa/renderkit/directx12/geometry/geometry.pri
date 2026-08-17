@@ -6,11 +6,8 @@ SOURCES += \
     $$PWD/arrowzgeometry.cpp \
     $$PWD/axessystemdefaultgeometry.cpp \
     $$PWD/backplanegeometry.cpp \
-    $$PWD/cappedcylinderdoublebondgeometry.cpp \
     $$PWD/cappedcylindergeometry.cpp \
-    $$PWD/cappedcylinderpartialdoublebondgeometry.cpp \
     $$PWD/cappedcylindersinglebondgeometry.cpp \
-    $$PWD/cappedcylindertriplebondgeometry.cpp \
     $$PWD/cappednsidedprismgeometry.cpp \
     $$PWD/cubegeometry.cpp \
     $$PWD/cubeprimitivegeometry.cpp \
@@ -29,11 +26,8 @@ HEADERS += \
     $$PWD/arrowzgeometry.h \
     $$PWD/axessystemdefaultgeometry.h \
     $$PWD/backplanegeometry.h \
-    $$PWD/cappedcylinderdoublebondgeometry.h \
     $$PWD/cappedcylindergeometry.h \
-    $$PWD/cappedcylinderpartialdoublebondgeometry.h \
     $$PWD/cappedcylindersinglebondgeometry.h \
-    $$PWD/cappedcylindertriplebondgeometry.h \
     $$PWD/cappednsidedprismgeometry.h \
     $$PWD/cubegeometry.h \
     $$PWD/cubeprimitivegeometry.h \

@@ -5,6 +5,7 @@
 
 #include "directxpickingshader.h"
 #include <iostream>
+#include "directxbondimposter.h"
 #include "directxdevicehelpers.h"
 #include "directxribbonshader.h"
 #include "directxatomsphereshader.h"
@@ -41,23 +42,25 @@ void DirectXPickingShader::initialize(ID3D12Device *device, ID3D12RootSignature 
   ensurePickCommandResources(device);
 
   {
-    ComPtr<ID3DBlob> vs = compileShader(_atomVertexShaderSource, "VSMain", "vs_5_0");
-    ComPtr<ID3DBlob> ps = compileShader(_atomPixelShaderSource, "PSMain", "ps_5_0");
-    if (vs && ps)
-    {
-      D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "NORMAL",   0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "INSTANCEPOSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
-          static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, position)),
-          D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-        { "INSTANCESCALE", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
-          static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, scale)),
-          D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-        { "INSTANCETAG", 0, DXGI_FORMAT_R32_SINT, 1,
-          static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, tag)),
-          D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-      };
+    D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
+      { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+      { "NORMAL",   0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+      { "INSTANCEPOSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
+        static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, position)),
+        D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+      { "INSTANCESCALE", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
+        static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, scale)),
+        D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+      { "INSTANCETAG", 0, DXGI_FORMAT_R32_SINT, 1,
+        static_cast<UINT>(offsetof(RKInPerInstanceAttributesAtoms, tag)),
+        D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
+    };
+
+    auto createAtomPso = [&](bool orthographic) {
+      ComPtr<ID3DBlob> vs = compileShader(atomVertexShaderSource(orthographic), "VSMain", "vs_5_0");
+      ComPtr<ID3DBlob> ps = compileShader(atomPixelShaderSource(orthographic), "PSMain", "ps_5_0");
+      if (!vs || !ps)
+        return;
 
       D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
       psoDesc.pRootSignature = rootSignature;
@@ -78,48 +81,43 @@ void DirectXPickingShader::initialize(ID3D12Device *device, ID3D12RootSignature 
       psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
       psoDesc.SampleDesc.Count = 1;
 
-      if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&_atomPso))))
-        std::cerr << "DirectXPickingShader: failed to create atom pick PSO";
+      ComPtr<ID3D12PipelineState> &pso = orthographic ? _atomPso : _atomPerspectivePso;
+      bool &ready = orthographic ? _atomPsoReady : _atomPerspectivePsoReady;
+      if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso))))
+        std::cerr << "DirectXPickingShader: failed to create "
+                  << (orthographic ? "orthographic" : "perspective") << " atom pick PSO";
       else
-        _atomPsoReady = true;
-    }
+        ready = true;
+    };
+
+    createAtomPso(true);
+    createAtomPso(false);
   }
 
   {
     ComPtr<ID3DBlob> vs = compileShader(_bondVertexShaderSource, "VSMain", "vs_5_0");
-    ComPtr<ID3DBlob> externalVs = compileShader(_externalBondVertexShaderSource, "VSMain", "vs_5_0");
     ComPtr<ID3DBlob> ps = compileShader(_bondPixelShaderSource, "PSMain", "ps_5_0");
+    ComPtr<ID3DBlob> externalPs = compileShader(_externalBondPixelShaderSource, "PSMain", "ps_5_0");
     if (vs && ps)
     {
-      D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "NORMAL",   0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 16, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        // HLSL INSTANCEPOSITION1 == semantic INSTANCEPOSITION, index 1.
-        { "INSTANCEPOSITION", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
-          static_cast<UINT>(offsetof(RKInPerInstanceAttributesBonds, position1)),
-          D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-        { "INSTANCEPOSITION", 2, DXGI_FORMAT_R32G32B32A32_FLOAT, 1,
-          static_cast<UINT>(offsetof(RKInPerInstanceAttributesBonds, position2)),
-          D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-        { "INSTANCETAG", 0, DXGI_FORMAT_R32_SINT, 1,
-          static_cast<UINT>(offsetof(RKInPerInstanceAttributesBonds, tag)),
-          D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA, 1 },
-      };
+      D3D12_INPUT_ELEMENT_DESC inputLayout[DirectXBondImposter::pickingInputLayoutSize];
+      DirectXBondImposter::fillPickingInputLayout(inputLayout);
 
-      auto createBondPso = [&](ID3DBlob *shaderVs, ComPtr<ID3D12PipelineState> &out, bool &ready, const char *name) {
+      auto createBondPso = [&](ID3DBlob *shaderPs, ComPtr<ID3D12PipelineState> &out, bool &ready, const char *name) {
         D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
         psoDesc.pRootSignature = rootSignature;
-        psoDesc.VS = { shaderVs->GetBufferPointer(), shaderVs->GetBufferSize() };
-        psoDesc.PS = { ps->GetBufferPointer(), ps->GetBufferSize() };
+        psoDesc.VS = { vs->GetBufferPointer(), vs->GetBufferSize() };
+        psoDesc.PS = { shaderPs->GetBufferPointer(), shaderPs->GetBufferSize() };
         psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
         psoDesc.SampleMask = UINT_MAX;
         psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+        // The imposter hull is built in the vertex shader with view-dependent winding.
         psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
         psoDesc.RasterizerState.FrontCounterClockwise = TRUE;
         psoDesc.DepthStencilState.DepthEnable = TRUE;
         psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
         psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-        psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
+        psoDesc.InputLayout = { inputLayout, DirectXBondImposter::pickingInputLayoutSize };
         psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         psoDesc.NumRenderTargets = 1;
         psoDesc.RTVFormats[0] = DXGI_FORMAT_R32G32B32A32_UINT;
@@ -132,9 +130,9 @@ void DirectXPickingShader::initialize(ID3D12Device *device, ID3D12RootSignature 
           ready = true;
       };
 
-      createBondPso(vs.Get(), _bondPso, _bondPsoReady, "bond pick PSO");
-      if (externalVs)
-        createBondPso(externalVs.Get(), _externalBondPso, _externalBondPsoReady, "external bond pick PSO");
+      createBondPso(ps.Get(), _bondPso, _bondPsoReady, "bond pick PSO");
+      if (externalPs)
+        createBondPso(externalPs.Get(), _externalBondPso, _externalBondPsoReady, "external bond pick PSO");
     }
   }
 
@@ -387,12 +385,14 @@ void DirectXPickingShader::drawAtomPick(ID3D12GraphicsCommandList *commandList,
                                         D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
                                         UINT structureCBVStride)
 {
-  if (!_atomPsoReady || !_atomPso || !_atomSphereShader || !_atomOrthoImposterShader)
+  ID3D12PipelineState *pso = _orthographic ? (_atomPsoReady ? _atomPso.Get() : nullptr)
+                                           : (_atomPerspectivePsoReady ? _atomPerspectivePso.Get() : nullptr);
+  if (!pso || !_atomSphereShader || !_atomOrthoImposterShader)
     return;
   if (!_atomOrthoImposterShader->isQuadReady())
     return;
 
-  commandList->SetPipelineState(_atomPso.Get());
+  commandList->SetPipelineState(pso);
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
   const D3D12_VERTEX_BUFFER_VIEW quadVbv = _atomOrthoImposterShader->quadVbv();
@@ -629,7 +629,24 @@ std::array<int, 4> DirectXPickingShader::pickTexture(D3D12_GPU_VIRTUAL_ADDRESS f
   return pixel;
 }
 
-const std::string DirectXPickingShader::_atomVertexShaderSource =
+namespace
+{
+// The identifier of the atom rides along with the geometry the scene pass rasterizes, so the
+// silhouette and the depth written here are the same surface the user sees and clicks on.
+const char *kAtomPickVaryings = R"foo(
+  float4 position : SV_POSITION;
+  float4 eye_position : TEXCOORD0;
+  float2 texcoords : TEXCOORD1;
+  float3 frag_pos : TEXCOORD2;
+  nointerpolation float3 frag_center : TEXCOORD3;
+  nointerpolation float4 sphere_radius : TEXCOORD4;
+  nointerpolation int instanceId : TEXCOORD5;
+)foo";
+} // namespace
+
+std::string DirectXPickingShader::atomVertexShaderSource(bool orthographic)
+{
+  return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 std::string(R"foo(
@@ -644,13 +661,7 @@ struct VSInput
 
 struct VSOutput
 {
-  float4 position : SV_POSITION;
-  float4 eye_position : TEXCOORD0;
-  float2 texcoords : TEXCOORD1;
-  float3 frag_pos : TEXCOORD2;
-  nointerpolation float4 sphere_radius : TEXCOORD3;
-  nointerpolation int instanceId : TEXCOORD4;
-};
+)foo") + kAtomPickVaryings + std::string(R"foo(};
 
 VSOutput VSMain(VSInput input)
 {
@@ -659,11 +670,12 @@ VSOutput VSMain(VSInput input)
 
   float4 scale = structureUniforms.atomScaleFactor * input.instanceScale;
   output.eye_position = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, input.instancePosition));
+  output.frag_center = output.eye_position.xyz;
   output.texcoords = input.vertexPosition.xy;
   output.sphere_radius = scale;
 
-  float4 pos2 = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, input.instancePosition));
-  pos2.xy += scale.xy * input.vertexPosition.xy;
+  float4 pos2 = output.eye_position;
+  pos2.xy += )foo") + (orthographic ? "" : "1.5 * ") + std::string(R"foo(scale.xy * input.vertexPosition.xy;
   output.frag_pos = pos2.xyz;
 
   float4 clip = mul(frameUniforms.projectionMatrix, pos2);
@@ -672,20 +684,42 @@ VSOutput VSMain(VSInput input)
   return output;
 }
 )foo");
+}
 
-const std::string DirectXPickingShader::_atomPixelShaderSource =
+std::string DirectXPickingShader::atomPixelShaderSource(bool orthographic)
+{
+  const std::string hit = orthographic ? R"foo(
+  float x = input.texcoords.x;
+  float y = input.texcoords.y;
+  float zz = 1.0 - x * x - y * y;
+  if (zz <= 0.0)
+    discard;
+
+  float4 pos = input.eye_position;
+  pos.z += input.sphere_radius.z * sqrt(zz);
+  pos = mul(frameUniforms.projectionMatrix, pos);
+)foo" : R"foo(
+  float3 rij = -input.frag_center;
+  float3 vij = input.frag_pos;
+
+  float A = dot(vij, vij);
+  float B = dot(rij, vij);
+  float C = dot(rij, rij) - input.sphere_radius.z * input.sphere_radius.z;
+  float argument = B * B - A * C;
+  if (argument < 0.0)
+    discard;
+
+  float3 hit = (-C / (B - sqrt(argument))) * vij;
+  float4 pos = mul(frameUniforms.projectionMatrix, float4(hit, 1.0));
+)foo";
+
+  return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 std::string(R"foo(
 struct PSInput
 {
-  float4 position : SV_POSITION;
-  float4 eye_position : TEXCOORD0;
-  float2 texcoords : TEXCOORD1;
-  float3 frag_pos : TEXCOORD2;
-  nointerpolation float4 sphere_radius : TEXCOORD3;
-  nointerpolation int instanceId : TEXCOORD4;
-};
+)foo") + kAtomPickVaryings + std::string(R"foo(};
 
 struct PSOutput
 {
@@ -696,24 +730,13 @@ struct PSOutput
 PSOutput PSMain(PSInput input)
 {
   PSOutput output;
-
-  float x = input.texcoords.x;
-  float y = input.texcoords.y;
-  float zz = 1.0 - x * x - y * y;
-
-  if (zz <= 0.0)
-    discard;
-
-  float z = sqrt(zz);
-  float4 pos = input.eye_position;
-  pos.z += input.sphere_radius.z * z;
-  pos = mul(frameUniforms.projectionMatrix, pos);
+)foo") + hit + std::string(R"foo(
   output.depth = 0.5 * (pos.z / pos.w) + 0.5;
-
   output.color = uint4(1, structureUniforms.sceneIdentifier, structureUniforms.MovieIdentifier, input.instanceId);
   return output;
 }
 )foo");
+}
 
 const std::string DirectXPickingShader::_bondVertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
@@ -721,169 +744,93 @@ DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 std::string(R"foo(
 struct VSInput
 {
-  float4 vertexPosition : POSITION;
-  float4 vertexNormal : NORMAL;
-  float4 instancePosition1 : INSTANCEPOSITION1;
-  float4 instancePosition2 : INSTANCEPOSITION2;
+)foo") + DirectXBondImposter::HullVertexInputStringLiteral + std::string(R"foo(
   int instanceTag : INSTANCETAG;
 };
 
 struct VSOutput
 {
-  float4 position : SV_POSITION;
-  nointerpolation int instanceId : TEXCOORD0;
+)foo") + DirectXBondImposter::PickingVaryingsStringLiteral + std::string(R"foo(
 };
-
+)foo") + DirectXBondImposter::HullStringLiteral + std::string(R"foo(
 VSOutput VSMain(VSInput input)
 {
   VSOutput output;
   output.instanceId = input.instanceTag;
 
-  float4 pos = float4(input.vertexPosition.xyz, 1.0);
   float4 pos1 = input.instancePosition1;
   float4 pos2 = input.instancePosition2;
 
-  float3 dr = (pos1 - pos2).xyz;
-  float bondLength = max(length(dr), 1e-5);
+  BondImposterHull hull = bondImposterHull(pos1, pos2, input.vertexPosition.xyz,
+                                           input.vertexNormal.xy, input.vertexPosition.w, 1.0);
+  output.frag_pos = hull.posEye;
+  output.pointA = hull.a;
+  output.pointB = hull.b;
+  output.radius = hull.radius;
 
-  float4 scale;
-  scale.x = max(structureUniforms.bondScaling, 0.02);
-  scale.y = bondLength;
-  scale.z = max(structureUniforms.bondScaling, 0.02);
-  scale.w = 1.0;
-
-  dr /= bondLength;
-  float3 v1 = normalize(abs(dr.x) > abs(dr.z) ? float3(-dr.y, dr.x, 0.0) : float3(0.0, -dr.z, dr.y));
-  float3 v2 = normalize(cross(dr, v1));
-  float3 c0 = -v1;
-  float3 c1 = -dr;
-  float3 c2 = -v2;
-
-  float3 local = (scale * pos).xyz;
-  float3 world = pos1.xyz + c0 * local.x + c1 * local.y + c2 * local.z;
-  float4 clip = mul(frameUniforms.mvpMatrix, mul(structureUniforms.modelMatrix, float4(world, 1.0)));
-  clip.z = clip.z * 0.5f + clip.w * 0.5f;
-  output.position = clip;
-  return output;
-}
-)foo");
-
-const std::string DirectXPickingShader::_externalBondVertexShaderSource =
-DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
-DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-std::string(R"foo(
-struct VSInput
-{
-  float4 vertexPosition : POSITION;
-  float4 vertexNormal : NORMAL;
-  float4 instancePosition1 : INSTANCEPOSITION1;
-  float4 instancePosition2 : INSTANCEPOSITION2;
-  int instanceTag : INSTANCETAG;
-};
-
-struct VSOutput
-{
-  float4 position : SV_POSITION;
-  nointerpolation int instanceId : TEXCOORD0;
-  float4 clip0123 : SV_ClipDistance0;
-  float2 clip45 : SV_ClipDistance1;
-};
-
-float frontFacing(float4 pos0, float4 pos1, float4 pos2)
-{
-  return pos0.x * pos1.y - pos1.x * pos0.y + pos1.x * pos2.y - pos2.x * pos1.y + pos2.x * pos0.y - pos0.x * pos2.y;
-}
-
-VSOutput VSMain(VSInput input)
-{
-  VSOutput output;
-  output.instanceId = input.instanceTag;
-
-  float4 pos = float4(input.vertexPosition.xyz, 1.0);
-  float4 pos1 = input.instancePosition1;
-  float4 pos2 = input.instancePosition2;
-
-  float3 dr = (pos1 - pos2).xyz;
-  float bondLength = max(length(dr), 1e-5);
-
-  float4 scale;
-  scale.x = max(structureUniforms.bondScaling, 0.02);
-  scale.y = bondLength;
-  scale.z = max(structureUniforms.bondScaling, 0.02);
-  scale.w = 1.0;
-
-  dr /= bondLength;
-  float3 v1 = normalize(abs(dr.x) > abs(dr.z) ? float3(-dr.y, dr.x, 0.0) : float3(0.0, -dr.z, dr.y));
-  float3 v2 = normalize(cross(dr, v1));
-  float3 c0 = -v1;
-  float3 c1 = -dr;
-  float3 c2 = -v2;
-
-  float3 local = (scale * pos).xyz;
-  float3 world = pos1.xyz + c0 * local.x + c1 * local.y + c2 * local.z;
-  float4 worldPos = float4(world, 1.0);
-  float4 clip = mul(frameUniforms.mvpMatrix, mul(structureUniforms.modelMatrix, worldPos));
+  float4 clip = mul(frameUniforms.projectionMatrix, float4(hull.posEye, 1.0));
   clip.z = clip.z * 0.5f + clip.w * 0.5f;
   output.position = clip;
 
-  float v_clipDistLeft = dot(structureUniforms.clipPlaneLeft, worldPos);
-  float v_clipDistRight = dot(structureUniforms.clipPlaneRight, worldPos);
-  float v_clipDistTop = dot(structureUniforms.clipPlaneTop, worldPos);
-  float v_clipDistBottom = dot(structureUniforms.clipPlaneBottom, worldPos);
-  float v_clipDistFront = dot(structureUniforms.clipPlaneFront, worldPos);
-  float v_clipDistBack = dot(structureUniforms.clipPlaneBack, worldPos);
-
-  float4x4 mvpMatrix = mul(frameUniforms.mvpMatrix, structureUniforms.modelMatrix);
-  float4 boxPosition0 = mul(mvpMatrix, mul(structureUniforms.boxMatrix, float4(0.0, 0.0, 0.0, 1.0)));
-  float4 boxPosition1 = mul(mvpMatrix, mul(structureUniforms.boxMatrix, float4(1.0, 0.0, 0.0, 1.0)));
-  float4 boxPosition2 = mul(mvpMatrix, mul(structureUniforms.boxMatrix, float4(1.0, 1.0, 0.0, 1.0)));
-  float4 boxPosition3 = mul(mvpMatrix, mul(structureUniforms.boxMatrix, float4(0.0, 1.0, 0.0, 1.0)));
-  float4 boxPosition4 = mul(mvpMatrix, mul(structureUniforms.boxMatrix, float4(0.0, 0.0, 1.0, 1.0)));
-  float4 boxPosition5 = mul(mvpMatrix, mul(structureUniforms.boxMatrix, float4(1.0, 0.0, 1.0, 1.0)));
-  float4 boxPosition6 = mul(mvpMatrix, mul(structureUniforms.boxMatrix, float4(1.0, 1.0, 1.0, 1.0)));
-  float4 boxPosition7 = mul(mvpMatrix, mul(structureUniforms.boxMatrix, float4(0.0, 1.0, 1.0, 1.0)));
-
-  boxPosition0 /= boxPosition0.w;
-  boxPosition1 /= boxPosition1.w;
-  boxPosition2 /= boxPosition2.w;
-  boxPosition3 /= boxPosition3.w;
-  boxPosition4 /= boxPosition4.w;
-  boxPosition5 /= boxPosition5.w;
-  boxPosition6 /= boxPosition6.w;
-  boxPosition7 /= boxPosition7.w;
-
-  float leftFrontfacing = frontFacing(boxPosition0, boxPosition3, boxPosition7);
-  float rightFrontfacing = frontFacing(boxPosition1, boxPosition5, boxPosition2);
-  float topFrontFacing = frontFacing(boxPosition3, boxPosition2, boxPosition7);
-  float bottomFrontFacing = frontFacing(boxPosition0, boxPosition4, boxPosition1);
-  float frontFrontFacing = frontFacing(boxPosition4, boxPosition6, boxPosition5);
-  float backFrontFacing = frontFacing(boxPosition0, boxPosition1, boxPosition2);
-
-  // Invert OpenGL frontFacing test: projection m22 is Y-flipped for D3D.
-  output.clip0123 = float4(
-      (leftFrontfacing < 0.0) ? v_clipDistLeft : 0.0,
-      (rightFrontfacing < 0.0) ? v_clipDistRight : 0.0,
-      (topFrontFacing < 0.0) ? v_clipDistTop : 0.0,
-      (bottomFrontFacing < 0.0) ? v_clipDistBottom : 0.0);
-  output.clip45 = float2(
-      (frontFrontFacing < 0.0) ? v_clipDistFront : 0.0,
-      (backFrontFacing < 0.0) ? v_clipDistBack : 0.0);
+  // Bond visibility is encoded in position.w (±1); collapse the whole hull.
+  if (pos1.w < 0.0 || pos2.w < 0.0)
+  {
+    output.position = float4(0.0, 0.0, 0.0, 0.0);
+  }
   return output;
 }
 )foo");
 
 const std::string DirectXPickingShader::_bondPixelShaderSource =
+DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 std::string(R"foo(
 struct PSInput
 {
-  float4 position : SV_POSITION;
-  nointerpolation int instanceId : TEXCOORD0;
+)foo") + DirectXBondImposter::PickingVaryingsStringLiteral + std::string(R"foo(
 };
-
-uint4 PSMain(PSInput input) : SV_TARGET
+)foo") + DirectXBondImposter::PickingOutputStringLiteral + DirectXBondImposter::IntersectStringLiteral +
+std::string(R"foo(
+PSOutput PSMain(PSInput input)
 {
-  return uint4(2, structureUniforms.sceneIdentifier, structureUniforms.MovieIdentifier, input.instanceId);
+  PSOutput output;
+)foo") + DirectXBondImposter::RayStringLiteral + std::string(R"foo(
+  float3 N;
+  float ct;
+  float t = cylinderIntersect(ro, rd, input.pointA, input.pointB, input.radius, N, ct);
+  if (t < 0.0) discard;
+
+  float3 pos = ro + t * rd;
+)foo") + DirectXBondImposter::WriteDepthStringLiteral + std::string(R"foo(
+  output.color = uint4(2, structureUniforms.sceneIdentifier, structureUniforms.MovieIdentifier, input.instanceId);
+  return output;
+}
+)foo");
+
+const std::string DirectXPickingShader::_externalBondPixelShaderSource =
+DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
+DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
+std::string(R"foo(
+struct PSInput
+{
+)foo") + DirectXBondImposter::PickingVaryingsStringLiteral + std::string(R"foo(
+};
+)foo") + DirectXBondImposter::PickingOutputStringLiteral + DirectXBondImposter::ClippedIntersectStringLiteral +
+std::string(R"foo(
+PSOutput PSMain(PSInput input)
+{
+  PSOutput output;
+)foo") + DirectXBondImposter::RayStringLiteral + DirectXBondImposter::ToStructureStringLiteral +
+std::string(R"foo(
+  float3 N;
+  float ct;
+  float t = clippedCylinderIntersect(ro, rd, input.pointA, input.pointB, input.radius, toStructure, N, ct);
+  if (t < 0.0) discard;
+
+  float3 pos = ro + t * rd;
+)foo") + DirectXBondImposter::WriteDepthStringLiteral + std::string(R"foo(
+  output.color = uint4(2, structureUniforms.sceneIdentifier, structureUniforms.MovieIdentifier, input.instanceId);
+  return output;
 }
 )foo");
 

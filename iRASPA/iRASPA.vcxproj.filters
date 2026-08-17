@@ -473,19 +473,10 @@
     <ClCompile Include="iraspa\renderkit\directx12\geometry\backplanegeometry.cpp">
       <Filter>Kits\renderkit\directx12\geometry</Filter>
     </ClCompile>
-    <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylinderdoublebondgeometry.cpp">
-      <Filter>Kits\renderkit\directx12\geometry</Filter>
-    </ClCompile>
     <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylindergeometry.cpp">
       <Filter>Kits\renderkit\directx12\geometry</Filter>
     </ClCompile>
-    <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylinderpartialdoublebondgeometry.cpp">
-      <Filter>Kits\renderkit\directx12\geometry</Filter>
-    </ClCompile>
     <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylindersinglebondgeometry.cpp">
-      <Filter>Kits\renderkit\directx12\geometry</Filter>
-    </ClCompile>
-    <ClCompile Include="iraspa\renderkit\directx12\geometry\cappedcylindertriplebondgeometry.cpp">
       <Filter>Kits\renderkit\directx12\geometry</Filter>
     </ClCompile>
     <ClCompile Include="iraspa\renderkit\directx12\geometry\cappednsidedprismgeometry.cpp">
@@ -1282,19 +1273,10 @@
     <ClInclude Include="iraspa\renderkit\directx12\geometry\backplanegeometry.h">
       <Filter>Kits\renderkit\directx12\geometry</Filter>
     </ClInclude>
-    <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylinderdoublebondgeometry.h">
-      <Filter>Kits\renderkit\directx12\geometry</Filter>
-    </ClInclude>
     <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylindergeometry.h">
       <Filter>Kits\renderkit\directx12\geometry</Filter>
     </ClInclude>
-    <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylinderpartialdoublebondgeometry.h">
-      <Filter>Kits\renderkit\directx12\geometry</Filter>
-    </ClInclude>
     <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylindersinglebondgeometry.h">
-      <Filter>Kits\renderkit\directx12\geometry</Filter>
-    </ClInclude>
-    <ClInclude Include="iraspa\renderkit\directx12\geometry\cappedcylindertriplebondgeometry.h">
       <Filter>Kits\renderkit\directx12\geometry</Filter>
     </ClInclude>
     <ClInclude Include="iraspa\renderkit\directx12\geometry\cappednsidedprismgeometry.h">

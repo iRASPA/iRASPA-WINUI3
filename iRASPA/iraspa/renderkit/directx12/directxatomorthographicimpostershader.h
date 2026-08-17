@@ -39,12 +39,19 @@ public:
 private:
   void deleteBuffers();
 
+  void initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,
+                     DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat, bool perSample);
+
   DirectXAtomSphereShader &_atomSphereShader;
+  // The quality path shades per-sample, the fast path once per pixel; the renderer picks between
+  // them per frame.
   ComPtr<ID3D12PipelineState> _pso;
+  ComPtr<ID3D12PipelineState> _perPixelPso;
   std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
   DirectXDeviceHelpers::IndexedMesh _quadMesh;
   bool _psoReady = false;
+  bool _perPixelPsoReady = false;
 
   static const std::string _vertexShaderSource;
-  static const std::string _pixelShaderSource;
+  static std::string pixelShaderSource(bool perSample);
 };

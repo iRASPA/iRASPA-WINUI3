@@ -13,6 +13,8 @@
 #include "rkrenderkitprotocols.h"
 #include "rkrenderuniforms.h"
 
+// Besides drawing the Worley-noise overlay this shader owns the selected-atom instance buffers and
+// the imposter quad that the striped and glow overlays draw with as well.
 class DirectXAtomSelectionWorleyNoise3DShader : public DirectXShader
 {
 public:
@@ -25,20 +27,23 @@ public:
   void reloadData(ID3D12Device *device);
   void paint(ID3D12GraphicsCommandList *commandList,
              D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
-             UINT structureCBVStride);
+             UINT structureCBVStride,
+             bool orthographic);
 
   bool isInstanceReady(size_t i, size_t j) const;
   UINT instanceCount(size_t i, size_t j) const;
   D3D12_VERTEX_BUFFER_VIEW instanceVbv(size_t i, size_t j) const;
-  bool isSphereMeshReady() const;
-  UINT sphereIndexCount() const;
-  D3D12_VERTEX_BUFFER_VIEW sphereVbv() const;
-  D3D12_INDEX_BUFFER_VIEW sphereIbv() const;
+  bool isQuadReady() const;
+  UINT quadIndexCount() const;
+  D3D12_VERTEX_BUFFER_VIEW quadVbv() const;
+  D3D12_INDEX_BUFFER_VIEW quadIbv() const;
   bool hasGlowWork() const;
 
 private:
   void deleteBuffers();
   void generateBuffers();
+  void initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,
+                     DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat, bool orthographic);
 
   struct StructureBuffers
   {
@@ -47,13 +52,15 @@ private:
     UINT instanceCount = 0;
   };
 
-  DirectXDeviceHelpers::IndexedMesh _sphereMesh;
+  DirectXDeviceHelpers::IndexedMesh _quadMesh;
 
-  ComPtr<ID3D12PipelineState> _pso;
+  ComPtr<ID3D12PipelineState> _orthographicPso;
+  ComPtr<ID3D12PipelineState> _perspectivePso;
   std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
   std::vector<std::vector<StructureBuffers>> _buffers;
-  bool _psoReady = false;
+  bool _orthographicPsoReady = false;
+  bool _perspectivePsoReady = false;
 
-  static const std::string _vertexShaderSource;
-  static const std::string _pixelShaderSource;
+  static std::string vertexShaderSource(bool orthographic);
+  static std::string pixelShaderSource(bool orthographic);
 };

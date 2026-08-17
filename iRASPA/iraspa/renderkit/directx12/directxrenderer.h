@@ -131,8 +131,18 @@ private:
     trucking = 4
   };
 
+  // One transparent structure, plus the flat index it occupies in the structure and
+  // isosurface constant buffers.
+  struct RenderOrderItem
+  {
+    size_t sceneIndex;
+    size_t movieIndex;
+    size_t structureIndex;
+  };
+
   void markNeedsDisplay();
   void notifyCameraChanged();
+  std::vector<RenderOrderItem> backToFrontRenderOrder() const;
   void recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv, D3D12_CPU_DESCRIPTOR_HANDLE dsv,
                        int width, int height);
   void recordSelectionGlow(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv, D3D12_CPU_DESCRIPTOR_HANDLE destRtv,

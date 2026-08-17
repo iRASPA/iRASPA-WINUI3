@@ -279,12 +279,35 @@ void DirectXObjectShader::reloadData(ID3D12Device *device)
     reloadKind(device, static_cast<Kind>(k));
 }
 
-void DirectXObjectShader::paintKind(ID3D12GraphicsCommandList *commandList, Kind kind, bool opaque,
-                                    D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
-                                    UINT structureCBVStride)
+void DirectXObjectShader::drawKind(ID3D12GraphicsCommandList *commandList, Kind kind, bool opaque,
+                                   D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
+                                   UINT structureCBVStride,
+                                   size_t sceneIndex, size_t movieIndex, size_t structureIndex)
 {
   ID3D12PipelineState *pso = opaque ? _opaquePso.Get() : _transparentPso.Get();
   if (!commandList || !pso)
+    return;
+
+  const size_t ki = static_cast<size_t>(kind);
+  if (sceneIndex >= _renderStructures.size() || movieIndex >= _renderStructures[sceneIndex].size())
+    return;
+  if (sceneIndex >= _buffers[ki].size() || movieIndex >= _buffers[ki][sceneIndex].size())
+    return;
+
+  auto *prim = dynamic_cast<RKRenderPrimitiveObjectsSource *>(_renderStructures[sceneIndex][movieIndex].get());
+  const MeshBuffers &bufs = _buffers[ki][sceneIndex][movieIndex];
+  if (!prim
+      || !prim->drawAtoms()
+      || !_renderStructures[sceneIndex][movieIndex]->isVisible()
+      || bufs.indexCount == 0
+      || bufs.instanceCount == 0
+      || !bufs.vertexBuffer
+      || !bufs.indexBuffer
+      || !bufs.instanceBuffer)
+    return;
+
+  const double opacity = prim->primitiveOpacity();
+  if (opaque ? (opacity <= 0.99999) : (opacity > 0.99999))
     return;
 
   commandList->SetPipelineState(pso);
@@ -292,43 +315,12 @@ void DirectXObjectShader::paintKind(ID3D12GraphicsCommandList *commandList, Kind
   const bool strip = (kind == Kind::crystalEllipse || kind == Kind::ellipse);
   commandList->IASetPrimitiveTopology(
       strip ? D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP : D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-  const size_t ki = static_cast<size_t>(kind);
-  size_t index = 0;
-  for (size_t i = 0; i < _renderStructures.size(); ++i)
-  {
-    for (size_t j = 0; j < _renderStructures[i].size(); ++j)
-    {
-      auto *prim = dynamic_cast<RKRenderPrimitiveObjectsSource *>(_renderStructures[i][j].get());
-      const MeshBuffers &bufs = _buffers[ki][i][j];
-      const bool draw = prim
-          && prim->drawAtoms()
-          && _renderStructures[i][j]->isVisible()
-          && bufs.indexCount > 0
-          && bufs.instanceCount > 0
-          && bufs.vertexBuffer
-          && bufs.indexBuffer
-          && bufs.instanceBuffer;
-
-      bool passMatch = false;
-      if (draw)
-      {
-        const double opacity = prim->primitiveOpacity();
-        passMatch = opaque ? (opacity > 0.99999) : (opacity <= 0.99999);
-      }
-
-      if (passMatch)
-      {
-        commandList->SetGraphicsRootConstantBufferView(
-            1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(index) * structureCBVStride);
-        D3D12_VERTEX_BUFFER_VIEW views[2] = { bufs.vbv, bufs.instanceVbv };
-        commandList->IASetVertexBuffers(0, 2, views);
-        commandList->IASetIndexBuffer(&bufs.ibv);
-        commandList->DrawIndexedInstanced(bufs.indexCount, bufs.instanceCount, 0, 0, 0);
-      }
-      ++index;
-    }
-  }
+  commandList->SetGraphicsRootConstantBufferView(
+      1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(structureIndex) * structureCBVStride);
+  D3D12_VERTEX_BUFFER_VIEW views[2] = { bufs.vbv, bufs.instanceVbv };
+  commandList->IASetVertexBuffers(0, 2, views);
+  commandList->IASetIndexBuffer(&bufs.ibv);
+  commandList->DrawIndexedInstanced(bufs.indexCount, bufs.instanceCount, 0, 0, 0);
 }
 
 void DirectXObjectShader::paintOpaque(ID3D12GraphicsCommandList *commandList,
@@ -338,17 +330,29 @@ void DirectXObjectShader::paintOpaque(ID3D12GraphicsCommandList *commandList,
   if (!_opaquePsoReady || !_opaquePso)
     return;
   for (size_t k = 0; k < static_cast<size_t>(Kind::count); ++k)
-    paintKind(commandList, static_cast<Kind>(k), true, structureCBVBase, structureCBVStride);
+  {
+    size_t index = 0;
+    for (size_t i = 0; i < _renderStructures.size(); ++i)
+    {
+      for (size_t j = 0; j < _renderStructures[i].size(); ++j)
+      {
+        drawKind(commandList, static_cast<Kind>(k), true, structureCBVBase, structureCBVStride, i, j, index);
+        ++index;
+      }
+    }
+  }
 }
 
 void DirectXObjectShader::paintTransparent(ID3D12GraphicsCommandList *commandList,
                                            D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
-                                           UINT structureCBVStride)
+                                           UINT structureCBVStride,
+                                           size_t sceneIndex, size_t movieIndex, size_t structureIndex)
 {
   if (!_transparentPsoReady || !_transparentPso)
     return;
   for (size_t k = 0; k < static_cast<size_t>(Kind::count); ++k)
-    paintKind(commandList, static_cast<Kind>(k), false, structureCBVBase, structureCBVStride);
+    drawKind(commandList, static_cast<Kind>(k), false, structureCBVBase, structureCBVStride,
+             sceneIndex, movieIndex, structureIndex);
 }
 
 void DirectXObjectShader::drawPickGeometry(ID3D12GraphicsCommandList *commandList,

@@ -26,9 +26,12 @@ public:
   void paintOpaque(ID3D12GraphicsCommandList *commandList,
                    D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
                    UINT structureCBVStride);
+  // Draws the transparent primitives of a single structure. The renderer calls this in
+  // back-to-front order so overlapping transparent objects blend correctly.
   void paintTransparent(ID3D12GraphicsCommandList *commandList,
                         D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
-                        UINT structureCBVStride);
+                        UINT structureCBVStride,
+                        size_t sceneIndex, size_t movieIndex, size_t structureIndex);
   // Geometry only; the caller has already bound the picking PSO.
   void drawPickGeometry(ID3D12GraphicsCommandList *commandList,
                         D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
@@ -62,8 +65,9 @@ private:
   void generateBuffers();
   void initializePSOs(ID3D12Device *device, ID3D12RootSignature *rootSignature,
                       DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat);
-  void paintKind(ID3D12GraphicsCommandList *commandList, Kind kind, bool opaque,
-                 D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase, UINT structureCBVStride);
+  void drawKind(ID3D12GraphicsCommandList *commandList, Kind kind, bool opaque,
+                D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase, UINT structureCBVStride,
+                size_t sceneIndex, size_t movieIndex, size_t structureIndex);
   void reloadKind(ID3D12Device *device, Kind kind);
 
   ComPtr<ID3D12PipelineState> _opaquePso;

@@ -27,13 +27,19 @@ public:
   void paint(ID3D12GraphicsCommandList *commandList,
              D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
              UINT structureCBVStride,
-             const DirectXAtomSelectionWorleyNoise3DShader &instanceSource);
+             const DirectXAtomSelectionWorleyNoise3DShader &instanceSource,
+             bool orthographic);
 
 private:
-  ComPtr<ID3D12PipelineState> _pso;
-  std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
-  bool _psoReady = false;
+  void initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,
+                     DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat, bool orthographic);
 
-  static const std::string _vertexShaderSource;
-  static const std::string _pixelShaderSource;
+  ComPtr<ID3D12PipelineState> _orthographicPso;
+  ComPtr<ID3D12PipelineState> _perspectivePso;
+  std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
+  bool _orthographicPsoReady = false;
+  bool _perspectivePsoReady = false;
+
+  static std::string vertexShaderSource(bool orthographic);
+  static std::string pixelShaderSource(bool orthographic);
 };

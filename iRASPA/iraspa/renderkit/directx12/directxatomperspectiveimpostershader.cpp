@@ -27,8 +27,16 @@ void DirectXAtomPerspectiveImposterShader::loadShader(ID3D12Device * /*device*/)
 void DirectXAtomPerspectiveImposterShader::initialize(ID3D12Device *device, ID3D12RootSignature *rootSignature,
                                                       DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat)
 {
+  initializePSO(device, rootSignature, rtvFormat, dsvFormat, true);
+  initializePSO(device, rootSignature, rtvFormat, dsvFormat, false);
+}
+
+void DirectXAtomPerspectiveImposterShader::initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,
+                                                         DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat,
+                                                         bool perSample)
+{
   ComPtr<ID3DBlob> vs = compileShader(_vertexShaderSource, "VSMain", "vs_5_0");
-  ComPtr<ID3DBlob> ps = compileShader(_pixelShaderSource, "PSMain", "ps_5_0");
+  ComPtr<ID3DBlob> ps = compileShader(pixelShaderSource(perSample), "PSMain", "ps_5_0");
   if (!vs || !ps)
     return;
 
@@ -71,12 +79,15 @@ void DirectXAtomPerspectiveImposterShader::initialize(ID3D12Device *device, ID3D
   psoDesc.DSVFormat = dsvFormat;
   psoDesc.SampleDesc = DirectXDeviceHelpers::sceneSampleDesc();
 
-  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&_pso))))
+  ComPtr<ID3D12PipelineState> &pso = perSample ? _pso : _perPixelPso;
+  bool &ready = perSample ? _psoReady : _perPixelPsoReady;
+  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso))))
   {
-    std::cerr << "DirectXAtomPerspectiveImposterShader: failed to create PSO";
+    std::cerr << "DirectXAtomPerspectiveImposterShader: failed to create "
+              << (perSample ? "per-sample" : "per-pixel") << " PSO";
     return;
   }
-  _psoReady = true;
+  ready = true;
 }
 
 void DirectXAtomPerspectiveImposterShader::setRenderStructures(std::vector<std::vector<std::shared_ptr<RKRenderObject>>> structures)
@@ -93,10 +104,13 @@ void DirectXAtomPerspectiveImposterShader::paint(ID3D12GraphicsCommandList *comm
                                                  UINT structureCBVStride,
                                                  DirectXAmbientOcclusionShadowMapShader *aoShader)
 {
-  if (!_psoReady || !_pso)
+  const bool perSample = DirectXDeviceHelpers::perSampleImposterShading();
+  ID3D12PipelineState *pso = perSample ? (_psoReady ? _pso.Get() : nullptr)
+                                       : (_perPixelPsoReady ? _perPixelPso.Get() : nullptr);
+  if (!pso)
     return;
 
-  commandList->SetPipelineState(_pso.Get());
+  commandList->SetPipelineState(pso);
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
   size_t index = 0;
@@ -218,7 +232,14 @@ VSOutput VSMain(VSInput input)
 }
 )foo");
 
-const std::string DirectXAtomPerspectiveImposterShader::_pixelShaderSource =
+std::string DirectXAtomPerspectiveImposterShader::pixelShaderSource(bool perSample)
+{
+  // See the orthographic imposter: `sample` on the varyings the ray is built from promotes the
+  // pixel shader to per-sample execution, so MSAA also anti-aliases the ray-traced silhouette,
+  // the clipping and the depth instead of just the quad edges.
+  const char *s = perSample ? "sample " : "";
+
+  return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
@@ -231,12 +252,12 @@ struct PSInput
 {
   float4 position : SV_POSITION;
   float4 eye_position : TEXCOORD0;
-  float2 texcoords : TEXCOORD1;
+  )foo") + s + std::string(R"foo(float2 texcoords : TEXCOORD1;
   nointerpolation float4 instancePosition : TEXCOORD2;
   nointerpolation float4 ambient : COLOR0;
   nointerpolation float4 diffuse : COLOR1;
   nointerpolation float4 specular : COLOR2;
-  float3 frag_pos : TEXCOORD3;
+  )foo") + s + std::string(R"foo(float3 frag_pos : TEXCOORD3;
   nointerpolation float3 frag_center : TEXCOORD4;
   float3 N : NORMAL0;
   float3 L : TEXCOORD5;
@@ -333,3 +354,4 @@ PSOutput PSMain(PSInput input)
   return output;
 }
 )foo");
+}

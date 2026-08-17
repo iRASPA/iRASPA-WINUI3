@@ -40,6 +40,9 @@ public:
   void resize(ID3D12Device *device, int width, int height);
   void setRenderStructures(std::vector<std::vector<std::shared_ptr<RKRenderObject>>> structures);
   void reloadData(ID3D12Device *device);
+  // Atoms are picked from the same sphere imposters the scene draws, which needs the projection the
+  // camera is using; bonds read theirs out of the projection matrix.
+  void setOrthographic(bool orthographic) { _orthographic = orthographic; }
 
   // Called each frame before the main scene (logical viewport).
   void paintPickPass(ID3D12GraphicsCommandList *commandList,
@@ -95,11 +98,13 @@ private:
   int _height = 0;
 
   ComPtr<ID3D12PipelineState> _atomPso;
+  ComPtr<ID3D12PipelineState> _atomPerspectivePso;
   ComPtr<ID3D12PipelineState> _bondPso;
   ComPtr<ID3D12PipelineState> _externalBondPso;
   ComPtr<ID3D12PipelineState> _objectPso;
   ComPtr<ID3D12PipelineState> _ribbonPso;
   bool _atomPsoReady = false;
+  bool _atomPerspectivePsoReady = false;
   bool _bondPsoReady = false;
   bool _externalBondPsoReady = false;
   bool _objectPsoReady = false;
@@ -112,12 +117,16 @@ private:
   const DirectXObjectShader *_objectShader = nullptr;
 
   std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
+  bool _orthographic = true;
 
-  static const std::string _atomVertexShaderSource;
-  static const std::string _atomPixelShaderSource;
+  static std::string atomVertexShaderSource(bool orthographic);
+  static std::string atomPixelShaderSource(bool orthographic);
+  // Bonds are picked from the same ray-traced imposter hulls the scene pass draws, so the
+  // identifier and the depth written here match the surface the user sees. Internal and external
+  // bonds share the hull; only the external pixel shader clips at the unit cell.
   static const std::string _bondVertexShaderSource;
-  static const std::string _externalBondVertexShaderSource;
   static const std::string _bondPixelShaderSource;
+  static const std::string _externalBondPixelShaderSource;
   static const std::string _objectVertexShaderSource;
   static const std::string _objectPixelShaderSource;
   static const std::string _ribbonVertexShaderSource;

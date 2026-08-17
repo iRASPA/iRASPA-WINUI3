@@ -31,11 +31,14 @@ public:
                    UINT structureCBVStride,
                    D3D12_GPU_VIRTUAL_ADDRESS isosurfaceCBVBase,
                    UINT isosurfaceCBVStride);
+  // Draws the transparent isosurface of a single structure. The renderer calls this in
+  // back-to-front order so overlapping transparent surfaces blend correctly.
   void paintTransparent(ID3D12GraphicsCommandList *commandList,
                         D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
                         UINT structureCBVStride,
                         D3D12_GPU_VIRTUAL_ADDRESS isosurfaceCBVBase,
-                        UINT isosurfaceCBVStride);
+                        UINT isosurfaceCBVStride,
+                        size_t sceneIndex, size_t movieIndex, size_t structureIndex);
 
 private:
   struct MeshBuffers

@@ -32,8 +32,7 @@ public:
   void paint(ID3D12GraphicsCommandList *commandList,
              D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
              UINT structureCBVStride,
-             std::shared_ptr<RKCamera> camera,
-             RKRenderQuality quality);
+             std::shared_ptr<RKCamera> camera);
 
   ID3D12DescriptorHeap *aoSrvHeap() const { return _atomAmbientOcclusionShader.srvHeap(); }
 
@@ -55,6 +54,5 @@ private:
   DirectXAtomPerspectiveImposterShader _atomPerspectiveImposterShader;
   DirectXAmbientOcclusionShadowMapShader _atomAmbientOcclusionShader;
 
-  size_t _numberOfAtoms = 0;
   std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
 };

@@ -39,18 +39,21 @@ void DirectXSelectionShader::reloadSelectionData(ID3D12Device *device)
 
 void DirectXSelectionShader::paintOverlays(ID3D12GraphicsCommandList *commandList,
                                            D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
-                                           UINT structureCBVStride)
+                                           UINT structureCBVStride,
+                                           bool orthographic)
 {
-  _atomWorley.paint(commandList, structureCBVBase, structureCBVStride);
-  _atomStripes.paint(commandList, structureCBVBase, structureCBVStride, _atomWorley);
+  // Bonds first, so an atom's overlay wins where the two touch.
   _bondSelection.paintOverlays(commandList, structureCBVBase, structureCBVStride);
+  _atomWorley.paint(commandList, structureCBVBase, structureCBVStride, orthographic);
+  _atomStripes.paint(commandList, structureCBVBase, structureCBVStride, _atomWorley, orthographic);
 }
 
 void DirectXSelectionShader::paintGlow(ID3D12GraphicsCommandList *commandList,
                                        D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
-                                       UINT structureCBVStride)
+                                       UINT structureCBVStride,
+                                       bool orthographic)
 {
-  _atomGlow.paint(commandList, structureCBVBase, structureCBVStride, _atomWorley);
+  _atomGlow.paint(commandList, structureCBVBase, structureCBVStride, _atomWorley, orthographic);
   _bondSelection.paintGlow(commandList, structureCBVBase, structureCBVStride);
 }
 

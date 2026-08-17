@@ -24,12 +24,16 @@ public:
   void reloadData(ID3D12Device *device);
   void reloadSelectionData(ID3D12Device *device);
 
+  // The atom overlays ray-trace the selected atoms as sphere imposters, which needs a pipeline per
+  // projection; the bond overlays read the projection out of the projection matrix and do not.
   void paintOverlays(ID3D12GraphicsCommandList *commandList,
                      D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
-                     UINT structureCBVStride);
+                     UINT structureCBVStride,
+                     bool orthographic);
   void paintGlow(ID3D12GraphicsCommandList *commandList,
                  D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
-                 UINT structureCBVStride);
+                 UINT structureCBVStride,
+                 bool orthographic);
   bool hasGlowWork() const;
 
 private:
