@@ -242,65 +242,115 @@ void ProteinRibbonMixin::rebuildRibbonTreeNodeCache() const
   {
     _ribbonSegmentNodes.push_back(node);
   }
+}
 
-  _ribbonTreeNodeCacheIsValid = true;
+// Reading a node's visibility walks its group ancestors, and there is one node per draw range, so
+// the whole mask and the ranges it merges down to are settled in one pass and kept until an atom's
+// visibility or the shape of the tree moves the generation on.
+void ProteinRibbonMixin::refreshRibbonVisibilityCache() const
+{
+  const int64_t generation = skAtomVisibilityGeneration();
+  if (_ribbonVisibilityGeneration == generation) return;
+  _ribbonVisibilityGeneration = generation;
+
+  rebuildRibbonTreeNodeCache();
+
+  // A range whose node is missing from the tree cannot be hidden or picked, and one unmatched range
+  // is enough to make the whole level unusable: the renderer would draw it whatever the tree says.
+  _ribbonUsesResidueVisibility = !_ribbonResidueNodes.empty() &&
+                                 _ribbonResidueNodes.size() == _ribbonMesh.residueDrawRanges.size();
+  _ribbonResidueVisibility.assign(_ribbonResidueNodes.size(), false);
+  for (size_t index = 0; index < _ribbonResidueNodes.size(); ++index)
+  {
+    const std::shared_ptr<SKAtomTreeNode> residueNode = _ribbonResidueNodes[index].lock();
+    if (!residueNode) { _ribbonUsesResidueVisibility = false; continue; }
+    _ribbonResidueVisibility[index] = ProteinRibbonSegmentSupport::isRibbonResidueVisible(residueNode);
+  }
+
+  _ribbonUsesSegmentVisibility = !_ribbonSegmentNodes.empty() &&
+                                 _ribbonSegmentNodes.size() == _ribbonMesh.segmentDrawRanges.size();
+  _ribbonSegmentVisibility.assign(_ribbonSegmentNodes.size(), false);
+  for (size_t index = 0; index < _ribbonSegmentNodes.size(); ++index)
+  {
+    const std::shared_ptr<SKAtomTreeNode> segmentNode = _ribbonSegmentNodes[index].lock();
+    if (!segmentNode) { _ribbonUsesSegmentVisibility = false; continue; }
+    _ribbonSegmentVisibility[index] = ProteinRibbonSegmentSupport::isRibbonSegmentVisible(segmentNode);
+  }
+
+  // Residue ranges win when they drive visibility, and a chain is all there is to hide by when
+  // neither level lines up with the tree.
+  if (_ribbonUsesResidueVisibility && !_ribbonMesh.residueDrawRanges.empty())
+  {
+    _ribbonEncodingDrawRanges = RKRibbonMesh::mergedVisibleDrawRanges(_ribbonMesh.residueDrawRanges,
+                                                                     _ribbonResidueVisibility);
+  }
+  else if (_ribbonUsesSegmentVisibility && !_ribbonMesh.segmentDrawRanges.empty())
+  {
+    _ribbonEncodingDrawRanges = RKRibbonMesh::mergedVisibleDrawRanges(_ribbonMesh.segmentDrawRanges,
+                                                                     _ribbonSegmentVisibility);
+  }
+  else
+  {
+    _ribbonEncodingDrawRanges = _ribbonMesh.chainDrawRanges;
+  }
 }
 
 void ProteinRibbonMixin::invalidateRibbonTreeNodeCache()
 {
-  _ribbonTreeNodeCacheIsValid = false;
+  _ribbonVisibilityGeneration = -1;
   _ribbonResidueNodes.clear();
   _ribbonSegmentNodes.clear();
+  _ribbonResidueVisibility.clear();
+  _ribbonSegmentVisibility.clear();
+  _ribbonEncodingDrawRanges.clear();
+  _ribbonUsesResidueVisibility = false;
+  _ribbonUsesSegmentVisibility = false;
 }
 
 std::shared_ptr<SKAtomTreeNode> ProteinRibbonMixin::ribbonResidueTreeNode(int rangeIndex) const
 {
-  if (!_ribbonTreeNodeCacheIsValid) rebuildRibbonTreeNodeCache();
+  refreshRibbonVisibilityCache();
   if (rangeIndex < 0 || rangeIndex >= static_cast<int>(_ribbonResidueNodes.size())) return nullptr;
   return _ribbonResidueNodes[static_cast<size_t>(rangeIndex)].lock();
 }
 
 std::shared_ptr<SKAtomTreeNode> ProteinRibbonMixin::ribbonSegmentTreeNode(int rangeIndex) const
 {
-  if (!_ribbonTreeNodeCacheIsValid) rebuildRibbonTreeNodeCache();
+  refreshRibbonVisibilityCache();
   if (rangeIndex < 0 || rangeIndex >= static_cast<int>(_ribbonSegmentNodes.size())) return nullptr;
   return _ribbonSegmentNodes[static_cast<size_t>(rangeIndex)].lock();
 }
 
-// A range whose residue is missing from the tree cannot be hidden or picked, and one unmatched range
-// is enough to make the whole level unusable: the renderer would draw it whatever the tree says.
 bool ProteinRibbonMixin::ribbonUsesResidueVisibility() const
 {
-  if (!_ribbonTreeNodeCacheIsValid) rebuildRibbonTreeNodeCache();
-  if (_ribbonResidueNodes.empty() || _ribbonResidueNodes.size() != _ribbonMesh.residueDrawRanges.size())
-    return false;
-  for (size_t index = 0; index < _ribbonResidueNodes.size(); ++index)
-  {
-    if (!_ribbonResidueNodes[index].lock()) return false;
-  }
-  return true;
+  refreshRibbonVisibilityCache();
+  return _ribbonUsesResidueVisibility;
 }
 
 bool ProteinRibbonMixin::ribbonUsesSegmentVisibility() const
 {
-  if (!_ribbonTreeNodeCacheIsValid) rebuildRibbonTreeNodeCache();
-  if (_ribbonSegmentNodes.empty() || _ribbonSegmentNodes.size() != _ribbonMesh.segmentDrawRanges.size())
-    return false;
-  for (size_t index = 0; index < _ribbonSegmentNodes.size(); ++index)
-  {
-    if (!_ribbonSegmentNodes[index].lock()) return false;
-  }
-  return true;
+  refreshRibbonVisibilityCache();
+  return _ribbonUsesSegmentVisibility;
 }
 
 bool ProteinRibbonMixin::isRibbonResidueDrawRangeVisible(int rangeIndex) const
 {
-  return ProteinRibbonSegmentSupport::isRibbonResidueVisible(ribbonResidueTreeNode(rangeIndex));
+  refreshRibbonVisibilityCache();
+  if (rangeIndex < 0 || rangeIndex >= static_cast<int>(_ribbonResidueVisibility.size())) return false;
+  return _ribbonResidueVisibility[static_cast<size_t>(rangeIndex)];
 }
 
 bool ProteinRibbonMixin::isRibbonSegmentDrawRangeVisible(int rangeIndex) const
 {
-  return ProteinRibbonSegmentSupport::isRibbonSegmentVisible(ribbonSegmentTreeNode(rangeIndex));
+  refreshRibbonVisibilityCache();
+  if (rangeIndex < 0 || rangeIndex >= static_cast<int>(_ribbonSegmentVisibility.size())) return false;
+  return _ribbonSegmentVisibility[static_cast<size_t>(rangeIndex)];
+}
+
+const std::vector<RKRibbonChainDrawRange> &ProteinRibbonMixin::ribbonDrawRangesForEncoding() const
+{
+  refreshRibbonVisibilityCache();
+  return _ribbonEncodingDrawRanges;
 }
 
 // Which ranges are selected is asked of the same cache the visibility and picking queries use, so a
@@ -308,7 +358,7 @@ bool ProteinRibbonMixin::isRibbonSegmentDrawRangeVisible(int rangeIndex) const
 // they share rather than by their position in two lists that need not have the same length.
 std::set<int> ProteinRibbonMixin::renderSelectedRibbonSegmentDrawRangeIndices() const
 {
-  if (!_ribbonTreeNodeCacheIsValid) rebuildRibbonTreeNodeCache();
+  refreshRibbonVisibilityCache();
   const std::set<std::shared_ptr<SKAtomTreeNode>> selectedNodes =
     const_cast<ProteinRibbonMixin *>(this)->ribbonAtomTreeController().selectedTreeNodes();
 
@@ -329,7 +379,7 @@ std::set<int> ProteinRibbonMixin::renderSelectedRibbonSegmentDrawRangeIndices() 
 
 std::set<int> ProteinRibbonMixin::renderSelectedRibbonResidueDrawRangeIndices() const
 {
-  if (!_ribbonTreeNodeCacheIsValid) rebuildRibbonTreeNodeCache();
+  refreshRibbonVisibilityCache();
   const std::set<std::shared_ptr<SKAtomTreeNode>> selectedNodes =
     const_cast<ProteinRibbonMixin *>(this)->ribbonAtomTreeController().selectedTreeNodes();
 
@@ -362,7 +412,7 @@ std::set<int> ProteinRibbonMixin::renderSelectedRibbonResidueDrawRangeIndices() 
 std::set<std::shared_ptr<SKAtomTreeNode>> ProteinRibbonMixin::ribbonResidueNodesInRegion(
   const std::function<bool(double3)> &filter) const
 {
-  if (!_ribbonTreeNodeCacheIsValid) rebuildRibbonTreeNodeCache();
+  refreshRibbonVisibilityCache();
 
   std::map<int64_t, std::shared_ptr<SKAsymmetricAtom>> alphaCarbons;
   for (const ProteinBackboneChain &chain : _backbone.chains)

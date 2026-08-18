@@ -23,6 +23,21 @@
 #include "rkstring.h"
 #include "skelement.h"
 
+namespace
+{
+  int64_t atomVisibilityGeneration = 0;
+}
+
+int64_t skAtomVisibilityGeneration()
+{
+  return atomVisibilityGeneration;
+}
+
+void skInvalidateAtomVisibilityGeneration()
+{
+  atomVisibilityGeneration += 1;
+}
+
 SKAsymmetricAtom::SKAsymmetricAtom(): _displayName("C"), _elementIdentifier(6)
 {
 
@@ -86,6 +101,7 @@ SKAsymmetricAtom::~SKAsymmetricAtom()
 void SKAsymmetricAtom::toggleVisibility()
 {
   _isVisible = !_isVisible;
+  skInvalidateAtomVisibilityGeneration();
 }
 
 BinaryArchive &operator<<(BinaryArchive & stream, const std::vector<std::shared_ptr<SKAtomCopy>>& val)
@@ -209,5 +225,7 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<SKAsymmetricAto
   {
     atom->_parent = asymmetricAtom;
   }
+
+  skInvalidateAtomVisibilityGeneration();
   return stream;
 }

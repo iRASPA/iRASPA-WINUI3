@@ -47,22 +47,22 @@ public:
                        D3D12_INDEX_BUFFER_VIEW &ibv) const;
 
 private:
-  // Which ranges a structure is drawn by. The mesh is one vertex/index buffer either way; the ranges
-  // only decide how finely it can be hidden, and residue ranges are used when the tree offers them.
-  enum class VisibilityMode { chain, segment, residue };
-
   struct RibbonBuffers
   {
     ComPtr<ID3D12Resource> vertexBuffer;
     ComPtr<ID3D12Resource> indexBuffer;
     D3D12_VERTEX_BUFFER_VIEW vbv{};
     D3D12_INDEX_BUFFER_VIEW ibv{};
+    // The ranges a structure is drawn by at the finest level the tree can hide it at. The mesh is one
+    // vertex/index buffer either way; which ranges are actually encoded is decided per frame by the
+    // structure, and this only says whether there is anything to encode at all.
     std::vector<RKRibbonChainDrawRange> drawRanges;
-    VisibilityMode visibilityMode = VisibilityMode::chain;
   };
 
-  static std::vector<RKRibbonChainDrawRange> visibleDrawRanges(const RibbonBuffers &buffers,
-                                                              const RKRenderRibbonSource *ribbon);
+  // By reference: the structure keeps the merged ranges until its visibility changes, so a frame
+  // that hides nothing new neither walks the tree nor allocates.
+  static const std::vector<RKRibbonChainDrawRange> &visibleDrawRanges(const RibbonBuffers &buffers,
+                                                                     const RKRenderRibbonSource *ribbon);
 
   void deleteBuffers();
   void generateBuffers();

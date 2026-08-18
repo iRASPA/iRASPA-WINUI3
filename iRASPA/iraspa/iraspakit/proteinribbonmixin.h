@@ -114,6 +114,7 @@ public:
   bool ribbonUsesSegmentVisibility() const override;
   bool isRibbonResidueDrawRangeVisible(int rangeIndex) const override;
   bool isRibbonSegmentDrawRangeVisible(int rangeIndex) const override;
+  const std::vector<RKRibbonChainDrawRange> &ribbonDrawRangesForEncoding() const override;
   std::set<int> renderSelectedRibbonSegmentDrawRangeIndices() const override;
   std::set<int> renderSelectedRibbonResidueDrawRangeIndices() const override;
   float3 ribbonCoilColor() const override;
@@ -139,7 +140,8 @@ public:
   // The tree node a draw range belongs to, or null when the tree no longer holds it.
   std::shared_ptr<SKAtomTreeNode> ribbonResidueTreeNode(int rangeIndex) const;
   std::shared_ptr<SKAtomTreeNode> ribbonSegmentTreeNode(int rangeIndex) const;
-  // Call after the atom tree is restructured; the mesh itself invalidates on rebuild.
+  // Call whenever the mesh is replaced: the draw ranges and tags the cache is keyed on change. An
+  // edit to the atom tree needs no call, being caught by the atom visibility generation.
   void invalidateRibbonTreeNodeCache();
 
   void writeRibbonState(BinaryArchive &stream, int64_t versionNumber) const;
@@ -156,15 +158,24 @@ protected:
   virtual double3 ribbonOrigin() const = 0;
 
   void rebuildRibbonTreeNodeCache() const;
+  void refreshRibbonVisibilityCache() const;
 
   ProteinBackbone _backbone;
   RKRibbonMesh _ribbonMesh;
 
-  // Which tree node each draw range belongs to, resolved from the mesh's alpha-carbon tags. Mutable
-  // because the renderer asks about visibility through const queries.
+  // Which tree node each draw range belongs to, resolved from the mesh's alpha-carbon tags, whether
+  // that node is currently drawn, and the ranges left to encode once the hidden ones are merged out.
+  // Mutable because the renderer asks about all of this through const queries.
   mutable std::vector<std::weak_ptr<SKAtomTreeNode>> _ribbonResidueNodes;
   mutable std::vector<std::weak_ptr<SKAtomTreeNode>> _ribbonSegmentNodes;
-  mutable bool _ribbonTreeNodeCacheIsValid = false;
+  mutable std::vector<bool> _ribbonResidueVisibility;
+  mutable std::vector<bool> _ribbonSegmentVisibility;
+  mutable std::vector<RKRibbonChainDrawRange> _ribbonEncodingDrawRanges;
+  mutable bool _ribbonUsesResidueVisibility = false;
+  mutable bool _ribbonUsesSegmentVisibility = false;
+  // The atom visibility generation the cache above was resolved at. Negative while it holds nothing,
+  // which no generation ever is.
+  mutable int64_t _ribbonVisibilityGeneration = -1;
 
   bool _drawRibbon = true;
   double _ribbonScaleFactor = 1.2;

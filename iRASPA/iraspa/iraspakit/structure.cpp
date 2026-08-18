@@ -1284,7 +1284,6 @@ void Structure::setAtomForceFieldIdentifier(RKString identifier, ForceFieldSets&
 
 void Structure::updateForceField(ForceFieldSets &forceFieldSets)
 {
-  std::cerr << "Structure::updateForceField";
   if(ForceFieldSet* forceField = forceFieldSets[_atomForceFieldIdentifier])
   {
     std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
@@ -1341,7 +1340,6 @@ void Structure::updateForceField(ForceFieldSets &forceFieldSets)
           ForceFieldType* forceFieldType = (*forceField)[atom->uniqueForceFieldName()];
           if(forceFieldType)
           {
-            std::cerr << "Setting force field for " << atom->uniqueForceFieldName() << " to: " << forceFieldType->potentialParameters().x;
             atom->setPotentialParameters(forceFieldType->potentialParameters());
             atom->setBondDistanceCriteria(forceFieldType->userDefinedRadius());
           }

@@ -93,15 +93,7 @@ namespace
 
   void replaceRootNodes(SKAtomTreeController &controller, const std::vector<std::shared_ptr<SKAtomTreeNode>> &nodes)
   {
-    const std::vector<std::shared_ptr<SKAtomTreeNode>> roots = controller.rootNodes();
-    for (const std::shared_ptr<SKAtomTreeNode> &root : roots)
-    {
-      controller.removeNode(root);
-    }
-    for (const std::shared_ptr<SKAtomTreeNode> &node : nodes)
-    {
-      controller.appendToRootnodes(node);
-    }
+    controller.setRootNodes(nodes);
   }
 
   bool hasResidueChild(const std::shared_ptr<SKAtomTreeNode> &node)

@@ -135,17 +135,14 @@ void DirectXRibbonShader::reloadData(ID3D12Device *device)
       if (ribbon->ribbonUsesResidueVisibility() && !ribbon->ribbonResidueDrawRanges().empty())
       {
         bufs.drawRanges = ribbon->ribbonResidueDrawRanges();
-        bufs.visibilityMode = VisibilityMode::residue;
       }
       else if (ribbon->ribbonUsesSegmentVisibility() && !ribbon->ribbonSegmentDrawRanges().empty())
       {
         bufs.drawRanges = ribbon->ribbonSegmentDrawRanges();
-        bufs.visibilityMode = VisibilityMode::segment;
       }
       else
       {
         bufs.drawRanges = ribbon->ribbonChainDrawRanges();
-        bufs.visibilityMode = VisibilityMode::chain;
       }
     }
   }
@@ -184,7 +181,7 @@ void DirectXRibbonShader::paintOpaque(ID3D12GraphicsCommandList *commandList,
 
         // One draw per merged range. Residue/segment ranges overlap by a ring pair at boundaries, so
         // contiguous visible spans collapse to fewer DrawIndexed calls.
-        const std::vector<RKRibbonChainDrawRange> ranges = visibleDrawRanges(bufs, ribbon);
+        const std::vector<RKRibbonChainDrawRange> &ranges = visibleDrawRanges(bufs, ribbon);
         for (const RKRibbonChainDrawRange &range : ranges)
         {
           if (range.indexCount <= 0)
@@ -198,24 +195,16 @@ void DirectXRibbonShader::paintOpaque(ID3D12GraphicsCommandList *commandList,
   }
 }
 
-std::vector<RKRibbonChainDrawRange> DirectXRibbonShader::visibleDrawRanges(
+const std::vector<RKRibbonChainDrawRange> &DirectXRibbonShader::visibleDrawRanges(
     const RibbonBuffers &buffers, const RKRenderRibbonSource *ribbon)
 {
+  static const std::vector<RKRibbonChainDrawRange> nothingToDraw;
   if (!ribbon || buffers.drawRanges.empty())
-    return {};
+    return nothingToDraw;
 
-  if (buffers.visibilityMode == VisibilityMode::chain)
-    return buffers.drawRanges;
-
-  std::vector<bool> visible(buffers.drawRanges.size(), true);
-  for (size_t rangeIndex = 0; rangeIndex < buffers.drawRanges.size(); ++rangeIndex)
-  {
-    if (buffers.visibilityMode == VisibilityMode::residue)
-      visible[rangeIndex] = ribbon->isRibbonResidueDrawRangeVisible(static_cast<int>(rangeIndex));
-    else
-      visible[rangeIndex] = ribbon->isRibbonSegmentDrawRangeVisible(static_cast<int>(rangeIndex));
-  }
-  return RKRibbonMesh::mergedVisibleDrawRanges(buffers.drawRanges, visible);
+  // The structure picks the same level this shader chose its buffers by, so asking it costs one
+  // comparison in the frames where nothing has been hidden since the last.
+  return ribbon->ribbonDrawRangesForEncoding();
 }
 
 bool DirectXRibbonShader::geometryBuffers(size_t sceneIndex, size_t structureIndex,

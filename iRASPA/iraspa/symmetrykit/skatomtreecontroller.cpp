@@ -51,6 +51,7 @@ void SKAtomTreeController::insertNodeInParent(std::shared_ptr<SKAtomTreeNode> no
     node->_parent = parent;
     _hiddenRootNode->updateFilteredChildren(this->_filterPredicate);
   }
+  skInvalidateAtomVisibilityGeneration();
 }
 
 void SKAtomTreeController::insertNodeAtIndexPath(std::shared_ptr<SKAtomTreeNode> node, IndexPath path)
@@ -87,6 +88,28 @@ void SKAtomTreeController::appendToRootnodes(std::shared_ptr<SKAtomTreeNode> ite
 {
   item->_parent = _hiddenRootNode;
   _hiddenRootNode->_childNodes.push_back(item);
+  skInvalidateAtomVisibilityGeneration();
+}
+
+// Trades the whole set of roots for another in one step. Detaching them one at a time costs an erase
+// from the front of the child vector and a rebuild of the filtered list, each over the roots that are
+// still left, so replacing a tree that way is quadratic in the number of roots — and until a protein
+// is grouped into chains and residues, every one of its atoms is a root.
+void SKAtomTreeController::setRootNodes(const std::vector<std::shared_ptr<SKAtomTreeNode>> &nodes)
+{
+  for(const std::shared_ptr<SKAtomTreeNode> &node : _hiddenRootNode->_childNodes)
+  {
+    node->_parent.reset();
+  }
+
+  _hiddenRootNode->_childNodes = nodes;
+  for(const std::shared_ptr<SKAtomTreeNode> &node : _hiddenRootNode->_childNodes)
+  {
+    node->_parent = _hiddenRootNode;
+  }
+
+  _hiddenRootNode->updateFilteredChildren(_filterPredicate);
+  skInvalidateAtomVisibilityGeneration();
 }
 
 bool SKAtomTreeController::nodeIsChildOfItem(std::shared_ptr<SKAtomTreeNode> node, std::shared_ptr<SKAtomTreeNode> item)
@@ -346,5 +369,7 @@ BinaryArchive &operator>>(BinaryArchive & stream, std::shared_ptr<SKAtomTreeCont
   {
      stream >> controller->_selectionIndexPaths;
   }
+
+  skInvalidateAtomVisibilityGeneration();
   return stream;
 }

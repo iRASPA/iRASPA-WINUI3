@@ -221,6 +221,10 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
+    <ClCompile Include="symmetrykit\skbondgenerator.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
     <ClCompile Include="symmetrykit\skcell.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -1149,6 +1153,7 @@
     <ClInclude Include="symmetrykit\skatomtreecontroller.h" />
     <ClInclude Include="symmetrykit\skatomtreenode.h" />
     <ClInclude Include="symmetrykit\skbond.h" />
+    <ClInclude Include="symmetrykit\skbondgenerator.h" />
     <ClInclude Include="symmetrykit\skbondsetcontroller.h" />
     <ClInclude Include="symmetrykit\skboundingbox.h" />
     <ClInclude Include="symmetrykit\skcell.h" />

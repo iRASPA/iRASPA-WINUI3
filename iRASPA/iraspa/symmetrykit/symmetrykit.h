@@ -24,6 +24,7 @@
 #include <symmetrykitprotocols.h>
 #include <skasymmetricatom.h>
 #include <skbond.h>
+#include <skbondgenerator.h>
 #include <skasymmetricbond.h>
 #include <skatomtreenode.h>
 #include <skatomtreecontroller.h>

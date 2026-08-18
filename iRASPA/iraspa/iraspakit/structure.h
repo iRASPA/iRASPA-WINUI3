@@ -118,7 +118,8 @@ public:
 
   // Protocol:  AtomEditor
   // ===============================================================================================
-  void setAtomTreeController(std::shared_ptr<SKAtomTreeController> controller) {_atomsTreeController = controller;}
+  // Undo paths swap in a whole tree, which changes visibility without touching a single node.
+  void setAtomTreeController(std::shared_ptr<SKAtomTreeController> controller) {_atomsTreeController = controller; skInvalidateAtomVisibilityGeneration();}
 
   // Protocol:  RKRenderAtomSource
   // ===============================================================================================

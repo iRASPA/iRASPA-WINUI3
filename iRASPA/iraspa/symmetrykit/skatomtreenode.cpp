@@ -80,6 +80,7 @@ bool SKAtomTreeNode::insertChild(size_t row, std::shared_ptr<SKAtomTreeNode> chi
 
   child->_parent = shared_from_this();
   _childNodes.insert(_childNodes.begin() + row, child);
+  skInvalidateAtomVisibilityGeneration();
   return true;
 }
 
@@ -87,13 +88,14 @@ void SKAtomTreeNode::insertInParent(std::shared_ptr<SKAtomTreeNode> parent, size
 {
    this->_parent = parent;
    parent->_childNodes.insert(parent->_childNodes.begin() + index, shared_from_this());
+   skInvalidateAtomVisibilityGeneration();
 }
 
 void SKAtomTreeNode::appendToParent(std::shared_ptr<SKAtomTreeNode> parent)
 {
     this->_parent = parent;
     parent->_childNodes.push_back(shared_from_this());
-
+    skInvalidateAtomVisibilityGeneration();
 }
 
 bool SKAtomTreeNode::removeChild(size_t row)
@@ -102,6 +104,7 @@ bool SKAtomTreeNode::removeChild(size_t row)
      return false;
 
   _childNodes.erase(_childNodes.begin() + row);
+  skInvalidateAtomVisibilityGeneration();
   return true;
 }
 
@@ -113,6 +116,7 @@ bool SKAtomTreeNode::removeChildren(size_t position, size_t count)
   std::vector<std::shared_ptr<SKAtomTreeNode>>::iterator end = _childNodes.begin() + position + count;
   _childNodes.erase(start, end);
 
+  skInvalidateAtomVisibilityGeneration();
   return true;
 }
 
@@ -127,6 +131,7 @@ void SKAtomTreeNode::removeFromParent()
       lockedParent->_childNodes.erase(lockedParent->_childNodes.begin() + *index);
     }
     _parent.reset();
+    skInvalidateAtomVisibilityGeneration();
   }
 }
 

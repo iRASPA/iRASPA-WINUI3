@@ -217,6 +217,11 @@ public:
   virtual bool isRibbonResidueDrawRangeVisible(int rangeIndex) const = 0;
   virtual bool isRibbonSegmentDrawRangeVisible(int rangeIndex) const = 0;
 
+  // The ranges left to draw once the hidden residues or segments are merged out, at whichever level
+  // the tree can be hidden by. The structure holds on to the answer until its atoms or its tree
+  // change, so a frame that hides nothing new costs nothing to encode.
+  virtual const std::vector<RKRibbonChainDrawRange> &ribbonDrawRangesForEncoding() const = 0;
+
   // The ranges the selection pass draws over: a selected secondary-structure segment answers with a
   // segment range, a selected residue or one of its atoms with a residue range, so a selection made
   // at either level is drawn at that level.
