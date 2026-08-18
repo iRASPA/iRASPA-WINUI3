@@ -488,6 +488,10 @@ void SKCIFParser::appendAtomSite(const std::map<RKString, RKString> &dictionary,
 {
   _numberOfAtoms += 1;
   auto atom = std::make_shared<SKAsymmetricAtom>();
+  // A site starts out with no element so that the residue definition below, which is the better
+  // source when there is one, can be told apart from a site whose element is still to be read from
+  // its type symbol. The default constructor's carbon would read as "already resolved".
+  atom->setElementIdentifier(0);
 
   if (auto groupPDB = dictionaryValue(dictionary, {"_atom_site.group_PDB", "_atom_site.group_pdb"}))
   {
