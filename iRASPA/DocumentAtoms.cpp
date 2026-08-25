@@ -713,28 +713,32 @@ void DocumentController::SetAtomVisibilityFromSelection(std::weak_ptr<iRASPAObje
         m_host->RefreshInspector();
 }
 
+// Whether the operation applies is the structure's own answer: the four builders are declared on
+// Structure and hand back nothing for a type they do not fit, which ApplyReplacedAtomStructure
+// reports. Which of them the atom context menu offers is settled separately, the way Cocoa's
+// validateMenuItem does it.
 void DocumentController::RunAtomStructureOperation(std::weak_ptr<iRASPAObject> frameRef,
                                                    AtomStructureOperation operation)
 {
     auto frame = frameRef.lock();
-    auto editor = frame ? std::dynamic_pointer_cast<SpaceGroupEditor>(frame->object()) : nullptr;
-    if (!editor)
+    auto structure = frame ? std::dynamic_pointer_cast<Structure>(frame->object()) : nullptr;
+    if (!structure)
         return;
     try
     {
         switch (operation)
         {
         case AtomStructureOperation::FlattenHierarchy:
-            ApplyReplacedAtomStructure(frameRef, editor->flattenHierarchy(), L"Flatten Hierarchy");
+            ApplyReplacedAtomStructure(frameRef, structure->flattenHierarchy(), L"Flatten Hierarchy");
             break;
         case AtomStructureOperation::SuperCell:
-            ApplyReplacedAtomStructure(frameRef, editor->superCell(), L"Make Super-Cell");
+            ApplyReplacedAtomStructure(frameRef, structure->superCell(), L"Make Super-Cell");
             break;
         case AtomStructureOperation::RemoveSymmetry:
-            ApplyReplacedAtomStructure(frameRef, editor->removeSymmetry(), L"Remove Symmetry");
+            ApplyReplacedAtomStructure(frameRef, structure->removeSymmetry(), L"Remove Symmetry");
             break;
         case AtomStructureOperation::WrapAtomsToCell:
-            ApplyReplacedAtomStructure(frameRef, editor->wrapAtomsToCell(), L"Wrap Atoms to Cell");
+            ApplyReplacedAtomStructure(frameRef, structure->wrapAtomsToCell(), L"Wrap Atoms to Cell");
             break;
         }
     }
@@ -841,14 +845,7 @@ void DocumentController::ApplyReplacedAtomStructure(std::weak_ptr<iRASPAObject> 
     // Cocoa setStructureState keeps the previous cell/space-group/atoms/bonds for
     // the undo; here the whole object is swapped, so putting the previous object
     // back is the inverse.
-    if (auto previous = std::dynamic_pointer_cast<Structure>(frame->object()))
-    {
-        RegisterUndo(ObjectUndoStack(), actionName,
-                     [this, frameRef, previous, actionName]()
-                     {
-                         ApplyReplacedAtomStructure(frameRef, previous, actionName);
-                     });
-    }
+    auto previous = std::dynamic_pointer_cast<Structure>(frame->object());
     try
     {
         newStructure->reComputeBoundingBox();
@@ -866,12 +863,33 @@ void DocumentController::ApplyReplacedAtomStructure(std::weak_ptr<iRASPAObject> 
         newStructure->computeBonds();
         if (auto bonds = newStructure->bondSetController())
             bonds->setTags();
+        // Flattening and re-tiling both rebuild the atom tree, and the ribbon of a protein is swept
+        // along a backbone read off that tree; left alone it would keep drawing the old atoms.
+        if (auto ribbon = std::dynamic_pointer_cast<ProteinRibbonStructureEditor>(newStructure))
+            ribbon->rebuildBackbone();
         frame->setObject(newStructure);
     }
     catch (...)
     {
         Log(L"Structure operation failed");
         return;
+    }
+    // Registered only now: a build that threw leaves the frame untouched, and an undo entry for it
+    // would put back the object that is already there.
+    if (previous)
+    {
+        RegisterUndo(ObjectUndoStack(), actionName,
+                     [this, frameRef, previous, actionName]()
+                     {
+                         ApplyReplacedAtomStructure(frameRef, previous, actionName);
+                     });
+    }
+    // Cocoa setStructureState resets the camera to frame the (possibly very different) new bounding
+    // box — a super-cell is far larger than the original cell, for instance.
+    if (m_project)
+    {
+        if (auto cam = m_project->camera())
+            cam->resetForNewBoundingBox(m_project->renderBoundingBox());
     }
     // Reloads the renderer and rebuilds the current inspector tab.
     if (m_host)

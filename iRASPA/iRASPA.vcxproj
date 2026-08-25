@@ -110,6 +110,13 @@
          each other's exe and Windows App SDK payload. -->
     <OutDir>$(MSBuildThisFileDirectory)..\build\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(MSBuildThisFileDirectory)..\obj\$(Platform)\$(Configuration)\</IntDir>
+    <!-- Per configuration, overriding Microsoft.Cpp.AppContainerApplication.props, which puts
+         it in the project directory. The C++/WinRT projections and the XAML codegen land here,
+         but the stamp files that mark them up to date (obj\...\*.cppwinrt_*.rsp) are always per
+         configuration: with one shared directory, cleaning or rebuilding one platform deletes
+         the projection the others still believe they generated, and the next build of those
+         fails on a missing winrt\Windows.Foundation.h. -->
+    <GeneratedFilesDir>$(IntDir)Generated Files\</GeneratedFilesDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -361,7 +368,7 @@
        specialisation that App.xaml.h relies on. Patch the generated header back. -->
   <Target Name="FixAppXamlBase" AfterTargets="MarkupCompilePass1;MarkupCompilePass2;XamlPreCompile">
     <PropertyGroup>
-      <_AppXamlG>$(MSBuildProjectDirectory)\Generated Files\App.xaml.g.h</_AppXamlG>
+      <_AppXamlG>$(GeneratedFilesDir)App.xaml.g.h</_AppXamlG>
     </PropertyGroup>
     <Exec Condition="Exists('$(_AppXamlG)')" Command="powershell -NoProfile -Command &quot;(Get-Content -Raw '$(_AppXamlG)') -replace 'struct AppT:\s*public ::winrt::Microsoft::UI::Xaml::ApplicationT&lt;D, ::winrt::Microsoft::UI::Xaml::Markup::IXamlMetadataProvider, Interfaces\.\.\.&gt;','struct AppT: public App_base&lt;D, ::winrt::Microsoft::UI::Xaml::Markup::IXamlMetadataProvider, Interfaces...&gt;' | Set-Content -NoNewline '$(_AppXamlG)'&quot;" />
   </Target>
@@ -370,7 +377,7 @@
        Deploy .xaml next to the exe and refresh iRASPA.pri for unpackaged LoadComponent. -->
   <Target Name="DeployUnpackagedXaml" AfterTargets="Build">
     <PropertyGroup>
-      <_GenDir>$(MSBuildProjectDirectory)\Generated Files</_GenDir>
+      <_GenDir>$([System.IO.Path]::GetFullPath('$(GeneratedFilesDir)').TrimEnd('\'))</_GenDir>
       <_OutDirTrimmed>$([System.IO.Path]::GetFullPath('$(OutDir)').TrimEnd('\'))</_OutDirTrimmed>
       <_DeployScript>$(MSBuildProjectDirectory)\deploy_unpackaged_xaml.ps1</_DeployScript>
     </PropertyGroup>

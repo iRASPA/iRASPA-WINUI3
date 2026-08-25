@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
@@ -10,7 +10,7 @@
   <Identity
     Name="39140DavidDubbeldam.432414C5FF922"
     Publisher="CN=7A07FC1F-D8C3-492E-A048-10ACFB7E62DA"
-    Version="2.3.4.0" />
+    Version="2.3.6.0" />
   <Properties>
     <DisplayName>iRASPA</DisplayName>
     <PublisherDisplayName>David Dubbeldam</PublisherDisplayName>

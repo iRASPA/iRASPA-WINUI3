@@ -761,11 +761,13 @@ namespace winrt::iRASPA_WinUI::implementation
 
         CommandGate GateOf(std::wstring const& command)
         {
-            if (command == L"flatten" || command == L"supercell" ||
-                command == L"removesymmetry" || command == L"wrap")
+            // Cocoa validateMenuItem: re-tiling the cell and taking the symmetry off both need a
+            // space group to work from, whereas flattening only rearranges the tree and is offered
+            // for a molecule or a protein as much as for a crystal.
+            if (command == L"supercell" || command == L"removesymmetry" || command == L"wrap")
                 return CommandGate::SpaceGroup;
-            if (command == L"primitive" || command == L"niggli" || command == L"impose" ||
-                command.rfind(L"export", 0) == 0)
+            if (command == L"flatten" || command == L"primitive" || command == L"niggli" ||
+                command == L"impose" || command.rfind(L"export", 0) == 0)
                 return CommandGate::Structure;
             if (command == L"copytomovie" || command == L"movetomovie" ||
                 command == L"scrollfirst" || command == L"scrolllast")

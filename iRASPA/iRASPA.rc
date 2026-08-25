@@ -4,8 +4,8 @@
 
 // AboutView reads these fields back at runtime, and Store certification expects
 // them to agree with the Version in packaging\Package.appxmanifest.
-#define IRASPA_VERSION      2,3,4,0
-#define IRASPA_VERSION_STR  "2.3.4.0"
+#define IRASPA_VERSION      2,3,6,0
+#define IRASPA_VERSION_STR  "2.3.6.0"
 
 // Explorer-style Import accessory: Cocoa ImportAccessoryViewController grid —
 // radios in the left column, protein/molecule checks in the right.

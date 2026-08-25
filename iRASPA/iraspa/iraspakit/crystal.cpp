@@ -1138,6 +1138,9 @@ std::shared_ptr<Structure> Crystal::superCell() const
     }
   }
 
+  // Every replica is written out as its own asymmetric atom, so the super-cell no longer has a
+  // symmetry to expand: it is P1.
+  crystal->setSpaceGroupHallNumber(1);
   crystal->setCell(_cell->superCell());
   crystal->setOrigin(this->origin() + _cell->unitCell() * double3(minimumReplicaX, minimumReplicaY, minimumReplicaZ));
   crystal->atomsTreeController()->setTags();
@@ -1226,6 +1229,10 @@ std::shared_ptr<Structure> Crystal::wrapAtomsToCell() const
 std::shared_ptr<Structure> Crystal::flattenHierarchy() const
 {
   std::shared_ptr<Crystal> crystal = std::make_shared<Crystal>(static_cast<const Crystal&>(*this));
+
+  // Flattening drops the grouping, not the symmetry: the base-class copy constructor leaves the
+  // space group at P1, so it is carried over explicitly.
+  crystal->_spaceGroup = this->_spaceGroup;
 
   const std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
 

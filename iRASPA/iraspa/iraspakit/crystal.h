@@ -36,7 +36,7 @@
 
 class Crystal: public Structure,
                public AtomEditor, public BondEditor,
-               public SpaceGroupViewer, public UnitCellEditor,
+               public SpaceGroupViewer, public SpaceGroupEditor, public UnitCellEditor,
                public VolumetricDataEditor, public StructuralPropertyEditor,
                public RKRenderUnitCellSource, public RKRenderVolumetricDataSource
 {

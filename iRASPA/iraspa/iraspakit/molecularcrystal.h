@@ -32,7 +32,7 @@
 #include "structuralpropertyviewer.h"
 #include "unitcellviewer.h"
 
-class MolecularCrystal: public Structure, public SpaceGroupViewer,
+class MolecularCrystal: public Structure, public SpaceGroupViewer, public SpaceGroupEditor,
                         public AtomEditor, public BondEditor,
                         public UnitCellEditor,
                         public VolumetricDataEditor, public StructuralPropertyEditor,

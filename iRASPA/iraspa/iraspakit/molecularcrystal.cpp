@@ -765,6 +765,10 @@ std::shared_ptr<Structure> MolecularCrystal::flattenHierarchy() const
 {
   std::shared_ptr<MolecularCrystal> molecularCrystal = std::make_shared<MolecularCrystal>(static_cast<const MolecularCrystal&>(*this));
 
+  // Flattening drops the grouping, not the symmetry: the base-class copy constructor leaves the
+  // space group at P1, so it is carried over explicitly.
+  molecularCrystal->_spaceGroup = this->_spaceGroup;
+
   const std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
 
   for(const std::shared_ptr<SKAtomTreeNode> &node: asymmetricAtomNodes)
@@ -940,7 +944,11 @@ std::shared_ptr<Structure> MolecularCrystal::superCell() const
 
   const std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
 
-  double3x3 unitCell = _cell->unitCell();
+  // Positions are Cartesian here, so a replica is placed by way of its fractional coordinate: out
+  // of the old cell, offset by the replica index, and back in through the super-cell. Reading it
+  // back through the old cell would fold the whole tiling into a single cell.
+  std::shared_ptr<SKCell> superCell = _cell->superCell();
+  double3x3 superCellUnitCell = superCell->unitCell();
   double3x3 inverseUnitCell = _cell->inverseUnitCell();
   int dx = maximumReplicaX-minimumReplicaX;
   int dy = maximumReplicaY-minimumReplicaY;
@@ -960,7 +968,7 @@ std::shared_ptr<Structure> MolecularCrystal::superCell() const
               if(atomCopy->type() == SKAtomCopy::AtomCopyType::copy)
               {
                 double3 fractionalPosition = (inverseUnitCell * atomCopy->position() + double3(k1,k2,k3)) / double3(dx+1, dy+1, dz+1);
-                double3 CartesianPosition = unitCell * fractionalPosition;
+                double3 CartesianPosition = superCellUnitCell * fractionalPosition;
 
                 std::shared_ptr<SKAsymmetricAtom> newAsymmetricAtom = std::make_shared<SKAsymmetricAtom>(*asymmetricAtom);
                 newAsymmetricAtom->setPosition(CartesianPosition);
@@ -976,7 +984,10 @@ std::shared_ptr<Structure> MolecularCrystal::superCell() const
     }
   }
 
-  crystal->setCell(_cell->superCell());
+  // Every replica is written out as its own asymmetric atom, so the super-cell no longer has a
+  // symmetry to expand: it is P1.
+  crystal->setSpaceGroupHallNumber(1);
+  crystal->setCell(superCell);
   crystal->setOrigin(this->origin() + _cell->unitCell() * double3(minimumReplicaX, minimumReplicaY, minimumReplicaZ));
   crystal->atomsTreeController()->setTags();
   crystal->reComputeBoundingBox();
