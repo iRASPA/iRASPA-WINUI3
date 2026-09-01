@@ -255,6 +255,7 @@ void DirectXEnergyVolumeRenderedSurface::initializePSOs(ID3D12Device *device, DX
     psoDesc.DepthStencilState.DepthWriteMask =
         opaque ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
     psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+    DirectXDeviceHelpers::recordEdgeCueingInStencil(psoDesc.DepthStencilState);
     psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     psoDesc.NumRenderTargets = 1;

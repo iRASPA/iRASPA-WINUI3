@@ -421,6 +421,49 @@
              Text="acknowledgedlicenses.pdf not found at $(_LicensesSrc); About Acknowledgements will not open a PDF." />
   </Target>
 
+  <!-- The Shader Model 6 compiler, needed by the ray-tracing kernels: FXC stops at Shader
+       Model 5.1 and cannot compile a RayQuery. The SDK ships the DLLs but no import library,
+       so DirectXDxcCompiler loads them by name and they have to sit next to the exe. dxil.dll
+       signs the DXIL that dxcompiler.dll emits; without it the D3D12 runtime rejects the
+       shader on a machine that is not in developer mode. -->
+  <Target Name="DeployShaderCompiler" AfterTargets="Build">
+    <PropertyGroup>
+      <_ShaderCompilerDir>$(WindowsSdkDir)bin\$(TargetPlatformVersion)\$(PlatformTarget)</_ShaderCompilerDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_ShaderCompilerFiles Include="$(_ShaderCompilerDir)\dxcompiler.dll" Condition="Exists('$(_ShaderCompilerDir)\dxcompiler.dll')" />
+      <_ShaderCompilerFiles Include="$(_ShaderCompilerDir)\dxil.dll" Condition="Exists('$(_ShaderCompilerDir)\dxil.dll')" />
+    </ItemGroup>
+    <Warning Condition="'@(_ShaderCompilerFiles)' == ''"
+             Text="dxcompiler.dll and dxil.dll not found in $(_ShaderCompilerDir); ray tracing will be unavailable and the renderer will rasterize instead." />
+    <Copy SourceFiles="@(_ShaderCompilerFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- The redistributable Direct3D 12 runtime and software adapter, in a D3D12\ subfolder because
+       that is the path directxagilitysdk.h exports. Without them a machine whose card cannot trace
+       silently traces nothing at all rather than falling back; external\d3d12\README.md has the
+       detail. Not a warning-only step in spirit, but a missing runtime only costs traced exports on
+       such machines, so a build without these files is still worth having. -->
+  <Target Name="DeployDirect3DRuntime" AfterTargets="Build">
+    <PropertyGroup>
+      <_Direct3DRuntimeDir>$(MSBuildThisFileDirectory)..\external\d3d12\$(PlatformTarget)</_Direct3DRuntimeDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <!-- The runtime goes in the subfolder directxagilitysdk.h names, the adapter next to the exe.
+           The two are not interchangeable: D3D12Core.dll is found through the exported path, while
+           d3d10warp.dll is found the ordinary way, so a WARP placed in the subfolder is not loaded
+           at all and the fallback quietly rasterizes instead of tracing. -->
+      <_Direct3DRuntimeFiles Include="$(_Direct3DRuntimeDir)\D3D12Core.dll" Condition="Exists('$(_Direct3DRuntimeDir)\D3D12Core.dll')" />
+      <!-- The validating runtime, which only a Debug build asks for. -->
+      <_Direct3DRuntimeFiles Include="$(_Direct3DRuntimeDir)\d3d12SDKLayers.dll" Condition="'$(Configuration)' == 'Debug' and Exists('$(_Direct3DRuntimeDir)\d3d12SDKLayers.dll')" />
+      <_Direct3DAdapterFiles Include="$(_Direct3DRuntimeDir)\d3d10warp.dll" Condition="Exists('$(_Direct3DRuntimeDir)\d3d10warp.dll')" />
+    </ItemGroup>
+    <Warning Condition="'@(_Direct3DRuntimeFiles)' == '' or '@(_Direct3DAdapterFiles)' == ''"
+             Text="Incomplete redistributable D3D12 runtime in $(_Direct3DRuntimeDir); on a machine without DXR 1.1 a traced export will fall back to rasterizing." />
+    <Copy SourceFiles="@(_Direct3DRuntimeFiles)" DestinationFolder="$(OutDir)D3D12" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_Direct3DAdapterFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
   <!-- Embeddable CPython for the console, in a Python\ subfolder rather than beside
        the exe: the distribution carries its own vcruntime140*.dll copies, which would
        otherwise sit next to the app's own CRT and confuse both the packager and

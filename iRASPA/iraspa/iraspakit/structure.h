@@ -123,7 +123,6 @@ public:
 
   // Protocol:  RKRenderAtomSource
   // ===============================================================================================
-  int numberOfAtoms() const override {return 0;}
   bool drawAtoms() const override {return _drawAtoms;}
   // True when the structure is drawing at least one atom. Used with ribbons so ambient occlusion
   // can tell ribbon-only presentation apart from atoms and ribbon together.
@@ -181,6 +180,10 @@ public:
 
   RepresentationType atomRepresentationType() override {return _atomRepresentationType;}
   RepresentationStyle atomRepresentationStyle() override {return _atomRepresentationStyle;}
+  // Read and written so a document keeps what it was given; the renderer does not draw the cues
+  // yet, so a quteMol structure is shaded as Fancy until it does.
+  RKEdgeCueing atomEdgeCueing() const override {return _atomEdgeCueing;}
+  void setAtomEdgeCueing(RKEdgeCueing cueing) override {_atomEdgeCueing = cueing;}
   RKString atomColorSchemeIdentifier() override {return _atomColorSchemeIdentifier;}
   SKColorSet::ColorSchemeOrder colorSchemeOrder() override {return _atomColorSchemeOrder;}
   RKString atomForceFieldIdentifier() override {return _atomForceFieldIdentifier;}
@@ -592,7 +595,7 @@ public:
   friend BinaryArchive &operator<<(BinaryArchive &, const std::shared_ptr<Structure> &);
   friend BinaryArchive &operator>>(BinaryArchive &, std::shared_ptr<Structure> &);
 protected:
-  int64_t _versionNumber{10};
+  int64_t _versionNumber{11};
 
   std::shared_ptr<SKAtomTreeController> _atomsTreeController;
   std::shared_ptr<SKBondSetController> _bondSetController;
@@ -650,6 +653,7 @@ protected:
 
   RepresentationType _atomRepresentationType = RepresentationType::sticks_and_balls;
   RepresentationStyle _atomRepresentationStyle = RepresentationStyle::defaultStyle;
+  RKEdgeCueing _atomEdgeCueing = RKEdgeCueing::off;
   RKString _atomForceFieldIdentifier = RKString("Default");
   ForceFieldSet::ForceFieldSchemeOrder _atomForceFieldOrder = ForceFieldSet::ForceFieldSchemeOrder::elementOnly;
   RKString _atomColorSchemeIdentifier = RKString("Jmol");
@@ -752,7 +756,8 @@ protected:
   double _adsorptionSurfaceFrontSideHDRExposure = 2.0;
   RKColor _adsorptionSurfaceFrontSideAmbientColor = RKColor::fromRgb(0, 0, 0, 255);
   RKColor _adsorptionSurfaceFrontSideDiffuseColor = RKColor::fromRgb(255, 255, 255, 255);
-  RKColor _adsorptionSurfaceFrontSideSpecularColor = RKColor(230, 230, 230, 1.0);
+  // Cocoa NSColor(red: 0.92, …). RKColor(r,g,b) is 0–1; RKColor(230,…) would be ~230× too bright.
+  RKColor _adsorptionSurfaceFrontSideSpecularColor = RKColor::fromRgb(230, 230, 230);
   double _adsorptionSurfaceFrontSideDiffuseIntensity = 1.0;
   double _adsorptionSurfaceFrontSideAmbientIntensity = 0.0;
   double _adsorptionSurfaceFrontSideSpecularIntensity = 0.5;

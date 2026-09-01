@@ -822,6 +822,11 @@ void Structure::setRepresentationStyle(RepresentationStyle style)
 	{
 		_atomRepresentationStyle = style;
 
+		// QuteMol is the style of Tarini, Cignoni and Montani: the Fancy material with both of their
+		// cues. Every other named style is the material without them, so picking one turns them off.
+		_atomEdgeCueing = (style == RepresentationStyle::quteMol) ? RKEdgeCueing::contoursAndHalos
+		                                                         : RKEdgeCueing::off;
+
 		switch (style)
 		{
 		case RepresentationStyle::defaultStyle:
@@ -876,7 +881,9 @@ void Structure::setRepresentationStyle(RepresentationStyle style)
 			setRepresentationType(RepresentationType::sticks_and_balls);
 
 			break;
+		// One material for the two of them; only the cues set above tell them apart.
 		case RepresentationStyle::fancy:
+		case RepresentationStyle::quteMol:
 			_drawAtoms = true;
       _atomAmbientOcclusion = true;
 			_atomScaleFactor = 1.0;
@@ -1025,6 +1032,7 @@ void Structure::setRepresentationStyle(RepresentationStyle style, const SKColorS
 		setRepresentationColorSchemeIdentifier("Jmol", colorSets);
 		break;
 	case RepresentationStyle::fancy:
+	case RepresentationStyle::quteMol:
 		setRepresentationColorSchemeIdentifier("Rasmol", colorSets);
 		break;
 	case RepresentationStyle::licorice:
@@ -1102,7 +1110,10 @@ void Structure::recheckRepresentationStyle()
                                   sameValue(_atomSaturation, 1.0) &&
                                   sameValue(_atomValue, 1.0);
 
-  if (_drawAtoms && unshiftedAtomColor && whiteAtomLights &&
+  // Every named style but QuteMol is drawn without cues, so any cueing at all rules them out.
+  const bool noCues = _atomEdgeCueing == RKEdgeCueing::off;
+
+  if (noCues && _drawAtoms && unshiftedAtomColor && whiteAtomLights &&
       _atomHDR == true && sameValue(_atomHDRExposure, 1.5) &&
       _atomAmbientOcclusion == false &&
       sameValue(_atomAmbientIntensity, 0.2) &&
@@ -1138,9 +1149,15 @@ void Structure::recheckRepresentationStyle()
       _bondAmbientOcclusion == false &&
       selectionMatches(0.4))
   {
-    _atomRepresentationStyle = RepresentationStyle::fancy;
+    // Fancy and QuteMol share this material, so the cues are what name it. Either cue on its own is
+    // neither of them.
+    _atomRepresentationStyle = (_atomEdgeCueing == RKEdgeCueing::off)
+                                   ? RepresentationStyle::fancy
+                                   : (_atomEdgeCueing == RKEdgeCueing::contoursAndHalos)
+                                         ? RepresentationStyle::quteMol
+                                         : RepresentationStyle::custom;
   }
-  else if (_drawAtoms && unshiftedAtomColor &&
+  else if (noCues && _drawAtoms && unshiftedAtomColor &&
       _atomRepresentationType == RepresentationType::unity &&
       jmolColors &&
       sameValue(_atomScaleFactor, 1.0) &&
@@ -1158,7 +1175,7 @@ void Structure::recheckRepresentationStyle()
   {
     _atomRepresentationStyle = RepresentationStyle::licorice;
   }
-  else if (_drawAtoms &&
+  else if (noCues && _drawAtoms &&
       _atomRepresentationType == RepresentationType::unity &&
       jmolColors &&
       sameValue(_atomScaleFactor, 1.0) &&
@@ -1912,6 +1929,8 @@ BinaryArchive &operator<<(BinaryArchive &stream, const std::shared_ptr<Structure
 
   stream << int64_t(0x6f6b6182);
 
+  stream << static_cast<int64_t>(structure->_atomEdgeCueing);
+
   // handle super class
   stream << std::static_pointer_cast<Object>(structure);
 
@@ -2330,6 +2349,16 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<Structure> &str
     if(magicNumber != int64_t(0x6f6b6182))
     {
       throw InvalidArchiveVersionException(__FILE__, __LINE__, "Structure invalid magic-number");
+    }
+
+    if(versionNumber >= 11) // introduced in version 11
+    {
+      int64_t edgeCueing;
+      stream >> edgeCueing;
+      structure->_atomEdgeCueing = (edgeCueing >= int64_t(RKEdgeCueing::off) &&
+                                    edgeCueing < int64_t(RKEdgeCueing::multiple_values))
+                                       ? RKEdgeCueing(edgeCueing)
+                                       : RKEdgeCueing::off;
     }
 
     std::shared_ptr<Object> object = std::static_pointer_cast<Object>(structure);

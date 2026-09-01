@@ -75,19 +75,25 @@ namespace winrt::iRASPA_WinUI::implementation
         // ZIP tree + lazy project blobs; do not unwrap yet. Qt reads the gallery and the
         // structure databases with one and the same routine, down to marking every node
         // read-only, and only parts company over which section they are grafted under.
-        std::shared_ptr<DocumentData> ReadDatabaseDocument(std::wstring const& path)
+        // The reason is reported rather than discarded. A database that will not open used to say
+        // only that it had not opened, which for a file that is read before the window is even
+        // usable leaves nothing to go on: whether it was absent, not an archive, of a version
+        // this build does not know, or one project in it that could not be unwrapped.
+        std::shared_ptr<DocumentData> ReadDatabaseDocument(std::wstring const& path,
+                                                          std::wstring& reason)
         {
-            if (path.empty())
+            if (path.empty() || GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES)
+            {
+                reason = L"no such file";
                 return nullptr;
-
-            if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES)
-                return nullptr;
+            }
 
             ZipReader reader(WideToUtf8(path));
             RKByteArray data = reader.fileData(std::string("nl.darkwing.iRASPA_projectData"));
             if (data.empty())
             {
                 reader.close();
+                reason = L"the archive holds no nl.darkwing.iRASPA_projectData";
                 return nullptr;
             }
 
@@ -97,9 +103,17 @@ namespace winrt::iRASPA_WinUI::implementation
             {
                 stream >> libraryData;
             }
+            catch (std::exception const& ex)
+            {
+                reader.close();
+                reason = L"the project tree could not be read: " +
+                         std::wstring(winrt::to_hstring(ex.what()));
+                return nullptr;
+            }
             catch (...)
             {
                 reader.close();
+                reason = L"the project tree could not be read";
                 return nullptr;
             }
 
@@ -107,18 +121,47 @@ namespace winrt::iRASPA_WinUI::implementation
             if (!local)
             {
                 reader.close();
+                reason = L"the project tree holds no local projects";
                 return nullptr;
             }
 
+            // One project that will not unwrap costs that project, not the whole database. It used
+            // to cost the whole database: the throw left here and the caller kept nothing.
+            std::wstring failures;
+            int failed = 0;
             for (auto const& localNode : local->descendantNodes())
             {
                 if (!localNode || !localNode->representedObject())
                     continue;
-                localNode->representedObject()->readData(reader);
+                try
+                {
+                    localNode->representedObject()->readData(reader);
+                }
+                catch (std::exception const& ex)
+                {
+                    if (++failed <= 3)
+                    {
+                        failures += L"\n  " + localNode->displayName().toStdWString() + L": " +
+                                    std::wstring(winrt::to_hstring(ex.what()));
+                    }
+                    continue;
+                }
+                catch (...)
+                {
+                    ++failed;
+                    continue;
+                }
                 localNode->setType(ProjectTreeNode::Type::gallery);
                 localNode->setIsEditable(false);
             }
             reader.close();
+
+            if (failed > 0)
+            {
+                reason = std::to_wstring(failed) + L" of " +
+                         std::to_wstring(local->descendantNodes().size()) +
+                         L" projects could not be read:" + failures;
+            }
             return libraryData;
         }
     }
@@ -139,9 +182,13 @@ namespace winrt::iRASPA_WinUI::implementation
             }
             else
             {
-                database = ReadDatabaseDocument(path);
+                std::wstring reason;
+                database = ReadDatabaseDocument(path, reason);
                 if (!database)
-                    error = L"Gallery database failed to load";
+                    error = L"Gallery database failed to load: " +
+                            (reason.empty() ? std::wstring(L"no reason given") : reason);
+                else if (!reason.empty())
+                    error = L"Gallery database loaded, but " + reason;
             }
         }
         catch (std::exception const& ex)
@@ -202,9 +249,13 @@ namespace winrt::iRASPA_WinUI::implementation
                     error = label + L" not found (" + entry.fileName + L")";
                 else
                 {
-                    database = ReadDatabaseDocument(path);
+                    std::wstring reason;
+                    database = ReadDatabaseDocument(path, reason);
                     if (!database)
-                        error = label + L" failed to load";
+                        error = label + L" failed to load: " +
+                                (reason.empty() ? std::wstring(L"no reason given") : reason);
+                    else if (!reason.empty())
+                        error = label + L" loaded, but " + reason;
                 }
             }
             catch (std::exception const& ex)

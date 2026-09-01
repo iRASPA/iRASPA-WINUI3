@@ -80,6 +80,7 @@ void applyDefaultRibbonAppearance(ProteinRibbonStructureEditor &editor)
   editor.setRibbonDiffuseIntensity(1.0);
   editor.setRibbonSpecularIntensity(1.0);
   editor.setRibbonShininess(6.0);
+  editor.setRibbonEdgeCueing(RKEdgeCueing::off);
 }
 
 void applyFancyRibbonAppearanceDefault(ProteinRibbonStructureEditor &editor)
@@ -98,6 +99,13 @@ void applyFancyRibbonAppearanceDefault(ProteinRibbonStructureEditor &editor)
   editor.setRibbonDiffuseIntensity(1.0);
   editor.setRibbonSpecularIntensity(1.0);
   editor.setRibbonShininess(4.0);
+  editor.setRibbonEdgeCueing(RKEdgeCueing::off);
+}
+
+void applyIllustrativeRibbonAppearance(ProteinRibbonStructureEditor &editor)
+{
+  applyFancyRibbonAppearanceDefault(editor);
+  editor.setRibbonEdgeCueing(RKEdgeCueing::contoursAndHalos);
 }
 
 void applyRibbonRepresentationStyle(ProteinRibbonStructureEditor &editor, ProteinRibbonRepresentationStyle style)
@@ -110,6 +118,9 @@ void applyRibbonRepresentationStyle(ProteinRibbonStructureEditor &editor, Protei
     break;
   case ProteinRibbonRepresentationStyle::fancy:
     applyFancyRibbonAppearanceDefault(editor);
+    break;
+  case ProteinRibbonRepresentationStyle::illustrative:
+    applyIllustrativeRibbonAppearance(editor);
     break;
   case ProteinRibbonRepresentationStyle::custom:
     break;
@@ -171,18 +182,26 @@ bool matchesLegacyDefaultRibbonAppearance(const ProteinRibbonStructureEditor &ed
 
 void recheckRibbonRepresentationStyle(ProteinRibbonStructureEditor &editor)
 {
-  if (matchesDefaultRibbonAppearance(editor))
+  // Default and Fancy are drawn without cues, so any cueing at all leaves them behind: the cued
+  // Fancy material is Illustrative, and one cue on its own is neither.
+  const bool noCues = editor.ribbonEdgeCueing() == RKEdgeCueing::off;
+
+  if (noCues && matchesDefaultRibbonAppearance(editor))
   {
     editor.setRibbonRepresentationStyle(ProteinRibbonRepresentationStyle::defaultStyle);
   }
-  else if (matchesLegacyDefaultRibbonAppearance(editor))
+  else if (noCues && matchesLegacyDefaultRibbonAppearance(editor))
   {
     // Upgrade gallery / older Default lighting (0.1 / 4.0) to the Cocoa Default preset.
     applyRibbonRepresentationStyle(editor, ProteinRibbonRepresentationStyle::defaultStyle);
   }
   else if (matchesFancyRibbonAppearance(editor))
   {
-    editor.setRibbonRepresentationStyle(ProteinRibbonRepresentationStyle::fancy);
+    editor.setRibbonRepresentationStyle(
+        noCues ? ProteinRibbonRepresentationStyle::fancy
+               : (editor.ribbonEdgeCueing() == RKEdgeCueing::contoursAndHalos)
+                     ? ProteinRibbonRepresentationStyle::illustrative
+                     : ProteinRibbonRepresentationStyle::custom);
   }
   else
   {
@@ -192,14 +211,15 @@ void recheckRibbonRepresentationStyle(ProteinRibbonStructureEditor &editor)
 
 void finalizeRibbonRepresentationStyleAfterLoad(ProteinRibbonStructureEditor &editor, int64_t archiveVersion)
 {
-  // Version 6+ stores the representation-style name. Trust Default/Fancy and re-apply their
-  // lighting so a saved "Default" cannot be reclassified as Fancy when lighting drifted
+  // Version 6+ stores the representation-style name. Trust Default/Fancy/Illustrative and re-apply
+  // their lighting so a saved "Default" cannot be reclassified as Fancy when lighting drifted
   // (Appearance Reload used to show the stored label without rechecking first).
   if (archiveVersion >= 6)
   {
     const ProteinRibbonRepresentationStyle style = editor.ribbonRepresentationStyle();
     if (style == ProteinRibbonRepresentationStyle::defaultStyle
-        || style == ProteinRibbonRepresentationStyle::fancy)
+        || style == ProteinRibbonRepresentationStyle::fancy
+        || style == ProteinRibbonRepresentationStyle::illustrative)
     {
       applyRibbonRepresentationStyle(editor, style);
       return;

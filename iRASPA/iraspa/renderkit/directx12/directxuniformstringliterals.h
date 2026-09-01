@@ -12,6 +12,15 @@ class DirectXUniformStringLiterals
 public:
   DirectXUniformStringLiterals() = default;
 
+  /// The tag saying which edge cues the surface at a pixel asked for, in step with
+  /// RKEdgeCueingParameters in rkrenderuniforms.h. Written by the molecular raster passes into the
+  /// stencil and by the path tracer's resolve kernel into a buffer, and read by the cue pass out of
+  /// whichever of the two the frame was drawn with.
+  inline static const std::string EdgeCueingStencilTagStringLiteral = R"foo(
+#define EDGE_CUEING_STENCIL_MODE_MASK 0x03
+#define EDGE_CUEING_STENCIL_CUEABLE_BIT 0x80
+)foo";
+
   // Nested struct keeps C++ memcpy layout and avoids cross-cbuffer name clashes.
   inline static const std::string FrameUniformBlockStringLiteral = R"foo(
 struct FrameUniformData
@@ -30,15 +39,15 @@ struct FrameUniformData
   float4x4 padMatrix;
 
   float4 cameraPosition;
-  float4 padvector4;
+  float4 edgeCueing;
   float numberOfMultiSamplePoints;
-  float padInt1;
-  float padInt2;
-  float padInt3;
+  float shadowMaskWidth;
+  float shadowMaskHeight;
+  float pad9;
   float bloomLevel;
   float bloomPulse;
-  float padFloat1;
-  float padFloat2;
+  float edgeCueingContourDepth;
+  float edgeCueingHaloDepth;
 };
 
 cbuffer FrameUniformBlock : register(b0)
@@ -47,7 +56,12 @@ cbuffer FrameUniformBlock : register(b0)
 };
 )foo";
 
-  inline static const std::string StructureUniformBlockStringLiteral = R"foo(
+  // The struct on its own. The raster passes reach one structure at a time and take it as the
+  // constant buffer below; the ray-tracing kernels reach every structure at once, indexed by the
+  // instance they hit, and take it as a structured buffer instead. Both layouts agree because every
+  // member here falls in a group of four scalars or is a float4, so nothing is padded differently
+  // between the two.
+  inline static const std::string StructureUniformStructStringLiteral = R"foo(
 struct StructureUniformData
 {
   int sceneIdentifier;
@@ -136,7 +150,9 @@ struct StructureUniformData
   float4 primitiveSpecularBackSide;
   int primitiveBackSideHDR;
   float primitiveBackSideHDRExposure;
-  float pad6;
+  // RKEdgeCueing as a float. The raster passes tag the stencil instead; these are for the tracer,
+  // whose resolve kernel writes the same tag into a buffer.
+  float edgeCueingRibbons;
   float primitiveShininessBackSide;
 
   float bondSelectionStripesDensity;
@@ -152,12 +168,14 @@ struct StructureUniformData
   float primitiveSelectionScaling;
   float primitiveSelectionIntensity;
   float pad7;
-  float pad8;
+  float edgeCueingAtoms;
 
   float primitiveHue;
   float primitiveSaturation;
   float primitiveValue;
-  float pad9;
+  // How far occlusion leans towards darkening the direct terms as well as the ambient one. 0 is
+  // physically correct, 1 reproduces the "Fancy" look.
+  float ambientOcclusionStrength;
 
   float4 localAxisPosition;
   float4 numberOfReplicas;
@@ -191,7 +209,10 @@ struct StructureUniformData
   float4 padTail8;
   float4 padTail9;
 };
+)foo";
 
+  inline static const std::string StructureUniformBlockStringLiteral =
+      StructureUniformStructStringLiteral + R"foo(
 cbuffer StructureUniformBlock : register(b1)
 {
   StructureUniformData structureUniforms;
@@ -273,23 +294,144 @@ struct Light
 
   float spotExponent;
   float shininess;
-  float pad1;
-  float pad2;
+  // RKLightType as a float: 0 directional, 1 point, 2 spot.
+  float lightType;
+  // Non-zero when the light contributes. Only the camera light in slot 0 is on by default.
+  float enabled;
   float pad3;
   float pad4;
   float pad5;
   float pad6;
 };
 
+// The array length must match RKLightsUniforms::numberOfLights, which mirrors this block by hand.
 struct LightsUniformData
 {
-  Light lights[4];
+  Light lights[8];
+  // Ambient light for the scene as a whole rather than for any one lamp.
+  float4 sceneAmbient;
 };
 
 cbuffer LightsUniformBlock : register(b3)
 {
   LightsUniformData lightUniforms;
 };
+)foo";
+
+  // Shading summed over the whole light rig, and the shadow mask that gates it. Include after the
+  // frame and light blocks, which this reads. Every surface that is lit goes through
+  // accumulateLighting, so a light added to the rig reaches all of them at once; the vertex stages
+  // hand on material colours and the pixel stage finishes the shading, since a per-light sum can
+  // no longer be folded into a single interpolated colour.
+  inline static const std::string LightingStringLiteral = R"foo(
+// One bit per light, set when that light reaches the surface at this pixel. Written by the ray
+// tracer's shadow-mask kernel: a raster pass has no way of knowing what stands between a surface
+// and a light, so with an off-axis rig it would otherwise light faces the tracer leaves in shadow.
+//
+// A buffer rather than a texture because the renderer swaps descriptor heaps between passes. A
+// root shader-resource view is bound by address and survives that, where a table-bound texture
+// would have to be present in every one of those heaps.
+StructuredBuffer<uint> shadowMaskBuffer : register(t1);
+
+// Every light reaching the surface: the mask value that leaves shading untouched. Eight bits for
+// the eight lights of LightsUniformData.
+static const uint allLightsVisible = 0xFFu;
+
+// Guide geometry — the unit cell, the bounding box, the axes — has no material to set an ambient
+// level with, so it takes this share of the colour it is drawn in. It sits in the same range as the
+// 0.2 an atom's representation style asks for, and it is what keeps guides visible when every light
+// is switched off, which the scene ambient makes a reasonable thing to do.
+static const float guideGeometryAmbient = 0.2;
+
+/// The light-visibility bits at this fragment, from the pixel position the rasterizer assigned it.
+/// Reports every light lit when no mask has been traced, which is what makes the whole shadow path
+/// optional.
+uint shadowMaskAtFragment(float4 windowPosition)
+{
+  int width = int(frameUniforms.shadowMaskWidth);
+  int height = int(frameUniforms.shadowMaskHeight);
+  if (width <= 0 || height <= 0)
+    return allLightsVisible;
+
+  // A mask traced at a different size than the pass being shaded would otherwise read out of
+  // bounds; clamping costs nothing and keeps the two independent.
+  int2 pixel = clamp(int2(windowPosition.xy), int2(0, 0), int2(width - 1, height - 1));
+  return shadowMaskBuffer[pixel.y * width + pixel.x];
+}
+
+struct LightingWeights
+{
+  float3 ambient;
+  float3 diffuse;
+  float3 specular;
+};
+
+/// Ambient, diffuse and specular summed over the enabled lights, each weighted by its distance
+/// falloff, its spotlight cone and whether `lightVisibility` says it reaches this point. The
+/// caller multiplies these by its own material colours.
+LightingWeights accumulateLighting(float3 N, float3 V, float4 eyePosition, float materialShininess,
+                                   uint lightVisibility)
+{
+  LightingWeights weights;
+
+  // ambient belongs to the scene, so it is set once here rather than summed over the lights
+  weights.ambient = lightUniforms.sceneAmbient.xyz;
+  weights.diffuse = float3(0.0, 0.0, 0.0);
+  weights.specular = float3(0.0, 0.0, 0.0);
+
+  for (int i = 0; i < 8; i++)
+  {
+    if (lightUniforms.lights[i].enabled < 0.5)
+      continue;
+
+    // in shadow for this light: no direct light of any kind reaches the point
+    if ((lightVisibility & (1u << uint(i))) == 0u)
+      continue;
+
+    // w selects the meaning of position: a direction for a directional light, a location otherwise
+    float4 lightPosition = lightUniforms.lights[i].position;
+    float3 toLight = (lightPosition - eyePosition * lightPosition.w).xyz;
+    float distanceToLight = length(toLight);
+    float3 L = (distanceToLight > 0.0) ? toLight / distanceToLight : float3(0.0, 0.0, 1.0);
+
+    float attenuation = 1.0;
+    if (lightPosition.w > 0.5)
+    {
+      attenuation = 1.0 / max(lightUniforms.lights[i].constantAttenuation +
+                              lightUniforms.lights[i].linearAttenuation * distanceToLight +
+                              lightUniforms.lights[i].quadraticAttenuation * distanceToLight * distanceToLight,
+                              1.0e-4);
+
+      if (lightUniforms.lights[i].lightType > 1.5) // spot
+      {
+        float3 spotAxis = normalize(lightUniforms.lights[i].spotDirection.xyz);
+        float spotCosine = dot(-L, spotAxis);
+        float cutoffCosine = cos(0.01745329252 * clamp(lightUniforms.lights[i].spotCutoff, 0.0, 180.0));
+        // A cutoff wider than a right angle admits directions the cosine is negative for, which
+        // pow is not defined at, so it is clamped rather than left to the cutoff test alone.
+        attenuation *= (spotCosine < cutoffCosine)
+                           ? 0.0
+                           : pow(max(spotCosine, 0.0), max(lightUniforms.lights[i].spotExponent, 0.0));
+      }
+    }
+
+    float3 R = reflect(-L, N);
+    float specularFactor = pow(max(dot(R, V), 0.0), lightUniforms.lights[i].shininess + materialShininess);
+
+    weights.diffuse += attenuation * max(dot(N, L), 0.0) * lightUniforms.lights[i].diffuse.xyz;
+    weights.specular += attenuation * specularFactor * lightUniforms.lights[i].specular.xyz;
+  }
+
+  return weights;
+}
+
+/// For the passes a shadow does not apply to. The selection overlays are the main ones: a marking
+/// on the model rather than a part of it, so neither the shadow mask nor the baked occlusion map
+/// touches them.
+LightingWeights accumulateLighting(float3 N, float3 V, float4 eyePosition, float materialShininess)
+{
+  return accumulateLighting(N, V, eyePosition, materialShininess, allLightsVisible);
+}
 )foo";
 
   inline static const std::string RGBHSVStringLiteral = R"foo(

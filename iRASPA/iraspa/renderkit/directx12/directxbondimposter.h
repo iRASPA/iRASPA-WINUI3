@@ -427,21 +427,27 @@ float3 bondImposterModelCoords(float3 pointA, float3 pointB, float radius,
 )foo";
 
   // Varyings of the selection imposters. Like the scene imposters, plus the eye-space model axes
-  // the striped and Worley-noise patterns are evaluated in. Selection effects are always shaded
-  // once per pixel.
-  inline const std::string SelectionVaryingsStringLiteral = R"foo(
-  float4 position : SV_POSITION;
-  nointerpolation float4 color1 : COLOR0;
-  nointerpolation float4 color2 : COLOR1;
-  nointerpolation float4 ambient : COLOR2;
-  nointerpolation float4 specular : COLOR3;
-  float3 frag_pos : TEXCOORD0;
-  nointerpolation float3 pointA : TEXCOORD1;
-  nointerpolation float3 pointB : TEXCOORD2;
-  nointerpolation float radius : TEXCOORD3;
-  nointerpolation float3 axisX : TEXCOORD4;
-  nointerpolation float3 axisZ : TEXCOORD5;
-)foo";
+  // the striped and Worley-noise patterns are evaluated in.
+  //
+  // The overlay styles are shaded once per pixel, being drawn over the very surface they mark. The
+  // glow shell is not: it clears its bond by a hair and depth-tests against it, so it follows the
+  // scene's rate and solves the cylinder at each sample's own position, which is what frag_pos
+  // carries. A vertex output always uses the plain form.
+  inline std::string selectionVaryings(bool perSample)
+  {
+    return std::string(
+"  float4 position : SV_POSITION;\n"
+"  nointerpolation float4 color1 : COLOR0;\n"
+"  nointerpolation float4 color2 : COLOR1;\n"
+"  nointerpolation float4 ambient : COLOR2;\n"
+"  nointerpolation float4 specular : COLOR3;\n") +
+(perSample ? "  sample " : "  ") + "float3 frag_pos : TEXCOORD0;\n"
+"  nointerpolation float3 pointA : TEXCOORD1;\n"
+"  nointerpolation float3 pointB : TEXCOORD2;\n"
+"  nointerpolation float radius : TEXCOORD3;\n"
+"  nointerpolation float3 axisX : TEXCOORD4;\n"
+"  nointerpolation float3 axisZ : TEXCOORD5;\n";
+  }
 
   inline const std::string DepthOutputStringLiteral = R"foo(
 struct PSOutput

@@ -304,7 +304,7 @@ protected:
   double3 ribbonOrigin() const override { return _origin; }
 
 private:
-  int64_t _versionNumber{7};
+  int64_t _versionNumber{9};
 
   SKSpaceGroup _spaceGroup = SKSpaceGroup(1);
 

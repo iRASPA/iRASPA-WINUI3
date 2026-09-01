@@ -1734,6 +1734,18 @@ namespace winrt::iRASPA_WinUI::implementation
         return m_renderHost ? m_renderHost->renderer() : nullptr;
     }
 
+    bool MainWindow::LiveSupportsRaytracing()
+    {
+        auto *renderer = Renderer();
+        return renderer && renderer->supportsRaytracing();
+    }
+
+    std::wstring MainWindow::LiveRaytracingStatus()
+    {
+        auto *renderer = Renderer();
+        return renderer ? RKString(renderer->raytracingStatus()).toStdWString() : std::wstring();
+    }
+
     void MainWindow::ReloadRenderer()
     {
         if (auto *r = Renderer())

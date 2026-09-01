@@ -17,18 +17,20 @@ namespace
 {
 // Shading of the ray-traced surface point, shared by the internal and external pixel shaders.
 const char *kImposterShading = R"foo(
-  float3 L = normalize((lightUniforms.lights[0].position - float4(pos, 1.0) * lightUniforms.lights[0].position.w).xyz);
   float3 V = normalize(-pos);
-  float3 R = reflect(-L, N);
 
-  float4 ambient = input.ambient;
-  float4 specular = pow(max(dot(R, V), 0.0), lightUniforms.lights[0].shininess + structureUniforms.bondShininess)
-                    * input.specular;
-  float d = max(dot(N, L), 0.0);
-  float4 diffuse = float4(d, d, d, 1.0);
+  LightingWeights lighting = accumulateLighting(N, V, float4(pos, 1.0),
+                                                structureUniforms.bondShininess,
+                                                shadowMaskAtFragment(input.position));
+
+  float4 ambient = float4(lighting.ambient, 1.0) * input.ambient;
+  float4 specular = float4(lighting.specular, 1.0) * input.specular;
+  // The colours the vertex shader hands on are materials now, so the light rig arrives here
+  // instead: mode 0 takes the structure's bond colour, the other two the per-atom colours.
+  float4 diffuse = float4(lighting.diffuse, 1.0);
 
   if (structureUniforms.bondColorMode == 0)
-    diffuse *= lightUniforms.lights[0].diffuse * structureUniforms.bondDiffuseColor;
+    diffuse *= structureUniforms.bondDiffuseColor;
   else if (structureUniforms.bondColorMode == 1)
     diffuse *= (ct < 0.5 ? input.color1 : input.color2);
   else if (structureUniforms.bondColorMode == 2)
@@ -80,6 +82,7 @@ void DirectXBondShader::initializeImposterPSO(ID3D12Device *device, ID3D12RootSi
   psoDesc.DepthStencilState.DepthEnable = TRUE;
   psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
   psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+  DirectXDeviceHelpers::recordEdgeCueingInStencil(psoDesc.DepthStencilState);
   psoDesc.InputLayout = { inputLayout, DirectXBondImposter::shadingInputLayoutSize };
   psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   psoDesc.NumRenderTargets = 1;
@@ -247,6 +250,12 @@ void DirectXBondShader::paintBondSet(ID3D12GraphicsCommandList *commandList,
         commandList->SetGraphicsRootConstantBufferView(
             1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(index) * structureCBVStride);
 
+        // The bonds take the cues of the atoms they join, as in Cocoa: one setting reads as one
+        // decision about the molecule, and a contour that stopped at every atom would look drawn
+        // around the spheres rather than around the molecule.
+        if (auto *atoms = dynamic_cast<RKRenderAtomSource *>(_renderStructures[i][j].get()))
+          commandList->OMSetStencilRef(RKEdgeCueingParameters::stencilValue(atoms->atomEdgeCueing()));
+
         if (source->isUnity())
         {
           drawMesh(commandList, _hulls.single, bufs.all);
@@ -271,6 +280,9 @@ void DirectXBondShader::paintBondSet(ID3D12GraphicsCommandList *commandList,
       ++index;
     }
   }
+
+  // Back to what is not a structure, for the passes that follow: the reference outlives this one.
+  commandList->OMSetStencilRef(0);
 }
 
 void DirectXBondShader::drawPickGeometry(ID3D12GraphicsCommandList *commandList,
@@ -336,12 +348,14 @@ VSOutput VSMain(VSInput input)
   float4 pos1 = input.instancePosition1;
   float4 pos2 = input.instancePosition2;
 
-  output.ambient = lightUniforms.lights[0].ambient * structureUniforms.bondAmbientColor;
-  output.specular = lightUniforms.lights[0].specular * structureUniforms.bondSpecularColor;
+  // The material alone: the light rig is summed over in the pixel shader, since a sum over lights
+  // that a shadow mask gates per pixel cannot be folded into one interpolated colour here.
+  output.ambient = structureUniforms.bondAmbientColor;
+  output.specular = structureUniforms.bondSpecularColor;
   float4 diffuseColor = (structureUniforms.bondColorMode == 0) ? structureUniforms.bondDiffuseColor
                                                                : structureUniforms.atomDiffuseColor;
-  output.color1 = lightUniforms.lights[0].diffuse * diffuseColor * input.instanceColor1;
-  output.color2 = lightUniforms.lights[0].diffuse * diffuseColor * input.instanceColor2;
+  output.color1 = diffuseColor * input.instanceColor1;
+  output.color2 = diffuseColor * input.instanceColor2;
 
   BondImposterHull hull = bondImposterHull(pos1, pos2, input.vertexPosition.xyz,
                                            input.vertexNormal.xy, input.vertexPosition.w, 1.0);
@@ -379,6 +393,7 @@ std::string DirectXBondShader::imposterPixelShaderSource(bool external, bool per
   return DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
          DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
          DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+         DirectXUniformStringLiterals::LightingStringLiteral +
          DirectXUniformStringLiterals::RGBHSVStringLiteral +
          std::string("\nstruct PSInput\n{\n") + DirectXBondImposter::shadingVaryings(perSample) +
          std::string("};\n") +

@@ -30,7 +30,7 @@ struct ExportJob
   };
 
   static constexpr uint32_t kMagic = 0x49525845;  // 'IRXE'
-  static constexpr uint32_t kVersion = 1;
+  static constexpr uint32_t kVersion = 2;
 
   Mode mode = Mode::picture;
   int32_t width = 1;

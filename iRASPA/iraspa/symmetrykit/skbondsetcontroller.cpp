@@ -254,7 +254,19 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<SKBondSetContro
     throw InvalidArchiveVersionException(__FILE__, __LINE__, "SKBondSetController");
   }
 
-  std::vector<std::shared_ptr<SKAsymmetricAtom>> asymmetricAtoms = controller->_atomTreecontroller->flattenedObjects();
+  // A tag is the number setTags() gives an atom, and it numbers the leaves of the tree. The list the
+  // tags index has to be that same one: flattenedObjects() keeps a slot for every group node as well,
+  // which in a protein, whose atoms are grouped into chains and residues, shifts every atom after the
+  // first group and leaves the group's own slot empty. Bonds then point at the wrong atom, or at none
+  // at all, which is only noticed later, when something asks a bond which atoms it joins.
+  std::vector<std::shared_ptr<SKAsymmetricAtom>> asymmetricAtoms;
+  for(const std::shared_ptr<SKAtomTreeNode> &node: controller->_atomTreecontroller->flattenedLeafNodes())
+  {
+    if(std::shared_ptr<SKAsymmetricAtom> atom = node->representedObject())
+    {
+      asymmetricAtoms.push_back(atom);
+    }
+  }
   std::vector<std::shared_ptr<SKAtomCopy>> atomCopies = controller->_atomTreecontroller->allAtomCopies();
 
   stream >> controller->_arrangedObjects;
@@ -264,21 +276,41 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<SKBondSetContro
     stream >> controller->_selectedIndexSet;
   }
 
-  // fill in the atoms from the tags
+  // Fill in the atoms from the tags, keeping only the bonds whose tags still name an atom, which is
+  // what Cocoa's restoreBonds does: a structure that rebuilds its atoms after being read, as the
+  // older gallery proteins do, leaves tags behind that name nothing.
+  std::vector<std::shared_ptr<SKAsymmetricBond>> restoredBonds;
+  restoredBonds.reserve(controller->_arrangedObjects.size());
   for(std::shared_ptr<SKAsymmetricBond> &bond: controller->_arrangedObjects)
   {
-    int atom1Tag = bond->getTag1();
-    int atom2Tag = bond->getTag2();
-    bond->setAtom1(asymmetricAtoms[atom1Tag]);
-    bond->setAtom2(asymmetricAtoms[atom2Tag]);
+    const int64_t atom1Tag = bond->getTag1();
+    const int64_t atom2Tag = bond->getTag2();
+    if(atom1Tag < 0 || size_t(atom1Tag) >= asymmetricAtoms.size() ||
+       atom2Tag < 0 || size_t(atom2Tag) >= asymmetricAtoms.size())
+    {
+      continue;
+    }
+    bond->setAtom1(asymmetricAtoms[size_t(atom1Tag)]);
+    bond->setAtom2(asymmetricAtoms[size_t(atom2Tag)]);
 
+    std::vector<std::shared_ptr<SKBond>> restoredCopies;
+    restoredCopies.reserve(bond->copies().size());
     for(std::shared_ptr<SKBond> &bondCopy: bond->copies())
     {
-      int tag1 = bondCopy->getTag1();
-      int tag2 = bondCopy->getTag2();
-      bondCopy->setAtoms(atomCopies[tag1],atomCopies[tag2]);
+      const int64_t tag1 = bondCopy->getTag1();
+      const int64_t tag2 = bondCopy->getTag2();
+      if(tag1 < 0 || size_t(tag1) >= atomCopies.size() ||
+         tag2 < 0 || size_t(tag2) >= atomCopies.size())
+      {
+        continue;
+      }
+      bondCopy->setAtoms(atomCopies[size_t(tag1)],atomCopies[size_t(tag2)]);
+      restoredCopies.push_back(bondCopy);
     }
+    bond->copies() = restoredCopies;
+    restoredBonds.push_back(bond);
   }
+  controller->_arrangedObjects = restoredBonds;
 
   return stream;
 }

@@ -47,6 +47,9 @@ void DirectXUnitCellShader::initializeSpherePSO(ID3D12Device *device, ID3D12Root
   psoDesc.DepthStencilState.DepthEnable = TRUE;
   psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
   psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+  // Not a structure, so it takes the cueing tag off whatever it draws in front of: a contour along a
+  // cell edge that happens to cross an atom would look like a fault in the drawing.
+  DirectXDeviceHelpers::recordEdgeCueingInStencil(psoDesc.DepthStencilState);
   psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
   psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   psoDesc.NumRenderTargets = 1;
@@ -97,6 +100,9 @@ void DirectXUnitCellShader::initializeCylinderPSO(ID3D12Device *device, ID3D12Ro
   psoDesc.DepthStencilState.DepthEnable = TRUE;
   psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
   psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+  // Not a structure, so it takes the cueing tag off whatever it draws in front of: a contour along a
+  // cell edge that happens to cross an atom would look like a fault in the drawing.
+  DirectXDeviceHelpers::recordEdgeCueingInStencil(psoDesc.DepthStencilState);
   psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
   psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   psoDesc.NumRenderTargets = 1;
@@ -273,7 +279,6 @@ void DirectXUnitCellShader::paint(ID3D12GraphicsCommandList *commandList,
 const std::string DirectXUnitCellShader::_sphereVertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 std::string(R"foo(
 struct VSInput
 {
@@ -287,8 +292,7 @@ struct VSOutput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
-  float3 V : TEXCOORD1;
+  float3 V : TEXCOORD0;
 };
 
 VSOutput VSMain(VSInput input)
@@ -300,7 +304,6 @@ VSOutput VSMain(VSInput input)
 
   output.N = mul(frameUniforms.normalMatrix, mul(structureUniforms.modelMatrix, input.vertexNormal)).xyz;
   float4 P = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, pos));
-  output.L = (lightUniforms.lights[0].position - P * lightUniforms.lights[0].position.w).xyz;
   output.V = -P.xyz;
 
   float4 clip = mul(frameUniforms.mvpMatrix, mul(structureUniforms.modelMatrix, pos));
@@ -311,23 +314,27 @@ VSOutput VSMain(VSInput input)
 )foo");
 
 const std::string DirectXUnitCellShader::_spherePixelShaderSource =
+DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
 std::string(R"foo(
 struct PSInput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
-  float3 V : TEXCOORD1;
+  float3 V : TEXCOORD0;
 };
 
 float4 PSMain(PSInput input) : SV_TARGET
 {
   float3 N = normalize(input.N);
-  float3 L = normalize(input.L);
-  float ndotl = max(dot(N, L), 0.0);
-  float4 color = (0.25 + 0.75 * ndotl) * structureUniforms.unitCellColor;
+  // Unshadowed on purpose: a guide is drawn to be seen, so the traced mask is not consulted. The
+  // eye position comes back out of the view vector the vertex stage negated.
+  LightingWeights lighting = accumulateLighting(N, normalize(input.V), float4(-input.V, 1.0), 0.0);
+  float3 shade = guideGeometryAmbient * lighting.ambient + lighting.diffuse;
+  float4 color = float4(structureUniforms.unitCellColor.xyz * shade, 1.0);
 
   float3 hsv = rgb2hsv(color.xyz);
   hsv.x = hsv.x * structureUniforms.atomHue;
@@ -340,7 +347,6 @@ float4 PSMain(PSInput input) : SV_TARGET
 const std::string DirectXUnitCellShader::_cylinderVertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 std::string(R"foo(
 struct VSInput
 {
@@ -355,7 +361,7 @@ struct VSOutput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
+  float3 V : TEXCOORD0;
 };
 
 VSOutput VSMain(VSInput input)
@@ -398,7 +404,7 @@ VSOutput VSMain(VSInput input)
 
   float4 worldPos = float4(world, 1.0);
   float4 P = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, worldPos));
-  output.L = (lightUniforms.lights[0].position - P * lightUniforms.lights[0].position.w).xyz;
+  output.V = -P.xyz;
 
   float4 clip = mul(frameUniforms.mvpMatrix, mul(structureUniforms.modelMatrix, worldPos));
   clip.z = clip.z * 0.5f + clip.w * 0.5f;
@@ -408,22 +414,26 @@ VSOutput VSMain(VSInput input)
 )foo");
 
 const std::string DirectXUnitCellShader::_cylinderPixelShaderSource =
+DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
 std::string(R"foo(
 struct PSInput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
+  float3 V : TEXCOORD0;
 };
 
 float4 PSMain(PSInput input) : SV_TARGET
 {
   float3 N = normalize(input.N);
-  float3 L = normalize(input.L);
-  float ndotl = max(dot(N, L), 0.0);
-  float4 color = (0.35 + 0.65 * ndotl) * structureUniforms.unitCellColor;
+  // Unshadowed, as for the spheres at the cell corners.
+  LightingWeights lighting = accumulateLighting(N, normalize(input.V), float4(-input.V, 1.0), 0.0);
+  float3 shade = guideGeometryAmbient * lighting.ambient + lighting.diffuse;
+  float4 color = float4(structureUniforms.unitCellColor.xyz * shade, 1.0);
 
   float3 hsv = rgb2hsv(color.xyz);
   hsv.x = hsv.x * structureUniforms.atomHue;

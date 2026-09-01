@@ -57,6 +57,8 @@ namespace winrt::iRASPA_WinUI::implementation
         void ZoomRendererCamera(double amount) override;
         void PickBackgroundImage() override { PickBackgroundImageAsync(); }
         int64_t LiveAdapterLuid() override;
+        bool LiveSupportsRaytracing() override;
+        std::wstring LiveRaytracingStatus() override;
 
         // DocumentHost
         void Log(std::wstring const& message) override { AppendLog(message); }

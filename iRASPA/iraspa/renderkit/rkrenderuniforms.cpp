@@ -23,6 +23,7 @@
 #include "rkrenderkitprotocols.h"
 #include "mathkit.h"
 
+#include <algorithm>
 #include <cstddef>
 
 // The shader declares this block itself, so a field that moves silently reads as another field. The
@@ -34,6 +35,18 @@ static_assert(offsetof(RKStructureUniforms, ribbonAmbientColor) == 1088, "ribbon
 static_assert(offsetof(RKStructureUniforms, ribbonDiffuseColor) == 1104, "ribbon materials moved");
 static_assert(offsetof(RKStructureUniforms, ribbonSpecularColor) == 1120, "ribbon materials moved");
 static_assert(sizeof(RKStructureUniforms) % 256 == 0, "a constant buffer view needs a 256-byte stride");
+
+// The size of the ray-traced shadow mask is only settled after the rest of the frame uniforms have
+// been written, so the renderer patches the two fields in with one write over both of them.
+static_assert(offsetof(RKTransformationUniforms, shadowMaskHeight) ==
+                  offsetof(RKTransformationUniforms, shadowMaskWidth) + sizeof(float),
+              "the shadow mask size is no longer two adjacent floats");
+
+// sceneAmbient has to follow the lights with nothing between it and them, the shader block being one
+// struct, and the whole thing is uploaded in a single write.
+static_assert(sizeof(RKLightUniform) == 128, "the light stride the shader block assumes has changed");
+static_assert(offsetof(RKLightsUniforms, sceneAmbient) == RKLightsUniforms::numberOfLights * sizeof(RKLightUniform),
+              "the scene ambient no longer sits directly after the lights");
 
 namespace
 {
@@ -60,6 +73,7 @@ namespace
     uniforms.ribbonValue = float(source->ribbonValue());
     uniforms.ribbonAmbientOcclusion = source->ribbonAmbientOcclusion() ? 1 : 0;
     uniforms.ribbonShininess = float(source->ribbonShininess());
+    uniforms.edgeCueingRibbons = float(static_cast<int>(source->ribbonEdgeCueing()));
 
     const RKColor ambient = source->ribbonAmbientColor();
     const RKColor diffuse = source->ribbonDiffuseColor();
@@ -175,6 +189,7 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
       this->atomHDRExposure = float(source->atomHDRExposure());
       this->atomSelectionIntensity = float(source->atomSelectionIntensity());
       this->clipAtomsAtUnitCell = source->clipAtomsAtUnitCell();
+      this->edgeCueingAtoms = float(static_cast<int>(source->atomEdgeCueing()));
 
       this->atomHue = float(source->atomHue());
       this->atomSaturation = float(source->atomSaturation());
@@ -350,8 +365,7 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
       this->atomHDRExposure = float(source->atomHDRExposure());
       this->atomSelectionIntensity = float(source->atomSelectionIntensity());
       this->clipAtomsAtUnitCell = source->clipAtomsAtUnitCell();
-
-
+      this->edgeCueingAtoms = float(static_cast<int>(source->atomEdgeCueing()));
 
       double3x3 unitCell = renderStructure->cell()->unitCell();
       double3x3 box = renderStructure->cell()->box();
@@ -517,7 +531,8 @@ RKLightUniform::RKLightUniform(std::shared_ptr<RKRenderDataSource> project, int 
 {
   std::vector<std::shared_ptr<RKLight>> lights = project->renderLights();
   std::shared_ptr<RKLight> light = lights[lightIndex];
-  this->ambient = float(light->ambientIntensity()) * float4(light->ambientColor().redF(),light->ambientColor().greenF(),light->ambientColor().blueF(),light->ambientColor().alphaF());
+  // Ambient belongs to the scene (sceneAmbient), not to a single light.
+  this->ambient = float4(0.0f, 0.0f, 0.0f, 1.0f);
   this->diffuse = float(light->diffuseIntensity()) * float4(light->diffuseColor().redF(),light->diffuseColor().greenF(),light->diffuseColor().blueF(),light->diffuseColor().alphaF());
   this->specular = float(light->specularIntensity()) * float4(light->specularColor().redF(),light->specularColor().greenF(),light->specularColor().blueF(),light->specularColor().alphaF());
   this->shininess = float(light->shininess());
@@ -529,17 +544,46 @@ RKLightUniform::RKLightUniform()
 };
 
 // Note: must be aligned at vector-length (16-bytes boundaries, 4 Floats of 4 bytes)
-// current number of bytes: 512 bytes
 RKLightsUniforms::RKLightsUniforms(std::shared_ptr<RKRenderDataSource> project)
 {
   if(project)
   {
     std::vector<std::shared_ptr<RKLight>> currentLights = project->renderLights();
-    std::shared_ptr<RKLight> light = currentLights[0];
-    this->lights[0].ambient = float(light->ambientIntensity()) * float4(light->ambientColor().redF(),light->ambientColor().greenF(),light->ambientColor().blueF(),light->ambientColor().alphaF());
-    this->lights[0].diffuse = float(light->diffuseIntensity()) * float4(light->diffuseColor().redF(),light->diffuseColor().greenF(),light->diffuseColor().blueF(),light->diffuseColor().alphaF());
-    this->lights[0].specular = float(light->specularIntensity()) * float4(light->specularColor().redF(),light->specularColor().greenF(),light->specularColor().blueF(),light->specularColor().alphaF());
-    this->lights[0].shininess = float(light->shininess());
+    const size_t count = std::min(this->lights.size(), currentLights.size());
+
+    for(size_t i = 0; i < count; i++)
+    {
+      std::shared_ptr<RKLight> light = currentLights[i];
+
+      // The type is the source of truth for whether position names a direction or a location, so w
+      // is derived from it rather than stored twice.
+      this->lights[i].position = float4(float(light->position().x), float(light->position().y),
+                                        float(light->position().z), light->isPositional() ? 1.0f : 0.0f);
+      // Cocoa RKLightUniforms: the light's own ambient stays zero; ambient is carried by
+      // sceneAmbient instead (the ambient-model change).
+      this->lights[i].ambient = float4(0.0f, 0.0f, 0.0f, 1.0f);
+      this->lights[i].diffuse = float(light->diffuseIntensity()) * float4(light->diffuseColor().redF(),light->diffuseColor().greenF(),light->diffuseColor().blueF(),light->diffuseColor().alphaF());
+      this->lights[i].specular = float(light->specularIntensity()) * float4(light->specularColor().redF(),light->specularColor().greenF(),light->specularColor().blueF(),light->specularColor().alphaF());
+      this->lights[i].shininess = float(light->shininess());
+
+      this->lights[i].spotDirection = float4(float(light->spotDirection().x), float(light->spotDirection().y),
+                                             float(light->spotDirection().z), 0.0f);
+      this->lights[i].constantAttenuation = float(light->constantAttenuation());
+      this->lights[i].linearAttenuation = float(light->linearAttenuation());
+      this->lights[i].quadraticAttenuation = float(light->quadraticAttenuation());
+      this->lights[i].spotCutoff = float(light->spotCutoff());
+      this->lights[i].spotExponent = float(light->spotExponent());
+
+      this->lights[i].lightType = float(static_cast<int>(light->type()));
+      this->lights[i].enabled = light->isEnabled() ? 1.0f : 0.0f;
+    }
+
+    // Ambient describes the environment rather than any one lamp, so a rig is free to turn every
+    // light off without the scene going black.
+    const RKColor ambientColor = project->renderSceneAmbientColor();
+    this->sceneAmbient = float(project->renderSceneAmbientIntensity()) *
+                         float4(ambientColor.redF(), ambientColor.greenF(), ambientColor.blueF(),
+                                ambientColor.alphaF());
   }
 };
 

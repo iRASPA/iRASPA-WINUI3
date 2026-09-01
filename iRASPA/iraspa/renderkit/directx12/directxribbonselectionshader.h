@@ -53,7 +53,7 @@ private:
                                        const std::string &vertexShaderSource,
                                        const std::string &pixelShaderSource,
                                        DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat,
-                                       bool blended, bool multisampled);
+                                       bool blended);
   void paintStyle(ID3D12GraphicsCommandList *commandList,
                   D3D12_GPU_VIRTUAL_ADDRESS structureCBVBase,
                   UINT structureCBVStride,

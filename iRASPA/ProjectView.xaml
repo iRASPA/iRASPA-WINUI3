@@ -17,7 +17,8 @@
                      the section titles keep their full box, so the height is stated
                      here instead of being a side effect of how the font is measured. -->
                 <StackPanel Orientation="Horizontal" Spacing="2" Margin="{Binding IndentMargin}"
-                            Background="Transparent" CanDrag="True" MinHeight="35">
+                            Background="Transparent" CanDrag="True" MinHeight="35"
+                            ToolTipService.ToolTip="{Binding ReadOnlyToolTip}">
                     <TextBlock Tag="expander" Text="{Binding ExpanderGlyph}" Width="18"
                                FontSize="12" VerticalAlignment="Center" TextAlignment="Center"/>
                     <!-- Cocoa ProjectTableCellView: leading infoPanelIcon on every
@@ -29,11 +30,16 @@
                          centres the glyphs rather than the ascent and descent; see the
                          same change in SceneView. -->
                     <TextBlock Text="{Binding Title}" Visibility="{Binding TitleVisibility}"
-                               TextLineBounds="Tight"
+                               TextLineBounds="Tight" Opacity="{Binding TitleOpacity}"
                                VerticalAlignment="Center" TextWrapping="NoWrap" Margin="0,3,0,3"/>
                     <TextBlock Text="{Binding Title}" Visibility="{Binding SectionVisibility}"
                                FontWeight="SemiBold" FontSize="11" Foreground="#FF98989D"
                                VerticalAlignment="Center" TextWrapping="NoWrap" Margin="0,3,0,3"/>
+                    <!-- Cocoa ProjectTableCellView lockView: the gallery and the public
+                         databases are read-only, and say so next to the name. -->
+                    <FontIcon Glyph="&#xE72E;" FontSize="11" Opacity="0.55"
+                              Visibility="{Binding LockVisibility}" VerticalAlignment="Center"
+                              Margin="4,0,0,0"/>
                     <!-- Cocoa TableListNameTextField: the same field, editable, once
                          the row is double-clicked. Its text is filled in by
                          InlineRenameController. No explicit Height: it has to follow

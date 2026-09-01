@@ -127,9 +127,8 @@ std::string DirectXAtomSelectionStripesShader::vertexShaderSource(bool orthograp
   return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 DirectXAtomImposter::SelectionVertexInputStringLiteral +
-"struct VSOutput\n{" + DirectXAtomImposter::SelectionVaryingsStringLiteral + "};\n" +
+"struct VSOutput\n{" + DirectXAtomImposter::selectionVaryings(false) + "};\n" +
 DirectXAtomImposter::selectionVertexShaderBody(orthographic);
 }
 
@@ -139,16 +138,19 @@ std::string DirectXAtomSelectionStripesShader::pixelShaderSource(bool orthograph
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
-"struct PSInput\n{" + DirectXAtomImposter::SelectionVaryingsStringLiteral + "};\n" +
+"struct PSInput\n{" + DirectXAtomImposter::selectionVaryings(false) + "};\n" +
 DirectXAtomImposter::DepthOutputStringLiteral +
 std::string(R"foo(
 PSOutput PSMain(PSInput input)
 {
   PSOutput output;
 )foo") + DirectXAtomImposter::hitStringLiteral(orthographic) + std::string(R"foo(
-  float3 L = normalize(input.L);
-  float4 color = max(dot(N, L), 0.0) * float4(1.0, 1.0, 0.0, 1.0);
+  // Unshadowed, as the overlay marks a selection rather than describing the scene's light.
+  LightingWeights lighting = accumulateLighting(N, normalize(input.V), surfaceEyePosition,
+                                                structureUniforms.atomShininess);
+  float4 color = float4(lighting.diffuse, 1.0) * float4(1.0, 1.0, 0.0, 1.0);
 )foo") + DirectXAtomImposter::ModelNormalStringLiteral + std::string(R"foo(
   // Longitude/latitude of the hit point, so the stripes run along the atom's own meridians.
   float2 st = float2(0.5 + 0.5 * atan2(t1.z, t1.x) / 3.141592653589793,

@@ -480,6 +480,26 @@ double ProjectStructure::imageDotsPerInchValue()
   }
 }
 
+void ProjectStructure::setLightStyle(RKLightStyle style)
+{
+  std::vector<std::shared_ptr<RKLight>> rig = RKLight::rig(style);
+  if(!rig.empty())
+  {
+    _renderLights = rig;
+    _renderAmbientOcclusionStrength = RKLightStyleAmbientOcclusionStrength(style);
+    _renderSceneAmbientIntensity = RKLightStyleSceneAmbientIntensity(style);
+    _renderSceneAmbientColor = RKLightStyleSceneAmbientColor(style);
+  }
+  _renderLightStyle = style;
+}
+
+void ProjectStructure::recheckLightStyle()
+{
+  _renderLightStyle = RKLight::styleMatching(_renderLights, _renderSceneAmbientIntensity,
+                                             _renderSceneAmbientColor,
+                                             _renderAmbientOcclusionStrength);
+}
+
 size_t ProjectStructure::maxNumberOfMoviesFrames()
 {
   size_t maxNumberOfFrames=0;
@@ -525,11 +545,30 @@ BinaryArchive &operator<<(BinaryArchive & stream, const std::shared_ptr<ProjectS
   stream << static_cast<typename std::underlying_type<RKImageDimensions>::type>(node->_imageDimensions);
   stream << static_cast<typename std::underlying_type<RKImageQuality>::type>(node->_renderImageQuality);
 
+  // Cocoa's version 6 block, occlusion strength included: it sits with the export settings rather
+  // than with the lights it grades, and the order here is the one Cocoa writes.
+  stream << node->_renderPictureRayTracing;
+  stream << node->_renderPictureSampleCount;
+  stream << node->_renderPictureMaximumBounces;
+  stream << node->_renderAmbientOcclusionStrength;
+
+  stream << node->_renderShadows;
+
   stream << node->_movieFramesPerSecond;
   stream << static_cast<typename std::underlying_type<ProjectStructure::MovieType>::type>(node->_movieType);
 
   stream << node->_camera;
   stream << node->_renderAxes;
+
+  // Between the axes and the scene list, which is where Cocoa writes them.
+  stream << int64_t(node->_renderLights.size());
+  for(const std::shared_ptr<RKLight> &light : node->_renderLights)
+  {
+    stream << light;
+  }
+  stream << static_cast<typename std::underlying_type<RKLightStyle>::type>(node->_renderLightStyle);
+  stream << node->_renderSceneAmbientIntensity;
+  stream << node->_renderSceneAmbientColor;
 
   stream << node->_sceneList;
 
@@ -587,6 +626,19 @@ BinaryArchive &operator>>(BinaryArchive & stream, std::shared_ptr<ProjectStructu
   stream >> renderImageQuality;
   node->_renderImageQuality = RKImageQuality(renderImageQuality);
 
+  if(versionNumber >= 6) // introduced in version 6
+  {
+    stream >> node->_renderPictureRayTracing;
+    stream >> node->_renderPictureSampleCount;
+    stream >> node->_renderPictureMaximumBounces;
+    stream >> node->_renderAmbientOcclusionStrength;
+  }
+
+  if(versionNumber >= 13) // introduced in version 13
+  {
+    stream >> node->_renderShadows;
+  }
+
   stream >> node->_movieFramesPerSecond;
   if(versionNumber >= 5) // introduced in version 5
   {
@@ -600,6 +652,65 @@ BinaryArchive &operator>>(BinaryArchive & stream, std::shared_ptr<ProjectStructu
   if(versionNumber >= 3) // introduced in version 3
   {
     stream >> node->_renderAxes;
+  }
+
+  if(versionNumber >= 7) // introduced in version 7
+  {
+    // The count is stored rather than assumed, so the number of roles can change without a version
+    // bump.
+    int64_t numberOfLights;
+    stream >> numberOfLights;
+
+    // Read into the slots of the current rig, so a document holding fewer lights than there are roles
+    // keeps the placement of the roles it says nothing about.
+    std::vector<std::shared_ptr<RKLight>> lights = RKLight::standardRig();
+    for(int64_t i = 0; i < numberOfLights; i++)
+    {
+      std::shared_ptr<RKLight> light = std::make_shared<RKLight>();
+      stream >> light;
+      if(i < int64_t(lights.size()))
+      {
+        lights[size_t(i)] = light;
+      }
+    }
+    if(numberOfLights > 0)
+    {
+      node->_renderLights = lights;
+    }
+  }
+
+  bool readLightStyle = false;
+  int64_t lightStyle = 0;
+  if(versionNumber >= 9) // introduced in version 9
+  {
+    stream >> lightStyle;
+    readLightStyle = true;
+  }
+
+  if(versionNumber >= 10) // introduced in version 10
+  {
+    stream >> node->_renderSceneAmbientIntensity;
+    stream >> node->_renderSceneAmbientColor;
+  }
+
+  if(readLightStyle)
+  {
+    node->_renderLightStyle = RKLightStyle(lightStyle);
+  }
+  else
+  {
+    // A document from before the lighting was named: the name is worked out from the lighting itself,
+    // which is why this waits until the ambient above has been settled. With no lights stored either,
+    // what it matches is the default rig, which is what such a document was rendered with.
+    node->recheckLightStyle();
+  }
+
+  if(versionNumber == 11)
+  {
+    // Version 11 held one setting for the whole scene. It moved onto the structures, which each carry
+    // their own now, so the value is read past and dropped.
+    int64_t discarded;
+    stream >> discarded;
   }
 
   stream >> node->_sceneList;

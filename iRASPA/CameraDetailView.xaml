@@ -343,46 +343,93 @@
             </Expander>
 
             <!-- ===================== Lights ===================== -->
+            <!-- One box per photographic role, all eight always shown, as in
+                 Cocoa: the rig has fixed slots, so there is no light to pick.
+                 The boxes are built in the code-behind, being alike. -->
             <Expander Style="{StaticResource CameraSection}" Header="Lights">
                 <StackPanel Spacing="4">
                     <TextBlock x:Name="LightsHint" Text="Open a structure to edit lights."
                                Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
-                    <Border x:Name="LightsBody" Style="{StaticResource TitledBox}">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Camera Light" Style="{StaticResource BoxHeader}"/>
-                            <StackPanel Spacing="2">
-                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
-                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
-                                    <Slider x:Name="AmbientSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
-                                    <NumberBox x:Name="AmbientBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
-                                    <DropDownButton x:Name="AmbientWell" Grid.Column="3" Style="{StaticResource ColorWell}">
-                                        <Border x:Name="AmbientSwatch" Style="{StaticResource Swatch}"/>
-                                    </DropDownButton>
-                                </Grid>
-                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
-                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
-                                    <Slider x:Name="DiffuseSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
-                                    <NumberBox x:Name="DiffuseBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
-                                    <DropDownButton x:Name="DiffuseWell" Grid.Column="3" Style="{StaticResource ColorWell}">
-                                        <Border x:Name="DiffuseSwatch" Style="{StaticResource Swatch}"/>
-                                    </DropDownButton>
-                                </Grid>
-                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
-                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
-                                    <Slider x:Name="SpecularSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
-                                    <NumberBox x:Name="SpecularBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
-                                    <DropDownButton x:Name="SpecularWell" Grid.Column="3" Style="{StaticResource ColorWell}">
-                                        <Border x:Name="SpecularSwatch" Style="{StaticResource Swatch}"/>
-                                    </DropDownButton>
-                                </Grid>
-                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
-                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
-                                    <Slider x:Name="ShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
-                                    <NumberBox x:Name="ShininessBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
-                                </Grid>
+                    <StackPanel x:Name="LightsBody" Spacing="4">
+
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Style" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="LightStyle" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      SelectionChanged="OnLightStyleChanged"/>
+                        </Grid>
+
+                        <!-- Ambient describes the environment rather than any one
+                             lamp, so it sits beside the lights and a rig can turn
+                             every lamp off without the scene going black. -->
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Scene" Style="{StaticResource BoxHeader}"/>
+                                <StackPanel Spacing="2">
+                                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                        <TextBlock Text="Ambient Light" Style="{StaticResource RowLabel}"/>
+                                        <Slider x:Name="SceneAmbientSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                        <NumberBox x:Name="SceneAmbientBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
+                                        <DropDownButton x:Name="SceneAmbientWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                            <Border x:Name="SceneAmbientSwatch" Style="{StaticResource Swatch}"/>
+                                        </DropDownButton>
+                                    </Grid>
+                                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                        <TextBlock Text="Ambient Occlusion" Style="{StaticResource RowLabel}"/>
+                                        <Slider x:Name="OcclusionStrengthSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                        <NumberBox x:Name="OcclusionStrengthBox" Grid.Column="2" Style="{StaticResource Num}" MinWidth="64"/>
+                                    </Grid>
+                                </StackPanel>
                             </StackPanel>
-                        </StackPanel>
-                    </Border>
+                        </Border>
+
+                        <StackPanel x:Name="LightSlots" Spacing="0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================ Raytracing / Shadows ================ -->
+            <!-- What the render view costs on this machine, as opposed to
+                 what the scene looks like, so none of it is saved with the
+                 document: how many samples a frame can afford before it
+                 stops feeling responsive says more about the GPU in front
+                 of the user than about the structure. The Shadows box here
+                 is the render view's; the one under Pictures/Movies is the
+                 document's, which an export follows wherever it is opened. -->
+            <Expander Style="{StaticResource CameraSection}" Header="Raytracing/Shadows">
+                <StackPanel Spacing="2">
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                        <CheckBox x:Name="InteractiveRayTracing" Content="Ray-tracing"
+                                  Checked="OnInteractiveRayTracingToggled"
+                                  Unchecked="OnInteractiveRayTracingToggled"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                        <TextBlock Text="Samples" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="InteractiveSampleCount" Grid.Column="1"
+                                   Style="{StaticResource Num}" MinWidth="80"
+                                   HorizontalAlignment="Left"
+                                   ValueChanged="OnInteractiveSampleCountChanged"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                        <TextBlock Text="Samples while Rotating" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="InteractiveRotatingSampleCount" Grid.Column="1"
+                                   Style="{StaticResource Num}" MinWidth="80"
+                                   HorizontalAlignment="Left"
+                                   ValueChanged="OnInteractiveRotatingSampleCountChanged"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                        <TextBlock Text="Light Bounces" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="InteractiveMaximumBounces" Grid.Column="1"
+                                   Style="{StaticResource Num}" MinWidth="80"
+                                   HorizontalAlignment="Left"
+                                   ValueChanged="OnInteractiveMaximumBouncesChanged"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                        <CheckBox x:Name="InteractiveShadows" Content="Shadows"
+                                  Checked="OnInteractiveShadowsToggled"
+                                  Unchecked="OnInteractiveShadowsToggled"/>
+                    </Grid>
+                    <TextBlock x:Name="RaytracingHint" Opacity="0.7" FontSize="12"
+                               TextWrapping="Wrap" Visibility="Collapsed" Margin="0,2,0,0"/>
                 </StackPanel>
             </Expander>
 
@@ -392,6 +439,41 @@
                     <TextBlock x:Name="PicturesHint" Text="Open a structure to edit picture/movie settings."
                                Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
                     <StackPanel x:Name="PicturesBody" Spacing="4">
+
+                        <!-- How the output is rendered, which unlike the settings
+                             under Raytracing/Shadows is a property of the document.
+                             None of it is disabled on a machine whose own graphics
+                             card cannot trace: an export is rendered by a separate
+                             process, which is free to fall back to the software
+                             adapter. That takes minutes rather than milliseconds,
+                             which is of no consequence for a picture nobody is
+                             waiting on a frame at a time. -->
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <CheckBox x:Name="PictureRayTracing" Content="Ray-tracing"
+                                      Checked="OnPictureRayTracingToggled"
+                                      Unchecked="OnPictureRayTracingToggled"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Samples" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="PictureSampleCount" Grid.Column="1"
+                                       Style="{StaticResource Num}" MinWidth="80"
+                                       HorizontalAlignment="Left"
+                                       ValueChanged="OnPictureSampleCountChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Light Bounces" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="PictureMaximumBounces" Grid.Column="1"
+                                       Style="{StaticResource Num}" MinWidth="80"
+                                       HorizontalAlignment="Left"
+                                       ValueChanged="OnPictureMaximumBouncesChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <CheckBox x:Name="PictureShadows" Content="Shadows"
+                                      Checked="OnPictureShadowsToggled"
+                                      Unchecked="OnPictureShadowsToggled"/>
+                        </Grid>
+                        <TextBlock x:Name="PictureRayTracingHint" Opacity="0.7" FontSize="12"
+                                   TextWrapping="Wrap" Margin="0,0,0,2"/>
 
                         <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
                             <TextBlock Text="Dots-per-Inch" Style="{StaticResource RowLabel}"/>

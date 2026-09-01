@@ -19,6 +19,11 @@ public:
     frames = 0, rotationY = 1, rotationXYlemniscate = 2
   };
 
+  /// Cocoa's ProjectStructureNode class version, whose archive this is: the two are written and read
+  /// field for field so that a document travels between them. Public because the export job carries
+  /// it, which is how a helper built against a different format is told apart from a corrupt file.
+  static constexpr int64_t archiveVersion = 13;
+
   ProjectStructure();
   ProjectStructure(RKString filename, SKColorSets& colorSets, ForceFieldSets& forcefieldSets, bool proteinOnlyAsymmetricUnit, bool asMolecule, bool separatePolymerChains = false) noexcept(false);
   ProjectStructure(std::vector<std::filesystem::path> paths, SKColorSets& colorSets, ForceFieldSets& forcefieldSets, SKParser::ImportType importType, bool proteinOnlyAsymmetricUnit, bool asMolecule, bool separatePolymerChains = false) noexcept(false);
@@ -29,6 +34,26 @@ public:
   std::vector<std::shared_ptr<RKRenderObject>> renderStructuresForScene(size_t i) const;
 
   std::vector<std::shared_ptr<RKLight>>& renderLights() override final {return _renderLights;}
+
+  /// The named style renderLights() currently amounts to, kept in step by recheckLightStyle().
+  RKLightStyle renderLightStyle() const {return _renderLightStyle;}
+  /// Replaces the whole rig, the occlusion strength and the scene ambient with what \a style asks
+  /// for. `custom` names whatever is already there, so it changes nothing but the name.
+  void setLightStyle(RKLightStyle style);
+  /// Called after any light, the scene ambient or the occlusion strength is edited, so the style name
+  /// follows the lighting rather than going stale.
+  void recheckLightStyle();
+
+  double renderSceneAmbientIntensity() const override final {return _renderSceneAmbientIntensity;}
+  void setSceneAmbientIntensity(double intensity) {_renderSceneAmbientIntensity = intensity;}
+  RKColor renderSceneAmbientColor() const override final {return _renderSceneAmbientColor;}
+  void setSceneAmbientColor(RKColor color) {_renderSceneAmbientColor = color;}
+
+  double renderAmbientOcclusionStrength() const override final {return _renderAmbientOcclusionStrength;}
+  void setAmbientOcclusionStrength(double strength) {_renderAmbientOcclusionStrength = strength;}
+
+  bool renderShadows() const override final {return _renderShadows;}
+  void setShadows(bool shadows) {_renderShadows = shadows;}
 
   std::vector<RKInPerInstanceAttributesAtoms> renderMeasurementPoints() const override final;
   std::vector<RKRenderObject> renderMeasurementStructure() const override final;
@@ -73,6 +98,16 @@ public:
   RKImageQuality renderImageQuality() {return _renderImageQuality;}
   void setImageQuality(RKImageQuality quality) {_renderImageQuality = quality;}
 
+  /// How exported pictures and movies are rendered. These sit with the other export settings rather
+  /// than in the application settings, because unlike the interactive sample counts, which say what
+  /// this machine can keep up with, they are choices about the output.
+  bool renderPictureRayTracing() const override final {return _renderPictureRayTracing;}
+  void setPictureRayTracing(bool tracing) {_renderPictureRayTracing = tracing;}
+  int renderPictureSampleCount() const override final {return static_cast<int>(_renderPictureSampleCount);}
+  void setPictureSampleCount(int count) {_renderPictureSampleCount = count;}
+  int renderPictureMaximumBounces() const override final {return static_cast<int>(_renderPictureMaximumBounces);}
+  void setPictureMaximumBounces(int bounces) {_renderPictureMaximumBounces = bounces;}
+
   int movieFramesPerSecond() {return _movieFramesPerSecond;}
   void setMovieFramesPerSecond(int fps) {_movieFramesPerSecond = fps;}
   MovieType movieType() {return _movieType;}
@@ -93,7 +128,7 @@ public:
   void setInitialSelectionIfNeeded() override final;
   std::shared_ptr<RKGlobalAxes> axes() const override final {return _renderAxes;}
 private:
-  int64_t _versionNumber{5};
+  int64_t _versionNumber{archiveVersion};
 
   SKBoundingBox _boundingBox = SKBoundingBox();
   bool _showBoundingBox{false};
@@ -116,9 +151,21 @@ private:
   RKImageUnits _imageUnits = RKImageUnits::cm;
   RKImageDimensions _imageDimensions = RKImageDimensions::pixels;
   RKImageQuality _renderImageQuality = RKImageQuality::rgb_8_bits;
+  // Off by default: tracing an image takes minutes rather than the moment rasterizing it takes, so
+  // it is asked for rather than assumed. The sample count is high because an export is not waited on
+  // interactively, and noise is what one notices in a picture one has kept.
+  bool _renderPictureRayTracing = false;
+  int64_t _renderPictureSampleCount = 1024;
+  int64_t _renderPictureMaximumBounces = 2;
   int64_t _movieFramesPerSecond = 10;
   ProjectStructure::MovieType _movieType = ProjectStructure::MovieType::rotationY;
-  std::vector<std::shared_ptr<RKLight>> _renderLights{std::make_shared<RKLight>(),std::make_shared<RKLight>(),std::make_shared<RKLight>(),std::make_shared<RKLight>()};
+  // One light per RKLight::Role, of which a rig switches on the few it uses.
+  std::vector<std::shared_ptr<RKLight>> _renderLights = RKLight::defaultRig();
+  RKLightStyle _renderLightStyle = RKLightStyle::standard;
+  double _renderSceneAmbientIntensity = 1.0;
+  RKColor _renderSceneAmbientColor = RKColor::fromRgb(255, 255, 255, 255);
+  double _renderAmbientOcclusionStrength = 0.0;
+  bool _renderShadows{true};
   std::shared_ptr<RKCamera> _camera;
   std::shared_ptr<RKGlobalAxes> _renderAxes = std::make_shared<RKGlobalAxes>();
 

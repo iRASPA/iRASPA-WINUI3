@@ -45,7 +45,7 @@ ComPtr<ID3D12PipelineState> DirectXRibbonSelectionShader::buildPSO(ID3D12Device 
                                                                    const std::string &pixelShaderSource,
                                                                    DXGI_FORMAT rtvFormat,
                                                                    DXGI_FORMAT dsvFormat,
-                                                                   bool blended, bool multisampled)
+                                                                   bool blended)
 {
   ComPtr<ID3DBlob> vs = compileShader(vertexShaderSource, "VSMain", "vs_5_0");
   ComPtr<ID3DBlob> ps = compileShader(pixelShaderSource, "PSMain", "ps_5_0");
@@ -98,8 +98,9 @@ ComPtr<ID3D12PipelineState> DirectXRibbonSelectionShader::buildPSO(ID3D12Device 
   psoDesc.NumRenderTargets = 1;
   psoDesc.RTVFormats[0] = rtvFormat;
   psoDesc.DSVFormat = dsvFormat;
-  // The overlay is drawn into the multisampled scene target, the glow into the single-sampled one.
-  psoDesc.SampleDesc = multisampled ? DirectXDeviceHelpers::sceneSampleDesc() : DXGI_SAMPLE_DESC{1, 0};
+  // The overlays are drawn into the multisampled scene target and the glow into a glow target that
+  // carries the same sample count, so that it can be depth-tested against the scene's own depth.
+  psoDesc.SampleDesc = DirectXDeviceHelpers::sceneSampleDesc();
 
   ComPtr<ID3D12PipelineState> pso;
   if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso))))
@@ -115,11 +116,11 @@ void DirectXRibbonSelectionShader::initialize(ID3D12Device *device, ID3D12RootSi
     return;
 
   _worleyPso = buildPSO(device, rootSignature, _worleyVertexShaderSource, _worleyPixelShaderSource,
-                        rtvFormat, dsvFormat, true, true);
+                        rtvFormat, dsvFormat, true);
   _stripedPso = buildPSO(device, rootSignature, _stripedVertexShaderSource, _stripedPixelShaderSource,
-                         rtvFormat, dsvFormat, true, true);
+                         rtvFormat, dsvFormat, true);
   _glowPso = buildPSO(device, rootSignature, _glowVertexShaderSource, _glowPixelShaderSource,
-                      glowRtvFormat, dsvFormat, false, false);
+                      glowRtvFormat, dsvFormat, false);
 
   if (!_worleyPso || !_stripedPso || !_glowPso)
     std::cerr << "DirectXRibbonSelectionShader: failed to create PSO";
@@ -276,7 +277,6 @@ float4 ribbonSelectionClipPosition(float4 pos)
 const std::string DirectXRibbonSelectionShader::_worleyVertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 kRibbonSelectionExpansion +
 std::string(R"foo(
 struct VSOutput
@@ -301,15 +301,14 @@ VSOutput VSMain(VSInput input)
                  mul(structureUniforms.modelMatrix, float4(localNormal, 0.0))).xyz;
   output.ModelN = localNormal;
 
+  // Material colours only: the pixel stage sums the rig, so a light colour folded in here would be
+  // applied once per light.
   float3 baseColor = float3(1.0, 1.0, 0.0);
-  output.ambient = (lightUniforms.lights[0].ambient * structureUniforms.ribbonAmbientColor
-                    * float4(baseColor, 1.0)).xyz;
-  output.diffuse = (lightUniforms.lights[0].diffuse * structureUniforms.ribbonDiffuseColor
-                    * float4(baseColor, 1.0)).xyz;
-  output.specular = (lightUniforms.lights[0].specular * structureUniforms.ribbonSpecularColor).xyz;
+  output.ambient = (structureUniforms.ribbonAmbientColor * float4(baseColor, 1.0)).xyz;
+  output.diffuse = (structureUniforms.ribbonDiffuseColor * float4(baseColor, 1.0)).xyz;
+  output.specular = structureUniforms.ribbonSpecularColor.xyz;
 
   float4 P = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, pos));
-  output.L = (lightUniforms.lights[0].position - P * lightUniforms.lights[0].position.w).xyz;
   output.V = -P.xyz;
 
   output.position = ribbonSelectionClipPosition(pos);
@@ -321,6 +320,7 @@ const std::string DirectXRibbonSelectionShader::_worleyPixelShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
 DirectXUniformStringLiterals::WorleyNoise3DStringLiteral +
 std::string(R"foo(
@@ -339,15 +339,14 @@ struct PSInput
 float4 PSMain(PSInput input) : SV_TARGET
 {
   float3 N = normalize(input.N);
-  float3 L = normalize(input.L);
-  float3 V = normalize(input.V);
-  float3 R = reflect(-L, N);
+  // Unshadowed, as the overlay marks a selection rather than describing the scene's light. The eye
+  // position comes back out of the view vector the vertex stage negated.
+  LightingWeights lighting = accumulateLighting(N, normalize(input.V), float4(-input.V, 1.0),
+                                                structureUniforms.ribbonShininess);
 
-  float4 ambient = float4(input.ambient, 1.0);
-  float4 diffuse = max(dot(N, L), 0.0) * float4(input.diffuse, 1.0);
-  float4 specular = pow(max(dot(R, V), 0.0),
-                        lightUniforms.lights[0].shininess + structureUniforms.ribbonShininess)
-                    * float4(input.specular, 1.0);
+  float4 ambient = float4(lighting.ambient * input.ambient, 1.0);
+  float4 diffuse = float4(lighting.diffuse * input.diffuse, 1.0);
+  float4 specular = float4(lighting.specular * input.specular, 1.0);
 
   // The noise is sampled in the ribbon's own frame, so the cells stay put on the surface as the
   // camera moves. The y and z axes are swapped as in OpenGL and Metal, which keeps the cells the
@@ -378,14 +377,13 @@ float4 PSMain(PSInput input) : SV_TARGET
 const std::string DirectXRibbonSelectionShader::_stripedVertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 kRibbonSelectionExpansion +
 std::string(R"foo(
 struct VSOutput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
+  float3 V : TEXCOORD0;
   float2 stripeST : TEXCOORD1;
 };
 
@@ -400,7 +398,7 @@ VSOutput VSMain(VSInput input)
   output.stripeST = input.vertexStripeST;
 
   float4 P = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, pos));
-  output.L = (lightUniforms.lights[0].position - P * lightUniforms.lights[0].position.w).xyz;
+  output.V = -P.xyz;
 
   output.position = ribbonSelectionClipPosition(pos);
   return output;
@@ -411,21 +409,24 @@ const std::string DirectXRibbonSelectionShader::_stripedPixelShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
 std::string(R"foo(
 struct PSInput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
+  float3 V : TEXCOORD0;
   float2 stripeST : TEXCOORD1;
 };
 
 float4 PSMain(PSInput input) : SV_TARGET
 {
   float3 N = normalize(input.N);
-  float3 L = normalize(input.L);
-  float4 color = max(dot(N, L), 0.0) * float4(1.0, 1.0, 0.0, 1.0);
+  // Unshadowed, as the overlay marks a selection rather than describing the scene's light.
+  LightingWeights lighting = accumulateLighting(N, normalize(input.V), float4(-input.V, 1.0),
+                                                structureUniforms.ribbonShininess);
+  float4 color = float4(lighting.diffuse, 1.0) * float4(1.0, 1.0, 0.0, 1.0);
 
   // 'stripeST' runs along the residue and around the cross-section, both baked per residue, so the
   // band ends where the residue does and the stripes cross it at a constant angle whatever the
@@ -465,7 +466,6 @@ float4 PSMain(PSInput input) : SV_TARGET
 const std::string DirectXRibbonSelectionShader::_glowVertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 kRibbonSelectionExpansion +
 std::string(R"foo(
 struct VSOutput
@@ -480,11 +480,11 @@ VSOutput VSMain(VSInput input)
   VSOutput output;
   float4 pos = ribbonSelectionExpandedPosition(input.vertexPosition, input.vertexNormal, 0.2);
 
+  // Unlit by design, as for the atom glow: the blur pass turns this silhouette into a halo, so it
+  // carries the material colours and never consults the light rig.
   float3 baseColor = float3(1.0, 1.0, 0.0);
-  output.ambient = (lightUniforms.lights[0].ambient * structureUniforms.ribbonAmbientColor
-                    * float4(baseColor, 1.0)).xyz;
-  output.diffuse = (lightUniforms.lights[0].diffuse * structureUniforms.ribbonDiffuseColor
-                    * float4(baseColor, 1.0)).xyz;
+  output.ambient = (structureUniforms.ribbonAmbientColor * float4(baseColor, 1.0)).xyz;
+  output.diffuse = (structureUniforms.ribbonDiffuseColor * float4(baseColor, 1.0)).xyz;
 
   output.position = ribbonSelectionClipPosition(pos);
   return output;
@@ -494,7 +494,6 @@ VSOutput VSMain(VSInput input)
 const std::string DirectXRibbonSelectionShader::_glowPixelShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 std::string(R"foo(
 struct PSInput
 {

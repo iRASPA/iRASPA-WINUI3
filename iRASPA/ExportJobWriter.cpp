@@ -12,7 +12,7 @@
 namespace
 {
     constexpr uint32_t kJobMagic = 0x49525845;
-    constexpr uint32_t kJobVersion = 1;
+    constexpr uint32_t kJobVersion = 2;
 }
 
 std::wstring ExportStagingPath(std::wstring const& outputPath)
@@ -49,6 +49,12 @@ bool WriteExportJobFile(std::wstring const& path, ExportJobRequest const& reques
         archive << static_cast<int32_t>(request.renderQuality);
         archive << RKString::fromStdWString(request.outputPath);
         archive << request.avoidAdapterLuid;
+
+        // The format the project below is written in. The helper is a separate executable and can be
+        // left behind by a build, or outlive one in a window opened before it; without this the reader
+        // walks off the end of a field it does not know about and blames whichever nested version it
+        // lands on, which says nothing about what is actually wrong.
+        archive << ProjectStructure::archiveVersion;
         archive << request.project;
     }
     catch (std::exception const& ex)
@@ -97,6 +103,15 @@ std::wstring UniqueExportJobPath()
     if (GetTempFileNameW(directory, L"irx", 0, path) == 0)
         return {};
     return path;
+}
+
+std::wstring FailedExportJobPath()
+{
+    wchar_t directory[MAX_PATH + 1]{};
+    const DWORD length = GetTempPathW(MAX_PATH + 1, directory);
+    if (length == 0 || length > MAX_PATH)
+        return {};
+    return std::wstring(directory) + L"iraspa-failed-export.irjob";
 }
 
 std::wstring ExportHelperPath()

@@ -53,6 +53,7 @@ void DirectXRibbonShader::initializePSOs(ID3D12Device *device, ID3D12RootSignatu
   psoDesc.DepthStencilState.DepthEnable = TRUE;
   psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
   psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+  DirectXDeviceHelpers::recordEdgeCueingInStencil(psoDesc.DepthStencilState);
   psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
   psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   psoDesc.NumRenderTargets = 1;
@@ -173,6 +174,8 @@ void DirectXRibbonShader::paintOpaque(ID3D12GraphicsCommandList *commandList,
         commandList->SetGraphicsRootConstantBufferView(
             1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(index) * structureCBVStride);
 
+        commandList->OMSetStencilRef(RKEdgeCueingParameters::stencilValue(ribbon->ribbonEdgeCueing()));
+
         if (aoShader)
           commandList->SetGraphicsRootDescriptorTable(3, aoShader->aoSrv(i, j));
 
@@ -193,6 +196,9 @@ void DirectXRibbonShader::paintOpaque(ID3D12GraphicsCommandList *commandList,
       ++index;
     }
   }
+
+  // Back to what is not a structure, for the passes that follow: the reference outlives this one.
+  commandList->OMSetStencilRef(0);
 }
 
 const std::vector<RKRibbonChainDrawRange> &DirectXRibbonShader::visibleDrawRanges(
@@ -253,7 +259,6 @@ bool DirectXRibbonShader::pickGeometry(size_t sceneIndex, size_t structureIndex,
 const std::string DirectXRibbonShader::_vertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 std::string(R"foo(
 struct VSInput
 {
@@ -267,7 +272,6 @@ struct VSOutput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
   float3 V : TEXCOORD1;
   float3 ambient : COLOR0;
   float3 diffuse : COLOR1;
@@ -297,16 +301,15 @@ VSOutput VSMain(VSInput input)
   output.N = mul(frameUniforms.normalMatrix,
                  mul(structureUniforms.modelMatrix, float4(input.vertexNormal.xyz, 0.0))).xyz;
 
+  // The material alone: the light rig is summed over in the pixel shader, since a sum over lights
+  // that a shadow mask gates per pixel cannot be folded into one interpolated colour here.
   float3 baseColor = ribbonColorForStructureType(input.vertexPad.x);
-  output.ambient = (lightUniforms.lights[0].ambient * structureUniforms.ribbonAmbientColor
-                    * float4(baseColor, 1.0)).xyz;
-  output.diffuse = (lightUniforms.lights[0].diffuse * structureUniforms.ribbonDiffuseColor
-                    * float4(baseColor, 1.0)).xyz;
-  output.specular = (lightUniforms.lights[0].specular * structureUniforms.ribbonSpecularColor).xyz;
+  output.ambient = (structureUniforms.ribbonAmbientColor * float4(baseColor, 1.0)).xyz;
+  output.diffuse = (structureUniforms.ribbonDiffuseColor * float4(baseColor, 1.0)).xyz;
+  output.specular = structureUniforms.ribbonSpecularColor.xyz;
   output.aoUV = input.vertexST;
 
   float4 P = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, pos));
-  output.L = (lightUniforms.lights[0].position - P * lightUniforms.lights[0].position.w).xyz;
   output.V = -P.xyz;
 
   float4 clip = mul(frameUniforms.mvpMatrix, mul(structureUniforms.modelMatrix, pos));
@@ -320,6 +323,7 @@ const std::string DirectXRibbonShader::_pixelShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
 std::string(R"foo(
 Texture2D<float> ambientOcclusionTexture : register(t0);
@@ -329,7 +333,6 @@ struct PSInput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
   float3 V : TEXCOORD1;
   float3 ambient : COLOR0;
   float3 diffuse : COLOR1;
@@ -340,15 +343,17 @@ struct PSInput
 float4 PSMain(PSInput input) : SV_TARGET
 {
   float3 N = normalize(input.N);
-  float3 L = normalize(input.L);
   float3 V = normalize(input.V);
-  float3 R = reflect(-L, N);
 
-  float3 ambient = input.ambient;
-  float3 diffuse = max(dot(N, L), 0.0) * input.diffuse;
-  float3 specular = pow(max(dot(R, V), 0.0),
-                        lightUniforms.lights[0].shininess + structureUniforms.ribbonShininess)
-                    * input.specular;
+  // V is the direction from the surface back to the eye, so negating it recovers the eye-space
+  // position the light rig needs.
+  LightingWeights lighting = accumulateLighting(N, V, float4(-input.V, 1.0),
+                                                structureUniforms.ribbonShininess,
+                                                shadowMaskAtFragment(input.position));
+
+  float3 ambient = lighting.ambient * input.ambient;
+  float3 diffuse = lighting.diffuse * input.diffuse;
+  float3 specular = lighting.specular * input.specular;
 
   // The lightmap coordinate the mesh was built with indexes the baked atlas directly, and the atlas
   // is blurred before it is uploaded, so one bilinear tap is enough. Occlusion dims the specular
@@ -359,7 +364,11 @@ float4 PSMain(PSInput input) : SV_TARGET
     ao = ambientOcclusionTexture.Sample(ambientOcclusionSampler, input.aoUV);
   }
 
-  float4 color = float4(ao * (ambient + diffuse + specular), 1.0);
+  // Occlusion says how much of the environment a point can see, so physically it belongs on the
+  // ambient term alone. The strength blends it back into the direct terms to recover the contrast of
+  // the older "Fancy" look, which a camera light cannot otherwise produce since it casts no shadows.
+  float aoDirect = lerp(1.0, ao, clamp(structureUniforms.ambientOcclusionStrength, 0.0, 1.0));
+  float4 color = float4(ao * ambient + aoDirect * (diffuse + specular), 1.0);
 
   if (structureUniforms.ribbonHDR != 0)
   {

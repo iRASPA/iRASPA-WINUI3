@@ -77,6 +77,11 @@ namespace winrt::iRASPA_WinUI::implementation
         bool m_expanded{ false };
         bool m_hasChildren{ false };
         bool m_isSectionRoot{ false };
+        // Cocoa isReadOnlyLibraryNode: a row inside the gallery or the public
+        // databases, which is shown locked because it can only be edited once it
+        // has been dragged into LOCAL PROJECTS.
+        bool m_readOnly{ false };
+        hstring m_readOnlyToolTip;
         // Cocoa TableListNameTextField: the name field of this row is being
         // edited, so its label gives way to the editor.
         bool m_editing{ false };
@@ -137,6 +142,19 @@ namespace winrt::iRASPA_WinUI::implementation
         Visibility EditVisibilityValue() const
         {
             return m_editing ? Visibility::Visible : Visibility::Collapsed;
+        }
+
+        Visibility LockVisibilityValue() const
+        {
+            return m_readOnly ? Visibility::Visible : Visibility::Collapsed;
+        }
+
+        // Cocoa dims the name of a read-only row to secondaryLabelColor, which is
+        // the label color at reduced alpha; an opacity says the same thing without
+        // naming a color that only suits one theme.
+        double TitleOpacityValue() const
+        {
+            return m_readOnly ? 0.55 : 1.0;
         }
 
         ICustomProperty GetCustomProperty(hstring const& name)
@@ -214,6 +232,37 @@ namespace winrt::iRASPA_WinUI::implementation
                     {
                         auto s = self(t);
                         return box_value(s ? s->EditVisibilityValue() : Visibility::Collapsed);
+                    });
+            }
+            if (name == L"LockVisibility")
+            {
+                return make<ProjectItemProperty>(name, xaml_typename<Visibility>(),
+                    [self](IInspectable const& t) -> IInspectable
+                    {
+                        auto s = self(t);
+                        return box_value(s ? s->LockVisibilityValue() : Visibility::Collapsed);
+                    });
+            }
+            if (name == L"TitleOpacity")
+            {
+                return make<ProjectItemProperty>(name, xaml_typename<double>(),
+                    [self](IInspectable const& t) -> IInspectable
+                    {
+                        auto s = self(t);
+                        return box_value(s ? s->TitleOpacityValue() : 1.0);
+                    });
+            }
+            if (name == L"ReadOnlyToolTip")
+            {
+                return make<ProjectItemProperty>(name, xaml_typename<hstring>(),
+                    [self](IInspectable const& t) -> IInspectable
+                    {
+                        auto s = self(t);
+                        // Nothing rather than an empty string: an empty tooltip still
+                        // pops an empty box up over every local row.
+                        if (!s || s->m_readOnlyToolTip.empty())
+                            return nullptr;
+                        return box_value(s->m_readOnlyToolTip);
                     });
             }
             return nullptr;
@@ -325,6 +374,29 @@ namespace winrt::iRASPA_WinUI::implementation
             return L"\uE7C3";     // document
         };
 
+        // Cocoa readOnlyLibraryTooltip: which library a row belongs to, the gallery
+        // or the public databases, since only those two are read-only. Taken from
+        // where the row sits rather than from isEditable, which is also false on the
+        // "Local Projects" folder itself.
+        auto sectionOf = [](std::shared_ptr<ProjectTreeNode> const& folder)
+        {
+            // The folder's own section header, so that the header carries the
+            // tooltip too, as it does in Cocoa.
+            return folder ? folder->parent() : nullptr;
+        };
+        const auto galleryRoot = sectionOf(controller->galleryProjects());
+        const auto databaseRoot = sectionOf(controller->icloudProjects());
+        auto readOnlyToolTip = [&](std::shared_ptr<ProjectTreeNode> const& node) -> wchar_t const*
+        {
+            if (!node)
+                return nullptr;
+            if (galleryRoot && node->isDescendantOfNode(galleryRoot.get()))
+                return L"Gallery projects are read-only. Drag them to Local Projects to edit.";
+            if (databaseRoot && node->isDescendantOfNode(databaseRoot.get()))
+                return L"Database projects are read-only. Drag them to Local Projects to edit.";
+            return nullptr;
+        };
+
         std::vector<IInspectable> rows;
 
         if (!m_filter.empty())
@@ -352,6 +424,11 @@ namespace winrt::iRASPA_WinUI::implementation
                     item->m_hasChildren = false; // no expanders in filter mode
                     item->m_expanded = false;
                     item->m_iconGlyph = iconFor(node);
+                    if (wchar_t const* tip = readOnlyToolTip(node))
+                    {
+                        item->m_readOnly = true;
+                        item->m_readOnlyToolTip = tip;
+                    }
                     rows.push_back(*item);
                 }
                 for (auto const& child : node->childNodes())
@@ -384,6 +461,12 @@ namespace winrt::iRASPA_WinUI::implementation
                 item->m_expanded = expanded;
                 if (!sectionRoot)
                     item->m_iconGlyph = iconFor(node);
+                if (wchar_t const* tip = readOnlyToolTip(node))
+                {
+                    // The section headers explain the lock, they do not wear one.
+                    item->m_readOnly = !sectionRoot;
+                    item->m_readOnlyToolTip = tip;
+                }
                 rows.push_back(*item);
                 if (expanded)
                 {

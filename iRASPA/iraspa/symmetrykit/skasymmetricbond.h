@@ -73,8 +73,10 @@ private:
 
   std::weak_ptr<SKAsymmetricAtom> _atom1;
   std::weak_ptr<SKAsymmetricAtom> _atom2;
-  int64_t _tag1;
-  int64_t _tag2;
+  // The atoms as they were named in the archive, which is all a bond read from one has until the
+  // atoms it names have been looked up.
+  int64_t _tag1{0};
+  int64_t _tag2{0};
   std::vector<std::shared_ptr<SKBond>> _copies;
   bool _isVisible;
   SKBondType _bondType;

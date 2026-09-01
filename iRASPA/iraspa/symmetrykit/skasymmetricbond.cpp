@@ -43,8 +43,20 @@ bool SKAsymmetricBond::operator==(SKAsymmetricBond const& rhs) const
 
 BinaryArchive &operator<<(BinaryArchive & stream, const std::vector<std::shared_ptr<SKAsymmetricBond>>& val)
 {
-  stream << static_cast<int32_t>(val.size());
+  // A bond is written as the tags of the two atoms it joins, so a bond that has lost an atom cannot
+  // be described: its stored tag now names whichever atom took that number, which would come back as
+  // a bond between the wrong pair. Left out instead, which is what reading does with a bond whose
+  // tags name nothing.
+  std::vector<std::shared_ptr<SKAsymmetricBond>> writable;
+  writable.reserve(val.size());
   for(const std::shared_ptr<SKAsymmetricBond>& singleVal : val)
+  {
+    if(singleVal && singleVal->atom1() && singleVal->atom2())
+      writable.push_back(singleVal);
+  }
+
+  stream << static_cast<int32_t>(writable.size());
+  for(const std::shared_ptr<SKAsymmetricBond>& singleVal : writable)
     stream << singleVal;
   return stream;
 }
@@ -67,8 +79,17 @@ BinaryArchive &operator>>(BinaryArchive & stream, std::vector<std::shared_ptr<SK
 
 BinaryArchive &operator<<(BinaryArchive & stream, const std::vector<std::shared_ptr<SKBond>>& val)
 {
-  stream << static_cast<int32_t>(val.size());
+  // As above: a copy names its atoms by tag, so one that has lost an atom is left out.
+  std::vector<std::shared_ptr<SKBond>> writable;
+  writable.reserve(val.size());
   for(const std::shared_ptr<SKBond>& singleVal : val)
+  {
+    if(singleVal && singleVal->atom1() && singleVal->atom2())
+      writable.push_back(singleVal);
+  }
+
+  stream << static_cast<int32_t>(writable.size());
+  for(const std::shared_ptr<SKBond>& singleVal : writable)
     stream << singleVal;
   return stream;
 }
@@ -91,8 +112,13 @@ BinaryArchive &operator>>(BinaryArchive & stream, std::vector<std::shared_ptr<SK
 
 BinaryArchive &operator<<(BinaryArchive &stream, const std::shared_ptr<SKAsymmetricBond> &asymmetricBond)
 {
-  stream << asymmetricBond->atom1()->tag();
-  stream << asymmetricBond->atom2()->tag();
+  // A bond holds its atoms weakly, so one whose atom has gone has nothing to ask for a tag. The
+  // vector above leaves such bonds out, and this is the last resort for a bond written on its own:
+  // the tag it was read with, since writing a document is not the place to fall over.
+  const std::shared_ptr<SKAsymmetricAtom> atom1 = asymmetricBond->atom1();
+  const std::shared_ptr<SKAsymmetricAtom> atom2 = asymmetricBond->atom2();
+  stream << (atom1 ? atom1->tag() : asymmetricBond->_tag1);
+  stream << (atom2 ? atom2->tag() : asymmetricBond->_tag2);
   stream << asymmetricBond->_copies;
   stream << static_cast<typename std::underlying_type<SKAsymmetricBond::SKBondType>::type>(asymmetricBond->_bondType);
   stream << asymmetricBond->_isVisible;

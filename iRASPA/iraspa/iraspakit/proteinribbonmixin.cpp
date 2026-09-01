@@ -547,8 +547,8 @@ float3 ProteinRibbonMixin::ribbonSheetColor() const
 }
 
 // The wire layout follows Protein.swift, which wrote every shipped document, rather than the Qt port:
-// enums travel as their display name, integers as 64-bit, and drawRibbon and ribbonScaleFactor are
-// absent because Swift never persisted them.
+// enums travel as their display name and integers as 64-bit. drawRibbon joined it in version 9;
+// ribbonScaleFactor is still absent, Swift never having persisted it.
 void ProteinRibbonMixin::writeRibbonState(BinaryArchive &stream, int64_t versionNumber) const
 {
   if(versionNumber >= 3)
@@ -594,6 +594,16 @@ void ProteinRibbonMixin::writeRibbonState(BinaryArchive &stream, int64_t version
   if(versionNumber >= 7)
   {
     stream << proteinRibbonSecondaryStructureMethodDisplayName(_ribbonSecondaryStructureMethod);
+  }
+
+  if(versionNumber >= 8)
+  {
+    stream << static_cast<int64_t>(_ribbonEdgeCueing);
+  }
+
+  if(versionNumber >= 9)
+  {
+    stream << _drawRibbon;
   }
 }
 
@@ -666,5 +676,20 @@ void ProteinRibbonMixin::readRibbonState(BinaryArchive &stream, int64_t versionN
     RKString secondaryStructureMethodIdentifier;
     stream >> secondaryStructureMethodIdentifier;
     _ribbonSecondaryStructureMethod = proteinRibbonSecondaryStructureMethodFromName(secondaryStructureMethodIdentifier);
+  }
+
+  if(versionNumber >= 8)
+  {
+    int64_t edgeCueing;
+    stream >> edgeCueing;
+    _ribbonEdgeCueing = (edgeCueing >= int64_t(RKEdgeCueing::off) &&
+                         edgeCueing < int64_t(RKEdgeCueing::multiple_values))
+                            ? RKEdgeCueing(edgeCueing)
+                            : RKEdgeCueing::off;
+  }
+
+  if(versionNumber >= 9)
+  {
+    stream >> _drawRibbon;
   }
 }

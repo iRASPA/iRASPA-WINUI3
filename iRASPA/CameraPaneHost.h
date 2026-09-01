@@ -33,4 +33,10 @@ struct CameraPaneHost
     // LUID of the adapter the live view draws on, packed into one integer, so the
     // export helper can prefer a second GPU. Zero before the render view is up.
     virtual int64_t LiveAdapterLuid() = 0;
+
+    // Whether the live view's adapter can trace, and the one line saying what it
+    // came out as. The Shadows box needs both: a device without DXR 1.1 can never
+    // produce a traced shadow, so offering the switch would only mislead.
+    virtual bool LiveSupportsRaytracing() = 0;
+    virtual std::wstring LiveRaytracingStatus() = 0;
 };

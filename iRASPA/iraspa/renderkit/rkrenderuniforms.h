@@ -24,6 +24,7 @@
 #include "rkcolor.h"
 #include <mathkit.h>
 #include "rkcolor.h"
+#include <array>
 #include <memory>
 
 // Uniform                                  binding point
@@ -87,6 +88,12 @@ enum class RKRenderQuality: int64_t
   low = 0, medium = 1, high = 2, picture = 3
 };
 
+/// How a frame is drawn: by filling triangles, or by following light through the scene.
+enum class RKRenderMode: int64_t
+{
+  rasterization = 0, rayTracing = 1
+};
+
 enum class RKImageQuality: int64_t
 {
   rgb_8_bits = 0, rgb_16_bits = 1, cmyk_8_bits = 2, cmyk_16_bits = 3
@@ -111,6 +118,50 @@ enum class RKSelectionStyle: int64_t
 {
   None = 0, WorleyNoise3D = 1, striped = 2, glow = 3, multiple_values = 4
 };
+
+/// The edge cues of Tarini, Cignoni and Montani: a dark contour around each sphere and a light halo
+/// behind it, which is what makes a dense structure readable. Cocoa keeps this apart from the
+/// representation style so that it can be set on any of them, and stores it as these raw values.
+enum class RKEdgeCueing: int64_t
+{
+  off = 0, contours = 1, halos = 2, contoursAndHalos = 3, multiple_values = 4
+};
+
+namespace RKEdgeCueingParameters
+{
+  /// How the cues are drawn, as opposed to which of them are: contour strength, contour width in
+  /// pixels, halo strength and halo radius in pixels.
+  ///
+  /// One setting for the whole image, while which cues appear is decided for each pixel from the
+  /// structure that drew it. Two structures asking for contours therefore get the same contours,
+  /// which is what keeps a picture looking drawn by one hand.
+  inline constexpr float contourStrength = 0.9f;
+  inline constexpr float contourWidthInPixels = 3.0f;
+  inline constexpr float haloStrength = 0.5f;
+  inline constexpr float haloRadiusInPixels = 4.0f;
+
+  /// Both cues judge a depth step against a reference, and what counts as a large step is a question
+  /// about this structure rather than a fixed number of Angstrom: a step that separates two strands
+  /// of a small protein would pass unnoticed inside a zeolite. Tying the reference to the size of the
+  /// scene lets one setting suit either. Fractions of the scene's bounding sphere.
+  inline constexpr double contourDepthFraction = 0.04;
+  inline constexpr double haloDepthFraction = 0.15;
+
+  /// How the molecular passes record their cueing in the scene's stencil, for the pass that draws the
+  /// cues to read back. The low bits hold an RKEdgeCueing raw value and the high bit says the pixel
+  /// belongs to a structure at all, whatever it asked for: a pixel that asked for nothing still takes
+  /// the halo of an atom in front of it, while the background and the unit cell do not.
+  inline constexpr unsigned int stencilModeMask = 0x03;
+  inline constexpr unsigned int stencilCueableBit = 0x80;
+
+  /// What a molecular pass sets as its stencil reference. Zero for anything that is not a structure,
+  /// which is what takes the tag off a pixel such geometry covers.
+  inline constexpr unsigned int stencilValue(RKEdgeCueing cueing)
+  {
+    const unsigned int mode = static_cast<unsigned int>(cueing) & stencilModeMask;
+    return stencilCueableBit | mode;
+  }
+}
 
 enum class RKTextStyle: int64_t
 {
@@ -219,15 +270,26 @@ struct RKTransformationUniforms
 
   // moved 'numberOfMultiSamplePoints' to here (for downsampling when no structures are present)
   float4 cameraPosition = float4();
-  float4 padvector4 = float4();
+  /// Edge cueing, after Tarini et al. section 5: x is the contour line strength, y its greatest width
+  /// in pixels, z the halo strength and w the halo radius in pixels. A zero strength turns that cue
+  /// off, which is what the renderer leaves here when no structure asked for either.
+  float4 edgeCueing = float4();
   float numberOfMultiSamplePoints = 8.0;
-  float intPad1;
-  float intPad2;
-  float intPad3;
+  // Size of the shadow mask the ray tracer writes, which the raster shaders index by pixel. A
+  // width of zero means no mask was traced and every light reaches every surface, which is what
+  // the renderer leaves here whenever ray tracing is off or unavailable.
+  float shadowMaskWidth = 0.0;
+  float shadowMaskHeight = 0.0;
+  /// Where the Metal build carries a flag saying whether the cues read the tracer's depth or the
+  /// rasterizer's. This back end compiles the cue pass once for each source instead, so the slot is
+  /// only held open to keep the block in step with the one the Metal shaders are handed.
+  float pad9 = 0.0;
   float bloomLevel = 1.0;
   float bloomPulse = 1.0;
-  float padFloat1 = 0.0;
-  float padFloat2 = 0.0;
+  /// Depth steps, in scene units, at which a contour line reaches its full width and a halo its full
+  /// darkness. Both are set from the size of the scene, so that one setting suits any structure.
+  float edgeCueingContourDepth = 0.0;
+  float edgeCueingHaloDepth = 0.0;
 
   RKTransformationUniforms() {};
   RKTransformationUniforms(double4x4 projectionMatrix, double4x4 modelViewMatrix, double4x4 modelMatrix, double4x4 viewMatrix, double4x4 axesProjectionMatrix, double4x4 axesModelViewMatrix, bool isOrthographic, double bloomLevel, double bloomPulse, int multiSampling);
@@ -337,7 +399,9 @@ struct RKStructureUniforms
   float4 primitiveSpecularBackSide = float4(0.0,0.0,0.0,1.0);
   int32_t primitiveBackSideHDR = true;
   float primitiveBackSideHDRExposure = 1.5f;
-  float pad6 = 0.0f;
+  // RKEdgeCueing as a float, for the ribbons of this structure. Read by the path tracer's resolve
+  // kernel, which has to record what the rasterizer records in its stencil and has no stencil.
+  float edgeCueingRibbons = 0.0f;
   float primitiveShininessBackSide = 4.0f;
 
   //----------------------------------------  896 bytes boundary
@@ -355,12 +419,16 @@ struct RKStructureUniforms
   float primitiveSelectionScaling = 1.01f;
   float primitiveSelectionIntensity = 0.8f;
   float pad7 = 0.0f;
-  float pad8 = 0.0f;
+  /// RKEdgeCueing as a float, for the atoms and bonds of this structure. See `edgeCueingRibbons`.
+  float edgeCueingAtoms = 0.0f;
 
   float primitiveHue = 1.0f;
   float primitiveSaturation = 1.0f;
   float primitiveValue = 1.0f;
-  float pad9 = 0.0f;
+  // How far occlusion leans towards darkening the direct terms as well as the ambient one. 0 is
+  // physically correct, 1 reproduces the "Fancy" look. One grading for the whole scene, so it is set
+  // by the renderer off the project rather than by the per-structure constructors below.
+  float ambientOcclusionStrength = 0.0f;
 
   float4 localAxisPosition = float4(0.0f,0.0f,0.0f,0.0f);
   float4 numberOfReplicas = float4(0.0f,0.0f,0.0f,0.0f);
@@ -474,8 +542,11 @@ struct RKLightUniform
 
   float spotExponent = 1.0;
   float shininess = 4.0;
-  float pad1 = 0.0;
-  float pad2 = 0.0;
+  // RKLightType as a float: 0 directional, 1 point, 2 spot. Occupies what were pad slots, so the
+  // 128-byte stride is unchanged.
+  float lightType = 0.0;
+  // Non-zero when the light contributes. Only the camera light in slot 0 is on by default.
+  float enabled = 0.0;
 
   float pad3 = 0.0;
   float pad4 = 0.0;
@@ -488,9 +559,19 @@ struct RKLightUniform
 
 struct RKLightsUniforms
 {
+  // Must match the length of the lights array in DirectXUniformStringLiterals'
+  // LightUniformBlockStringLiteral, which declares the block itself.
+  static constexpr size_t numberOfLights = 8;
+
   RKLightsUniforms() {}
   RKLightsUniforms(std::shared_ptr<RKRenderDataSource> project);
-  std::vector<RKLightUniform> lights{RKLightUniform(),RKLightUniform(),RKLightUniform(),RKLightUniform()};
+
+  std::array<RKLightUniform, numberOfLights> lights{};
+
+  // Stands in for the light arriving from the whole environment, so it belongs to the scene rather
+  // than to any one lamp: enabling or disabling a light leaves the ambient floor untouched.
+  // accumulateLighting reads this once; each light's ambient slot stays unused (layout only).
+  float4 sceneAmbient = float4(1.0f, 1.0f, 1.0f, 1.0f);
 };
 
 struct RKGlobalAxesUniforms

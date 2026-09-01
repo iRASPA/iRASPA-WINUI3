@@ -81,6 +81,32 @@ namespace winrt::iRASPA_WinUI::implementation
             slider.StepFrequency(step);
         }
 
+        // The light model names its styles and roles in ASCII, the form needs them wide.
+        hstring ToHstring(char const* text)
+        {
+            return hstring(std::wstring(text, text + std::strlen(text)));
+        }
+
+        // Where a style sits in the picker: the presets in their listed order, Custom last.
+        int StyleComboIndex(RKLightStyle style)
+        {
+            auto const& presets = RKLightStylePresets();
+            for (size_t i = 0; i < presets.size(); ++i)
+            {
+                if (presets[i] == style)
+                    return static_cast<int>(i);
+            }
+            return static_cast<int>(presets.size());
+        }
+
+        RKLightStyle StyleForComboIndex(int index)
+        {
+            auto const& presets = RKLightStylePresets();
+            if (index >= 0 && index < static_cast<int>(presets.size()))
+                return presets[static_cast<size_t>(index)];
+            return RKLightStyle::custom;
+        }
+
         void Fill(ComboBox const& combo, std::initializer_list<wchar_t const*> items)
         {
             for (auto const* name : items)
@@ -234,6 +260,7 @@ namespace winrt::iRASPA_WinUI::implementation
         BuildMovieFormats();
         ConfigureRanges();
         BuildViewMatrix();
+        BuildLightSlots();
         WireSliderRows();
         WireColorWells();
     }
@@ -250,6 +277,12 @@ namespace winrt::iRASPA_WinUI::implementation
         Fill(ImageDpi(), { L"72 dpi", L"75 dpi", L"150 dpi", L"300 dpi", L"600 dpi", L"1200 dpi" });
         Fill(ImageQuality(), { L"8-bits, RGB", L"16-bits, RGB", L"8-bits, CMYK", L"16-bits, CMYK" });
         Fill(MovieType(), { L"Frames", L"Rotation Around Y", L"Rotation XY Lemniscate" });
+
+        // The presets, then Custom, which stands for whatever editing a light has left behind and so
+        // is shown rather than asked for.
+        for (RKLightStyle style : RKLightStylePresets())
+            LightStyle().Items().Append(box_value(ToHstring(RKLightStyleDisplayName(style))));
+        LightStyle().Items().Append(box_value(ToHstring(RKLightStyleDisplayName(RKLightStyle::custom))));
     }
 
     void CameraDetailView::BuildMovieFormats()
@@ -294,12 +327,26 @@ namespace winrt::iRASPA_WinUI::implementation
                                  TextZDispX(), TextZDispY(), TextZDispZ() })
             Configure(box, -10.0, 10.0, 0.1, 2);
 
-        for (auto const& box : { AmbientBox(), DiffuseBox(), SpecularBox() })
+        for (auto const& box : { SceneAmbientBox(), OcclusionStrengthBox() })
             Configure(box, 0.0, 1.0, 0.01, 2);
-        for (auto const& slider : { AmbientSlider(), DiffuseSlider(), SpecularSlider() })
+        for (auto const& slider : { SceneAmbientSlider(), OcclusionStrengthSlider() })
             ConfigureSlider(slider, 0.0, 1.0, 0.01);
-        Configure(ShininessBox(), 0.1, 128.0, 0.1, 1);
-        ConfigureSlider(ShininessSlider(), 0.1, 128.0, 0.1);
+
+        // Whole paths and whole bounces, and capped at what an interactive frame can afford: render
+        // time grows about linearly in both, so a value entered by mistake here stalls the frame loop.
+        Configure(InteractiveSampleCount(), 1.0,
+                  double(RKRenderSettings::maximumSupportedInteractiveSamples), 1.0, 0);
+        Configure(InteractiveRotatingSampleCount(), 1.0,
+                  double(RKRenderSettings::maximumSupportedInteractiveSamples), 1.0, 0);
+        Configure(InteractiveMaximumBounces(), 0.0,
+                  double(RKRenderSettings::maximumSupportedInteractiveBounces), 1.0, 0);
+
+        // An export can be asked for far more of both than a frame can, nobody waiting on it a frame
+        // at a time, but not for more than the tracer accepts.
+        Configure(PictureSampleCount(), 1.0,
+                  double(RKRenderSettings::maximumSupportedPictureSamples), 16.0, 0);
+        Configure(PictureMaximumBounces(), 0.0,
+                  double(RKRenderSettings::maximumSupportedPictureBounces), 1.0, 0);
 
         Configure(PhysicalWidth(), 0.1, 1000.0, 0.1, 2);
         Configure(PixelWidth(), 16.0, 16384.0, 16.0, 0);
@@ -324,6 +371,179 @@ namespace winrt::iRASPA_WinUI::implementation
                 ViewMatrix().Children().Append(box);
                 m_matrix[row * 4 + column] = box;
             }
+        }
+    }
+
+    // One bordered box per photographic role, all eight alike but for their title, so they are
+    // generated from the form's own styles rather than written out eight times in the XAML.
+    void CameraDetailView::BuildLightSlots()
+    {
+        auto const style = [this](wchar_t const* key)
+        {
+            return Resources().Lookup(box_value(key)).as<Microsoft::UI::Xaml::Style>();
+        };
+        const auto titledBox = style(L"TitledBox");
+        const auto boxHeader = style(L"BoxHeader");
+        const auto rowStyle = style(L"Row");
+        const auto rowLabel = style(L"RowLabel");
+        const auto rowSlider = style(L"RowSlider");
+        const auto numStyle = style(L"Num");
+        const auto colorWell = style(L"ColorWell");
+        const auto swatchStyle = style(L"Swatch");
+
+        // The label, slider and value columns of the rows written out in the XAML, so the generated
+        // rows line up with the scene rows above them.
+        auto const makeRow = [&](wchar_t const* label, bool withWell)
+        {
+            Grid row;
+            row.Style(rowStyle);
+            for (double width : { 150.0, -1.0, 148.0 })
+            {
+                ColumnDefinition column;
+                column.Width(width < 0.0 ? GridLengthHelper::FromValueAndType(1.0, GridUnitType::Star)
+                                         : GridLengthHelper::FromPixels(width));
+                row.ColumnDefinitions().Append(column);
+            }
+            if (withWell)
+            {
+                ColumnDefinition column;
+                column.Width(GridLengthHelper::FromPixels(56.0));
+                row.ColumnDefinitions().Append(column);
+            }
+
+            TextBlock caption;
+            caption.Style(rowLabel);
+            caption.Text(label);
+            row.Children().Append(caption);
+            return row;
+        };
+
+        // A slider, a number box and optionally a colour well, in the three trailing columns.
+        auto const fillRow = [&](Grid const& row, Slider& slider, NumberBox& box,
+                                 DropDownButton* well, Border* swatch)
+        {
+            slider = Slider();
+            slider.Style(rowSlider);
+            Grid::SetColumn(slider, 1);
+            row.Children().Append(slider);
+
+            box = NumberBox();
+            box.Style(numStyle);
+            box.MinWidth(64.0);
+            Grid::SetColumn(box, 2);
+            row.Children().Append(box);
+
+            if (well && swatch)
+            {
+                *swatch = Border();
+                swatch->Style(swatchStyle);
+                *well = DropDownButton();
+                well->Style(colorWell);
+                well->Content(*swatch);
+                Grid::SetColumn(*well, 3);
+                row.Children().Append(*well);
+            }
+        };
+
+        for (size_t index = 0; index < RKLight::numberOfRoles; ++index)
+        {
+            LightSlot& slot = m_lightSlots[index];
+
+            StackPanel rows;
+            rows.Spacing(2.0);
+
+            // Enabled and the light type, which is all a light that is off has to offer.
+            Grid header;
+            header.Style(rowStyle);
+            for (double width : { 150.0, -1.0 })
+            {
+                ColumnDefinition column;
+                column.Width(width < 0.0 ? GridLengthHelper::FromValueAndType(1.0, GridUnitType::Star)
+                                         : GridLengthHelper::FromPixels(width));
+                header.ColumnDefinitions().Append(column);
+            }
+            slot.enabled = CheckBox();
+            slot.enabled.Content(box_value(L"Enabled"));
+            header.Children().Append(slot.enabled);
+            slot.type = ComboBox();
+            slot.type.HorizontalAlignment(HorizontalAlignment::Stretch);
+            Fill(slot.type, { L"Directional", L"Point", L"Spot" });
+            Grid::SetColumn(slot.type, 1);
+            header.Children().Append(slot.type);
+            rows.Children().Append(header);
+
+            Grid diffuseRow = makeRow(L"Diffuse Light Intensity", true);
+            fillRow(diffuseRow, slot.diffuseSlider, slot.diffuseBox, &slot.diffuseWell, &slot.diffuseSwatch);
+            rows.Children().Append(diffuseRow);
+
+            Grid specularRow = makeRow(L"Specular Light Intensity", true);
+            fillRow(specularRow, slot.specularSlider, slot.specularBox, &slot.specularWell, &slot.specularSwatch);
+            rows.Children().Append(specularRow);
+
+            Grid shininessRow = makeRow(L"Shininess", false);
+            fillRow(shininessRow, slot.shininessSlider, slot.shininessBox, nullptr, nullptr);
+            rows.Children().Append(shininessRow);
+
+            Configure(slot.diffuseBox, 0.0, 1.0, 0.01, 2);
+            ConfigureSlider(slot.diffuseSlider, 0.0, 1.0, 0.01);
+            Configure(slot.specularBox, 0.0, 1.0, 0.01, 2);
+            ConfigureSlider(slot.specularSlider, 0.0, 1.0, 0.01);
+            Configure(slot.shininessBox, 0.1, 128.0, 0.1, 1);
+            ConfigureSlider(slot.shininessSlider, 0.1, 128.0, 0.1);
+
+            TextBlock title;
+            title.Style(boxHeader);
+            title.Text(ToHstring(RKLightRoleDisplayName(RKLight::Role(index))));
+
+            StackPanel body;
+            body.Spacing(4.0);
+            body.Children().Append(title);
+            body.Children().Append(rows);
+
+            Border box;
+            box.Style(titledBox);
+            box.Child(body);
+            LightSlots().Children().Append(box);
+
+            slot.enabled.Checked([this, index](IInspectable const&, RoutedEventArgs const&)
+            {
+                ApplyToLight(index, [](RKLight& light) { light.setEnabled(true); });
+            });
+            slot.enabled.Unchecked([this, index](IInspectable const&, RoutedEventArgs const&)
+            {
+                ApplyToLight(index, [](RKLight& light) { light.setEnabled(false); });
+            });
+            slot.type.SelectionChanged([this, index](IInspectable const& sender, SelectionChangedEventArgs const&)
+            {
+                const int selected = sender.as<ComboBox>().SelectedIndex();
+                if (selected < 0)
+                    return;
+                ApplyToLight(index, [selected](RKLight& light) { light.setType(RKLightType(selected)); });
+            });
+
+            DetailControls::SyncSliderAndBox(slot.diffuseSlider, slot.diffuseBox, [this, index](double value)
+            {
+                ApplyToLight(index, [value](RKLight& light)
+                             { light.setDiffuseIntensity(std::clamp(value, 0.0, 1.0)); });
+            });
+            DetailControls::SyncSliderAndBox(slot.specularSlider, slot.specularBox, [this, index](double value)
+            {
+                ApplyToLight(index, [value](RKLight& light)
+                             { light.setSpecularIntensity(std::clamp(value, 0.0, 1.0)); });
+            });
+            DetailControls::SyncSliderAndBox(slot.shininessSlider, slot.shininessBox, [this, index](double value)
+            {
+                ApplyToLight(index, [value](RKLight& light)
+                             { light.setShininess(std::clamp(value, 0.1, 128.0)); });
+            });
+            DetailControls::AttachColorWell(slot.diffuseWell, slot.diffuseSwatch, [this, index](RKColor color)
+            {
+                ApplyToLight(index, [color](RKLight& light) { light.setDiffuseColor(color); });
+            });
+            DetailControls::AttachColorWell(slot.specularWell, slot.specularSwatch, [this, index](RKColor color)
+            {
+                ApplyToLight(index, [color](RKLight& light) { light.setSpecularColor(color); });
+            });
         }
     }
 
@@ -370,26 +590,18 @@ namespace winrt::iRASPA_WinUI::implementation
             m_host->ReloadRenderer();
         });
 
-        struct LightRow { Slider slider; NumberBox box; void (RKLight::*set)(double); };
-        const LightRow lights[4] = {
-            { AmbientSlider(), AmbientBox(), &RKLight::setAmbientIntensity },
-            { DiffuseSlider(), DiffuseBox(), &RKLight::setDiffuseIntensity },
-            { SpecularSlider(), SpecularBox(), &RKLight::setSpecularIntensity },
-            { ShininessSlider(), ShininessBox(), &RKLight::setShininess },
-        };
-        for (auto const& row : lights)
+        DetailControls::SyncSliderAndBox(SceneAmbientSlider(), SceneAmbientBox(), [this](double value)
         {
-            DetailControls::SyncSliderAndBox(row.slider, row.box, [this, set = row.set](double value)
-            {
-                if (m_suppressEvents || !m_host)
-                    return;
-                if (auto light = FirstLight())
-                {
-                    ((*light).*set)(value);
-                    m_host->ReloadRenderer();
-                }
-            });
-        }
+            ApplySceneLighting([value](ProjectStructure& project)
+                               { project.setSceneAmbientIntensity(std::clamp(value, 0.0, 1.0)); },
+                               false);
+        });
+        DetailControls::SyncSliderAndBox(OcclusionStrengthSlider(), OcclusionStrengthBox(), [this](double value)
+        {
+            ApplySceneLighting([value](ProjectStructure& project)
+                               { project.setAmbientOcclusionStrength(std::clamp(value, 0.0, 1.0)); },
+                               true);
+        });
 
         DetailControls::SyncSliderAndBox(LinearAngleSlider(), LinearAngleBox(), [this](double value)
         {
@@ -451,30 +663,11 @@ namespace winrt::iRASPA_WinUI::implementation
             });
         }
 
-        struct LightWell
+        DetailControls::AttachColorWell(SceneAmbientWell(), SceneAmbientSwatch(), [this](RKColor color)
         {
-            DropDownButton button;
-            Border swatch;
-            void (RKLight::*set)(RKColor);
-        };
-        const LightWell lightWells[3] = {
-            { AmbientWell(), AmbientSwatch(), &RKLight::setAmbientColor },
-            { DiffuseWell(), DiffuseSwatch(), &RKLight::setDiffuseColor },
-            { SpecularWell(), SpecularSwatch(), &RKLight::setSpecularColor },
-        };
-        for (auto const& well : lightWells)
-        {
-            DetailControls::AttachColorWell(well.button, well.swatch, [this, set = well.set](RKColor color)
-            {
-                if (!m_host)
-                    return;
-                if (auto light = FirstLight())
-                {
-                    ((*light).*set)(color);
-                    m_host->ReloadRenderer();
-                }
-            });
-        }
+            ApplySceneLighting([color](ProjectStructure& project) { project.setSceneAmbientColor(color); },
+                               false);
+        });
 
         struct BackgroundWell
         {
@@ -504,14 +697,167 @@ namespace winrt::iRASPA_WinUI::implementation
         }
     }
 
-    std::shared_ptr<RKLight> CameraDetailView::FirstLight() const
+    std::shared_ptr<ProjectStructure> CameraDetailView::LightProject() const
     {
-        if (!m_host)
+        return m_host ? m_host->PaneProject() : nullptr;
+    }
+
+    std::shared_ptr<RKLight> CameraDetailView::LightAt(size_t slot) const
+    {
+        auto project = LightProject();
+        if (!project || slot >= project->renderLights().size())
             return nullptr;
-        auto project = m_host->PaneProject();
-        if (project && !project->renderLights().empty())
-            return project->renderLights().front();
-        return nullptr;
+        return project->renderLights()[slot];
+    }
+
+    // The light uniforms are rebuilt from the project every frame, so a redraw is all an edit needs;
+    // none of this is undoable, as in Cocoa.
+    void CameraDetailView::ApplyToLight(size_t slot, std::function<void(RKLight&)> change)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        auto project = LightProject();
+        auto light = LightAt(slot);
+        if (!project || !light)
+            return;
+
+        change(*light);
+        project->recheckLightStyle();
+
+        // Enabling a light changes which of its own controls are usable, so the whole box follows.
+        m_suppressEvents = true;
+        ReloadLightSlot(slot);
+        ReloadLightStyle();
+        m_suppressEvents = false;
+
+        m_host->RedrawRenderer();
+    }
+
+    void CameraDetailView::ApplySceneLighting(std::function<void(ProjectStructure&)> change,
+                                              bool rebakesOcclusion)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        auto project = LightProject();
+        if (!project)
+            return;
+
+        change(*project);
+        project->recheckLightStyle();
+
+        m_suppressEvents = true;
+        ReloadLightStyle();
+        m_suppressEvents = false;
+
+        // The occlusion strength only grades occlusion that is already baked, so even that is a
+        // redraw rather than a reload.
+        (void)rebakesOcclusion;
+        m_host->RedrawRenderer();
+    }
+
+    void CameraDetailView::OnLightStyleChanged(IInspectable const&, SelectionChangedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        auto project = LightProject();
+        if (!project)
+            return;
+
+        // Custom stands for the lights that are already there, so choosing it changes nothing.
+        const RKLightStyle style = StyleForComboIndex(LightStyle().SelectedIndex());
+        if (style == RKLightStyle::custom)
+        {
+            m_suppressEvents = true;
+            ReloadLightStyle();
+            m_suppressEvents = false;
+            return;
+        }
+
+        project->setLightStyle(style);
+
+        // A style rewrites every light, the scene ambient and the occlusion strength. Whether any of
+        // the new lights casts a shadow decides what an export costs, so that is restated too.
+        m_suppressEvents = true;
+        ReloadLights();
+        ReloadPictures();
+        m_suppressEvents = false;
+
+        m_host->RedrawRenderer();
+    }
+
+    // How an export is rendered, which travels with the document rather than with the machine. The
+    // render view is left alone by all of it save the shadow setting, which the rasterizer reads.
+    void CameraDetailView::OnPictureRayTracingToggled(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        if (auto project = m_host->PaneProject())
+        {
+            auto const state = PictureRayTracing().IsChecked();
+            project->setPictureRayTracing(state && state.Value());
+
+            // The counts and the shadow box follow the checkbox.
+            m_suppressEvents = true;
+            ReloadPictures();
+            m_suppressEvents = false;
+        }
+    }
+
+    void CameraDetailView::OnPictureShadowsToggled(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        if (auto project = m_host->PaneProject())
+        {
+            auto const state = PictureShadows().IsChecked();
+            project->setShadows(state && state.Value());
+
+            // What an export now costs has changed with it.
+            m_suppressEvents = true;
+            ReloadPictures();
+            m_suppressEvents = false;
+
+            // The render view reads the same setting, so it has something to show for it.
+            m_host->RedrawRenderer();
+        }
+    }
+
+    // Both clamp on the way in, so what the box shows afterwards is what was stored rather than what
+    // was typed.
+    void CameraDetailView::OnPictureSampleCountChanged(NumberBox const& sender,
+                                                       NumberBoxValueChangedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        const double value = sender.Value();
+        if (!std::isfinite(value))
+            return;
+        if (auto project = m_host->PaneProject())
+        {
+            project->setPictureSampleCount(int(value));
+
+            m_suppressEvents = true;
+            sender.Value(double(project->picturePathTracerSampleCount()));
+            m_suppressEvents = false;
+        }
+    }
+
+    void CameraDetailView::OnPictureMaximumBouncesChanged(NumberBox const& sender,
+                                                          NumberBoxValueChangedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        const double value = sender.Value();
+        if (!std::isfinite(value))
+            return;
+        if (auto project = m_host->PaneProject())
+        {
+            project->setPictureMaximumBounces(int(value));
+
+            m_suppressEvents = true;
+            sender.Value(double(project->picturePathTracerMaximumBounces()));
+            m_suppressEvents = false;
+        }
     }
 
     void CameraDetailView::Reload()
@@ -529,6 +875,7 @@ namespace winrt::iRASPA_WinUI::implementation
             ReloadCameraSection();
             ReloadAxes();
             ReloadLights();
+            ReloadRaytracing();
             ReloadPictures();
             ReloadBackground();
         }
@@ -648,21 +995,202 @@ namespace winrt::iRASPA_WinUI::implementation
         }
     }
 
-    void CameraDetailView::ReloadLights()
+    void CameraDetailView::ReloadLightStyle()
     {
-        auto light = FirstLight();
-        LightsHint().Visibility(light ? Visibility::Collapsed : Visibility::Visible);
-        LightsBody().Visibility(light ? Visibility::Visible : Visibility::Collapsed);
+        auto project = LightProject();
+        LightStyle().IsEnabled(project != nullptr);
+        Select(LightStyle(), StyleComboIndex(project ? project->renderLightStyle()
+                                                    : RKLightStyle::standard));
+    }
+
+    void CameraDetailView::ReloadLightSlot(size_t slot)
+    {
+        LightSlot const& controls = m_lightSlots[slot];
+        auto light = LightAt(slot);
+
+        // Everything but the checkbox is pointless while the light is off, so it follows the checkbox.
+        const bool isOn = light && light->isEnabled();
+        controls.enabled.IsEnabled(light != nullptr);
+        controls.enabled.IsChecked(isOn);
+
+        for (auto const& control : { controls.diffuseSlider, controls.specularSlider,
+                                     controls.shininessSlider })
+            control.IsEnabled(isOn);
+        for (auto const& control : { controls.diffuseBox, controls.specularBox, controls.shininessBox })
+            control.IsEnabled(isOn);
+        controls.type.IsEnabled(isOn);
+        controls.diffuseWell.IsEnabled(isOn);
+        controls.specularWell.IsEnabled(isOn);
+
         if (!light)
             return;
 
-        DetailControls::SetSliderAndBox(AmbientSlider(), AmbientBox(), light->ambientIntensity());
-        DetailControls::SetSliderAndBox(DiffuseSlider(), DiffuseBox(), light->diffuseIntensity());
-        DetailControls::SetSliderAndBox(SpecularSlider(), SpecularBox(), light->specularIntensity());
-        DetailControls::SetSliderAndBox(ShininessSlider(), ShininessBox(), light->shininess());
-        DetailControls::SetColorWell(AmbientSwatch(), light->ambientColor());
-        DetailControls::SetColorWell(DiffuseSwatch(), light->diffuseColor());
-        DetailControls::SetColorWell(SpecularSwatch(), light->specularColor());
+        Select(controls.type, static_cast<int>(light->type()));
+        DetailControls::SetSliderAndBox(controls.diffuseSlider, controls.diffuseBox,
+                                        light->diffuseIntensity());
+        DetailControls::SetSliderAndBox(controls.specularSlider, controls.specularBox,
+                                        light->specularIntensity());
+        DetailControls::SetSliderAndBox(controls.shininessSlider, controls.shininessBox,
+                                        light->shininess());
+        DetailControls::SetColorWell(controls.diffuseSwatch, light->diffuseColor());
+        DetailControls::SetColorWell(controls.specularSwatch, light->specularColor());
+    }
+
+    void CameraDetailView::ReloadLights()
+    {
+        auto project = LightProject();
+        LightsHint().Visibility(project ? Visibility::Collapsed : Visibility::Visible);
+        LightsBody().Visibility(project ? Visibility::Visible : Visibility::Collapsed);
+
+        ReloadLightStyle();
+        for (size_t slot = 0; slot < RKLight::numberOfRoles; ++slot)
+            ReloadLightSlot(slot);
+
+        if (!project)
+            return;
+
+        DetailControls::SetSliderAndBox(SceneAmbientSlider(), SceneAmbientBox(),
+                                        project->renderSceneAmbientIntensity());
+        DetailControls::SetColorWell(SceneAmbientSwatch(), project->renderSceneAmbientColor());
+        DetailControls::SetSliderAndBox(OcclusionStrengthSlider(), OcclusionStrengthBox(),
+                                        project->renderAmbientOcclusionStrength());
+    }
+
+    void CameraDetailView::ReloadRaytracing()
+    {
+        RKRenderSettings& settings = RKRenderSettings::shared();
+
+        // These describe the machine, so unlike everything else in this pane they are readable
+        // without a project. Only acting on them needs one, there being nothing to render otherwise.
+        const bool canTrace = RKRenderSettings::isRayTracingSupported();
+        const bool hasProject = m_host && m_host->PaneProject() != nullptr;
+        const bool isRayTracing = settings.interactiveRenderMode() == RKRenderMode::rayTracing;
+
+        InteractiveRayTracing().IsEnabled(hasProject && canTrace);
+        InteractiveRayTracing().IsChecked(isRayTracing);
+
+        // The counts and the bounce limit only mean anything to the tracer, so they follow it.
+        const bool tracerSettingsApply = hasProject && canTrace && isRayTracing;
+        InteractiveSampleCount().IsEnabled(tracerSettingsApply);
+        InteractiveSampleCount().Value(double(settings.interactiveSampleCount()));
+        InteractiveRotatingSampleCount().IsEnabled(tracerSettingsApply);
+        InteractiveRotatingSampleCount().Value(double(settings.interactiveRotatingSampleCount()));
+        InteractiveMaximumBounces().IsEnabled(tracerSettingsApply);
+        InteractiveMaximumBounces().Value(double(settings.interactiveMaximumBounces()));
+
+        // A path-traced frame works out its own shadows, one ray per light per hit, so there is
+        // nothing left to ask for and the box says so rather than appearing to be ignored.
+        if (isRayTracing)
+        {
+            InteractiveShadows().IsEnabled(false);
+            InteractiveShadows().IsChecked(true);
+        }
+        else
+        {
+            InteractiveShadows().IsEnabled(hasProject && canTrace);
+            InteractiveShadows().IsChecked(settings.interactiveShadows());
+        }
+
+        if (!canTrace)
+        {
+            RaytracingHint().Visibility(Visibility::Visible);
+            RaytracingHint().Text(m_host ? m_host->LiveRaytracingStatus() + L"."
+                                         : L"There is no render view to trace with.");
+        }
+        else if (!RKRenderSettings::tracesRaysInHardware())
+        {
+            // Worth saying: on this adapter every frame pays for the traversal in a shader, which is
+            // why the shadow setting starts off here where it starts on elsewhere.
+            RaytracingHint().Visibility(Visibility::Visible);
+            RaytracingHint().Text(L"This adapter traces rays in a shader rather than in hardware, so "
+                                  L"every frame pays for them. Pictures and movies are rendered "
+                                  L"elsewhere and are unaffected.");
+        }
+        else
+        {
+            RaytracingHint().Visibility(Visibility::Collapsed);
+        }
+    }
+
+    void CameraDetailView::OnInteractiveRayTracingToggled(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        auto const state = InteractiveRayTracing().IsChecked();
+        RKRenderSettings::shared().setInteractiveRenderMode(
+            (state && state.Value()) ? RKRenderMode::rayTracing : RKRenderMode::rasterization);
+
+        // The counts and the shadow box follow the checkbox.
+        m_suppressEvents = true;
+        ReloadRaytracing();
+        m_suppressEvents = false;
+
+        m_host->RedrawRenderer();
+    }
+
+    void CameraDetailView::OnInteractiveShadowsToggled(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        auto const state = InteractiveShadows().IsChecked();
+        RKRenderSettings::shared().setInteractiveShadows(state && state.Value());
+        m_host->RedrawRenderer();
+    }
+
+    // The three counts clamp on the way in, so what the box shows afterwards is what was stored
+    // rather than what was typed.
+    void CameraDetailView::OnInteractiveSampleCountChanged(NumberBox const& sender,
+                                                           NumberBoxValueChangedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        const double value = sender.Value();
+        if (!std::isfinite(value))
+            return;
+        RKRenderSettings& settings = RKRenderSettings::shared();
+        settings.setInteractiveSampleCount(int(value));
+
+        m_suppressEvents = true;
+        sender.Value(double(settings.interactiveSampleCount()));
+        m_suppressEvents = false;
+
+        m_host->RedrawRenderer();
+    }
+
+    void CameraDetailView::OnInteractiveRotatingSampleCountChanged(NumberBox const& sender,
+                                                                   NumberBoxValueChangedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        const double value = sender.Value();
+        if (!std::isfinite(value))
+            return;
+        RKRenderSettings& settings = RKRenderSettings::shared();
+        settings.setInteractiveRotatingSampleCount(int(value));
+
+        m_suppressEvents = true;
+        sender.Value(double(settings.interactiveRotatingSampleCount()));
+        m_suppressEvents = false;
+
+        // No redraw: this only takes effect while the camera is being moved, which redraws anyway.
+    }
+
+    void CameraDetailView::OnInteractiveMaximumBouncesChanged(NumberBox const& sender,
+                                                              NumberBoxValueChangedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_host)
+            return;
+        const double value = sender.Value();
+        if (!std::isfinite(value))
+            return;
+        RKRenderSettings& settings = RKRenderSettings::shared();
+        settings.setInteractiveMaximumBounces(int(value));
+
+        m_suppressEvents = true;
+        sender.Value(double(settings.interactiveMaximumBounces()));
+        m_suppressEvents = false;
+
+        m_host->RedrawRenderer();
     }
 
     void CameraDetailView::ReloadPictures()
@@ -672,6 +1200,45 @@ namespace winrt::iRASPA_WinUI::implementation
         PicturesBody().Visibility(project ? Visibility::Visible : Visibility::Collapsed);
         if (!project)
             return;
+
+        // Nothing here is disabled for want of a graphics card that can trace, the way Cocoa disables
+        // it: there an export is rendered on the same device as the render view, and here it is
+        // rendered by a separate process which falls back to the software adapter. Slowly, but an
+        // export is not a frame anyone is waiting on.
+        const bool tracing = project->renderPictureRayTracing();
+        PictureRayTracing().IsChecked(tracing);
+        PictureSampleCount().IsEnabled(tracing);
+        PictureSampleCount().Value(double(project->picturePathTracerSampleCount()));
+        PictureMaximumBounces().IsEnabled(tracing);
+        PictureMaximumBounces().Value(double(project->picturePathTracerMaximumBounces()));
+
+        // On by default and never taken away: shadows are traced, and a machine that cannot trace
+        // them in its graphics card can still trace them in software, which for an export is only a
+        // question of waiting. It stays switchable while ray-tracing is on, where it no longer
+        // decides anything about the export -- a traced image works its own shadows out, one ray per
+        // light per hit -- because the render view reads the same setting.
+        PictureShadows().IsEnabled(true);
+        PictureShadows().IsChecked(project->renderShadows());
+
+        std::wstring hint = tracing
+            ? L"Traced, which takes minutes rather than moments, and works its own shadows out."
+            : L"Rasterized, in a moment.";
+        if (!project->wantsShadows())
+        {
+            // Either switched off, or on under a rig whose lights all sit on the camera axis, where
+            // nothing can stand between a light and anything visible to it.
+            hint += project->renderShadows()
+                ? L" These lights cast no shadow, so nothing is traced for them."
+                : L"";
+        }
+        else if (!tracing)
+        {
+            hint += RKRenderSettings::tracesRaysInHardware()
+                ? L" Its shadows are traced by the graphics card, which costs little."
+                : L" Its shadows are traced as well, which the card drawing this view cannot do, so"
+                  L" the export falls back to software and takes longer.";
+        }
+        PictureRayTracingHint().Text(hint);
 
         Select(ImageDpi(), static_cast<int>(project->imageDPI()));
         Select(ImageQuality(), static_cast<int>(project->renderImageQuality()));
@@ -1316,7 +1883,6 @@ namespace winrt::iRASPA_WinUI::implementation
         DWORD exitCode = 1;
         GetExitCodeProcess(helper.process, &exitCode);
         CloseHandle(helper.output);
-        DeleteFileW(jobPath.c_str());
 
         co_await wil::resume_foreground(ui);
 
@@ -1329,6 +1895,20 @@ namespace winrt::iRASPA_WinUI::implementation
         {
             DeleteFileW(outputPath.c_str());
             DeleteFileW(stagingPath.c_str());
+        }
+
+        // An export that worked leaves nothing behind. One that did not keeps the job it was given,
+        // under a name that does not change, so the helper can be run against it again by hand:
+        // a failure inside the renderer is otherwise only reproducible by exporting all over again.
+        if (succeeded || cancelled)
+        {
+            DeleteFileW(jobPath.c_str());
+        }
+        else
+        {
+            const std::wstring kept = FailedExportJobPath();
+            if (kept.empty() || !MoveFileExW(jobPath.c_str(), kept.c_str(), MOVEFILE_REPLACE_EXISTING))
+                DeleteFileW(jobPath.c_str());
         }
 
         if (succeeded)

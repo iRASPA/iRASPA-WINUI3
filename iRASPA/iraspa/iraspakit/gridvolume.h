@@ -171,7 +171,7 @@ protected:
    double _adsorptionSurfaceFrontSideHDRExposure = 2.0;
    RKColor _adsorptionSurfaceFrontSideAmbientColor = RKColor::fromRgb(0, 0, 0, 255);
    RKColor _adsorptionSurfaceFrontSideDiffuseColor = RKColor::fromRgb(255, 255, 255, 255);
-   RKColor _adsorptionSurfaceFrontSideSpecularColor = RKColor(230, 230, 230, 1.0);
+   RKColor _adsorptionSurfaceFrontSideSpecularColor = RKColor::fromRgb(230, 230, 230);
    double _adsorptionSurfaceFrontSideDiffuseIntensity = 1.0;
    double _adsorptionSurfaceFrontSideAmbientIntensity = 0.0;
    double _adsorptionSurfaceFrontSideSpecularIntensity = 0.5;

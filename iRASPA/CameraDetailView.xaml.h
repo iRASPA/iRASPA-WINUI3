@@ -5,8 +5,11 @@
 #include "ExportJobWriter.h"
 #include "MovieWriter.h"
 
+#include "projectstructure.h"
 #include "rklight.h"
+#include "rkrendersettings.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -62,6 +65,30 @@ namespace winrt::iRASPA_WinUI::implementation
         void OnTextDisplacementChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender,
                                        winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& e);
 
+        void OnLightStyleChanged(winrt::Windows::Foundation::IInspectable const& sender,
+                                 winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
+        // The export settings that travel with the document, unlike the interactive ones below.
+        void OnPictureRayTracingToggled(winrt::Windows::Foundation::IInspectable const& sender,
+                                        winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnPictureShadowsToggled(winrt::Windows::Foundation::IInspectable const& sender,
+                                     winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnPictureSampleCountChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender,
+                                         winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& e);
+        void OnPictureMaximumBouncesChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender,
+                                            winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& e);
+
+        // The machine's own render settings, which are not part of any document.
+        void OnInteractiveRayTracingToggled(winrt::Windows::Foundation::IInspectable const& sender,
+                                            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnInteractiveShadowsToggled(winrt::Windows::Foundation::IInspectable const& sender,
+                                         winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnInteractiveSampleCountChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender,
+                                             winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& e);
+        void OnInteractiveRotatingSampleCountChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender,
+                                                     winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& e);
+        void OnInteractiveMaximumBouncesChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender,
+                                                winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& e);
+
         void OnImageDpiChanged(winrt::Windows::Foundation::IInspectable const& sender,
                                winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
         void OnImageQualityChanged(winrt::Windows::Foundation::IInspectable const& sender,
@@ -94,12 +121,14 @@ namespace winrt::iRASPA_WinUI::implementation
         void BuildComboItems();
         void ConfigureRanges();
         void BuildViewMatrix();
+        void BuildLightSlots();
         void WireSliderRows();
         void WireColorWells();
 
         void ReloadCameraSection();
         void ReloadAxes();
         void ReloadLights();
+        void ReloadRaytracing();
         void ReloadPictures();
         void ReloadBackground();
         void ShowBackgroundPanel(int type);
@@ -134,7 +163,16 @@ namespace winrt::iRASPA_WinUI::implementation
         void BeginExport(std::wstring const& status, bool cancellable);
         void EndExport(std::wstring const& message);
 
-        std::shared_ptr<RKLight> FirstLight() const;
+        std::shared_ptr<ProjectStructure> LightProject() const;
+        std::shared_ptr<RKLight> LightAt(size_t slot) const;
+        // Every light edit goes through here: it writes the change, renames the
+        // style to whatever the rig now amounts to, refreshes the slot whose
+        // other controls follow its checkbox, and reloads the renderer.
+        void ApplyToLight(size_t slot, std::function<void(RKLight&)> change);
+        void ApplySceneLighting(std::function<void(ProjectStructure&)> change, bool rebakesOcclusion);
+        void ReloadLightStyle();
+        void ReloadLightSlot(size_t slot);
+
         // The axes text rows all write the same three properties of a different
         // axis, so the row a box belongs to is looked up rather than repeated.
         int TextRowOf(winrt::Windows::Foundation::IInspectable const& sender, int& outAxis);
@@ -153,6 +191,25 @@ namespace winrt::iRASPA_WinUI::implementation
         // Index in MovieFormat() to the encoder it stands for; empty when the
         // machine has none.
         std::vector<MovieWriter::Format> m_movieFormats;
+
+        // The controls of one role's box, built by BuildLightSlots. The eight
+        // boxes are alike, so they are generated rather than written out.
+        struct LightSlot
+        {
+            winrt::Microsoft::UI::Xaml::Controls::CheckBox enabled{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::ComboBox type{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::Slider diffuseSlider{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::NumberBox diffuseBox{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::DropDownButton diffuseWell{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::Border diffuseSwatch{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::Slider specularSlider{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::NumberBox specularBox{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::DropDownButton specularWell{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::Border specularSwatch{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::Slider shininessSlider{ nullptr };
+            winrt::Microsoft::UI::Xaml::Controls::NumberBox shininessBox{ nullptr };
+        };
+        LightSlot m_lightSlots[RKLight::numberOfRoles];
         winrt::Microsoft::UI::Xaml::Controls::TextBox m_matrix[16]{
             nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,
             nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };

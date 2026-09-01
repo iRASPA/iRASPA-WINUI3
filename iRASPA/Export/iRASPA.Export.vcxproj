@@ -111,4 +111,24 @@
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+  <!-- This is the process that actually traces an exported picture, so the redistributable runtime
+       matters more here than anywhere: on a machine without DXR 1.1 it is the only thing that can
+       trace at all. See external\d3d12\README.md. -->
+  <Target Name="DeployDirect3DRuntime" AfterTargets="Build">
+    <PropertyGroup>
+      <_Direct3DRuntimeDir>$(MSBuildThisFileDirectory)..\..\external\d3d12\$(PlatformTarget)</_Direct3DRuntimeDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <!-- The runtime in the subfolder directxagilitysdk.h names, the adapter beside the exe. See
+           the same target in iRASPA.vcxproj for why the two cannot be put in one place. -->
+      <_Direct3DRuntimeFiles Include="$(_Direct3DRuntimeDir)\D3D12Core.dll" Condition="Exists('$(_Direct3DRuntimeDir)\D3D12Core.dll')" />
+      <_Direct3DRuntimeFiles Include="$(_Direct3DRuntimeDir)\d3d12SDKLayers.dll" Condition="'$(Configuration)' == 'Debug' and Exists('$(_Direct3DRuntimeDir)\d3d12SDKLayers.dll')" />
+      <_Direct3DAdapterFiles Include="$(_Direct3DRuntimeDir)\d3d10warp.dll" Condition="Exists('$(_Direct3DRuntimeDir)\d3d10warp.dll')" />
+    </ItemGroup>
+    <Warning Condition="'@(_Direct3DRuntimeFiles)' == '' or '@(_Direct3DAdapterFiles)' == ''"
+             Text="Incomplete redistributable D3D12 runtime in $(_Direct3DRuntimeDir); on a machine without DXR 1.1 a traced export will fall back to rasterizing." />
+    <Copy SourceFiles="@(_Direct3DRuntimeFiles)" DestinationFolder="$(OutDir)D3D12" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_Direct3DAdapterFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

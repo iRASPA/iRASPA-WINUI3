@@ -16,6 +16,7 @@
 #include "ImageExport.h"
 #include "MovieWriter.h"
 #include "binaryarchive.h"
+#include "directxagilitysdk.h"
 #include "directxrenderer.h"
 #include "rkcamera.h"
 #include "rkimage.h"
@@ -168,9 +169,9 @@ namespace
     }
 
     // The picture is of the view the user is looking at, so the snapshot's camera is the
-    // one to draw with. setRenderDataSource frames the structure the way opening a project
-    // does -- resetForNewBoundingBox followed by resetCameraToDirection -- which would
-    // throw that orientation away, so it is put back afterwards.
+    // one to draw with. setRenderDataSource re-fits distance for the export size the way
+    // opening a project does, which would replace that zoom, so the camera is put back
+    // afterwards.
     std::shared_ptr<RKCamera> camera = job.project->camera();
     const RKCamera savedCamera = camera ? *camera : RKCamera();
 
@@ -194,7 +195,9 @@ namespace
     const RKImage image = renderer.renderSceneToImage(job.width, job.height, job.renderQuality);
     if (image.isNull())
     {
-      reportError(L"the renderer produced no image");
+      const std::wstring &reason = renderer.statusMessage();
+      reportError(reason.empty() ? std::wstring(L"the renderer produced no image")
+                                 : L"the renderer produced no image: " + reason);
       return 1;
     }
 
@@ -253,7 +256,9 @@ namespace
                                              startRotation);
       if (image.isNull())
       {
-        failure = L"the renderer produced no image";
+        const std::wstring &reason = renderer.statusMessage();
+        failure = reason.empty() ? std::wstring(L"the renderer produced no image")
+                                 : L"the renderer produced no image: " + reason;
         break;
       }
       // The renderer caps its targets at the D3D12 maximum, so an over-large request comes
@@ -294,9 +299,18 @@ namespace
 
   int runJob(const ExportJob &job)
   {
+    // Asked before the device exists, since it decides which adapter the device is made on. Rays are
+    // wanted either for the whole image or for its shadows alone, the mask a rasterized image is
+    // shaded with being traced as well; either is worth the software adapter on a machine whose cards
+    // cannot trace, an export being nothing anyone waits on a frame at a time. Neither is asked for
+    // by an ordinary document, whose camera light casts no shadow, so an ordinary export is
+    // unaffected by any of this.
+    const bool tracing = job.project &&
+                         (job.project->renderPictureRayTracing() || job.project->wantsShadows());
+
     auto renderer = std::make_unique<DirectXRenderer>();
     if (!renderer->initializeOffscreen(static_cast<UINT>(job.width), static_cast<UINT>(job.height),
-                                       job.hasAvoidAdapter ? &job.avoidAdapter : nullptr))
+                                       job.hasAvoidAdapter ? &job.avoidAdapter : nullptr, tracing))
     {
       reportError(renderer->statusMessage());
       return 1;

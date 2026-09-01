@@ -68,12 +68,18 @@ private:
   ComPtr<ID3D12PipelineState> _externalStripesPso;
   ComPtr<ID3D12PipelineState> _externalWorleyPso;
   ComPtr<ID3D12PipelineState> _externalGlowPso;
+  // The glow again with the cylinder solved per MSAA sample, bound while the scene bonds shade
+  // that way; only built when the scene is multisampled.
+  ComPtr<ID3D12PipelineState> _glowPerSamplePso;
+  ComPtr<ID3D12PipelineState> _externalGlowPerSamplePso;
   bool _stripesReady = false;
   bool _worleyReady = false;
   bool _glowReady = false;
   bool _externalStripesReady = false;
   bool _externalWorleyReady = false;
   bool _externalGlowReady = false;
+  bool _glowPerSampleReady = false;
+  bool _externalGlowPerSampleReady = false;
 
   std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
   std::vector<std::vector<StructureBondBuffers>> _internalBuffers;
@@ -87,5 +93,5 @@ private:
   // Internal and external bonds share the hull; only the pixel shader differs, clipping the
   // ray-traced cylinder at the unit cell for external bonds.
   static const std::string _vertexShaderSource;
-  static std::string pixelShaderSource(Style style, bool external);
+  static std::string pixelShaderSource(Style style, bool external, bool perSample);
 };

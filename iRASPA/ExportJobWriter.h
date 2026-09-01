@@ -36,6 +36,11 @@ bool WriteExportJobFile(std::wstring const& path, ExportJobRequest const& reques
 // A file in the user's temp directory no other job is using. Empty on failure.
 std::wstring UniqueExportJobPath();
 
+// Fixed name the job of a failed export is kept under, so that the helper can be pointed at the
+// very job that failed instead of the failure having to be provoked again. Overwritten by each
+// failure and removed by a success. Empty on failure to find the temp directory.
+std::wstring FailedExportJobPath();
+
 // iRASPA.Export.exe beside the running executable, which is where it sits both loose and
 // inside the MSIX. Empty if it is not there.
 std::wstring ExportHelperPath();

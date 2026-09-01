@@ -50,7 +50,13 @@ public:
   /// is chosen, so exporting does not contend with the GPU that is drawing the window.
   /// Nothing can be shared with a context on a different adapter: D3D12 resources belong
   /// to one device, so such a context builds its own buffers from the model.
-  bool initializeOffscreen(UINT width, UINT height, const LUID *avoidAdapter = nullptr);
+  ///
+  /// With \a requireRaytracing, a card that can trace rays is taken over one that cannot, and the
+  /// software adapter over a machine where none can. That is far too slow to draw a window with, but
+  /// an export is not a frame anyone is waiting on, and it is the difference between a traced picture
+  /// and a rasterized one.
+  bool initializeOffscreen(UINT width, UINT height, const LUID *avoidAdapter = nullptr,
+                           bool requireRaytracing = false);
 
   bool isOffscreen() const { return m_offscreen; }
   /// Which adapter this context ended up on; pass to initializeOffscreen to avoid it.
@@ -77,6 +83,26 @@ public:
   DXGI_SAMPLE_DESC sceneSampleDesc() const { return m_sceneSampleDesc; }
 
   ID3D12Device *device() const { return m_device.Get(); }
+  /// The device the ray-tracing entry points live on, or null on a runtime older than
+  /// Windows 10 1809. Everything the tracer needs (acceleration-structure builds and the
+  /// prebuild-info query) hangs off this interface rather than off ID3D12Device.
+  ID3D12Device5 *device5() const { return m_device5.Get(); }
+
+  /// Everything the debug layer has complained about since this was last called, emptied as it is
+  /// read. The layer is enabled whenever it is installed, but its messages otherwise go only to a
+  /// debugger, which an export running on its own has none of.
+  std::string takeDebugMessages();
+  D3D12_RAYTRACING_TIER raytracingTier() const { return m_raytracingTier; }
+  /// True when the adapter can run inline RayQuery from a compute shader, which is the only
+  /// form of ray tracing the path tracer and the shadow mask use. Tier 1.0 is not enough:
+  /// it only offers the separate ray-tracing pipeline, which this port does not build.
+  bool supportsInlineRaytracing() const
+  {
+    return m_device5 != nullptr && m_raytracingTier >= D3D12_RAYTRACING_TIER_1_1;
+  }
+  /// Set when the context fell back to (or was forced onto) the software rasterizer. WARP
+  /// implements DXR 1.1, so it is the only way to exercise the tracer on hardware without it.
+  bool isWarpAdapter() const { return m_warpAdapter; }
   ID3D12CommandQueue *commandQueue() const { return m_commandQueue.Get(); }
   ID3D12CommandAllocator *commandAllocator() const { return m_commandAllocators[m_frameIndex].Get(); }
   ID3D12CommandAllocator *bundleAllocator() const { return m_bundleAllocator.Get(); }
@@ -119,12 +145,19 @@ public:
   bool beginOffscreenCapture(UINT width, UINT height);
   void endOffscreenCapture();
   bool offscreenCaptureActive() const { return m_offscreenActive; }
-  /// Resolve MSAA scene depth into a single-sample texture for volume ray occlusion.
-  ID3D12Resource *resolveSceneDepth(ID3D12GraphicsCommandList *commandList);
-  /// 1× resolved depth DSV (for glow and other non-MSAA depth tests).
-  D3D12_CPU_DESCRIPTOR_HANDLE resolvedDepthCPUHandle() const;
-  /// Transition resolved depth to DEPTH_READ for binding as a DSV.
-  void prepareResolvedDepthForDepthTest(ID3D12GraphicsCommandList *commandList);
+  /// Resolve MSAA scene depth into a single-sample texture for volume ray occlusion. The result is
+  /// left in \a finalState, which the path tracer asks to be a non-pixel one: the same texture is
+  /// read from a compute shader there rather than from a pixel shader.
+  ID3D12Resource *resolveSceneDepth(
+      ID3D12GraphicsCommandList *commandList,
+      D3D12_RESOURCE_STATES finalState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+  /// Lets a pixel shader read the scene's stencil, and puts the buffer back afterwards. Only the
+  /// pass that draws the edge cues does this, to find out which structure drew each pixel and which
+  /// cues it asked for; the multisampled buffer is read as it stands, sample by sample, there being
+  /// no resolve for a stencil. The depth half goes through resolveSceneDepth instead.
+  void beginSceneStencilRead(ID3D12GraphicsCommandList *commandList);
+  void endSceneStencilRead(ID3D12GraphicsCommandList *commandList);
 
   uint32_t alignedCBSize(uint32_t size) const;
   uint32_t alignedTexturePitch(uint32_t rowPitch) const;
@@ -141,7 +174,8 @@ public:
   void setExtraRenderTargetCount(int count);
 
 private:
-  bool createDeviceAndQueues(const LUID *avoidAdapter = nullptr);
+  bool createDeviceAndQueues(const LUID *avoidAdapter = nullptr, bool requireRaytracing = false);
+  void detectRaytracingSupport();
   bool createHeaps();
   bool setupRenderTargets();
   void releaseRenderTargets();
@@ -158,6 +192,8 @@ private:
   bool m_composition = false;
   bool m_offscreen = false;
   bool m_offscreenActive = false;
+  bool m_warpAdapter = false;
+  D3D12_RAYTRACING_TIER m_raytracingTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
   LUID m_adapterLuid = {};
   std::wstring m_adapterDescription;
   UINT m_width = 1;
@@ -175,6 +211,7 @@ private:
   D3D12_RESOURCE_STATES m_resolvedDepthState = D3D12_RESOURCE_STATE_COMMON;
 
   ComPtr<ID3D12Device> m_device;
+  ComPtr<ID3D12Device5> m_device5;
   ComPtr<ID3D12CommandQueue> m_commandQueue;
   ComPtr<IDXGISwapChain3> m_swapChain;
   UINT m_frameIndex = 0;

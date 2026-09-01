@@ -337,6 +337,11 @@
                             <TextBlock Text="Color Set" Style="{StaticResource RowLabel}"/>
                             <ComboBox x:Name="RibbonColorSet" Grid.Column="1" HorizontalAlignment="Stretch"/>
                         </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Edge Cueing" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="RibbonEdgeCueing" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      ToolTipService.ToolTip="Depth cues drawn around these ribbons, kept apart from the atoms. The Illustrative style is the Fancy style with both of them switched on."/>
+                        </Grid>
 
                         <Border Style="{StaticResource Separator}"/>
                         <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
@@ -460,6 +465,11 @@
                         <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
                             <TextBlock Text="Order" Style="{StaticResource RowLabel}"/>
                             <ComboBox x:Name="AtomFFOrder" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
+                            <TextBlock Text="Edge Cueing" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="AtomEdgeCueing" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      ToolTipService.ToolTip="Depth cues drawn around these atoms and their bonds. The QuteMol style is the Fancy style with both of them switched on."/>
                         </Grid>
 
                         <Border Style="{StaticResource Separator}"/>

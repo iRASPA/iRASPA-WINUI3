@@ -72,6 +72,7 @@ void DirectXAtomPerspectiveImposterShader::initializePSO(ID3D12Device *device, I
   psoDesc.DepthStencilState.DepthEnable = TRUE;
   psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
   psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+  DirectXDeviceHelpers::recordEdgeCueingInStencil(psoDesc.DepthStencilState);
   psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
   psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   psoDesc.NumRenderTargets = 1;
@@ -127,6 +128,8 @@ void DirectXAtomPerspectiveImposterShader::paint(ID3D12GraphicsCommandList *comm
         commandList->SetGraphicsRootConstantBufferView(
             1, structureCBVBase + static_cast<D3D12_GPU_VIRTUAL_ADDRESS>(index) * structureCBVStride);
 
+        commandList->OMSetStencilRef(RKEdgeCueingParameters::stencilValue(source->atomEdgeCueing()));
+
         if (aoShader)
           commandList->SetGraphicsRootDescriptorTable(3, aoShader->aoSrv(i, j));
 
@@ -141,6 +144,9 @@ void DirectXAtomPerspectiveImposterShader::paint(ID3D12GraphicsCommandList *comm
       ++index;
     }
   }
+
+  // Back to what is not a structure, for the passes that follow: the reference outlives this one.
+  commandList->OMSetStencilRef(0);
 }
 
 const std::string DirectXAtomPerspectiveImposterShader::_vertexShaderSource =
@@ -185,17 +191,19 @@ VSOutput VSMain(VSInput input)
 
   float4 scale = structureUniforms.atomScaleFactor * input.instanceScale;
 
+  // The material alone: the light rig is summed over in the pixel shader, since a sum over lights
+  // that a shadow mask gates per pixel cannot be folded into one interpolated colour here.
   if (structureUniforms.colorAtomsWithBondColor != 0)
   {
-    output.ambient = lightUniforms.lights[0].ambient * structureUniforms.bondAmbientColor;
-    output.diffuse = lightUniforms.lights[0].diffuse * structureUniforms.bondDiffuseColor;
-    output.specular = lightUniforms.lights[0].specular * structureUniforms.bondSpecularColor;
+    output.ambient = structureUniforms.bondAmbientColor;
+    output.diffuse = structureUniforms.bondDiffuseColor;
+    output.specular = structureUniforms.bondSpecularColor;
   }
   else
   {
-    output.ambient = lightUniforms.lights[0].ambient * structureUniforms.atomAmbientColor * input.instanceAmbientColor;
-    output.diffuse = lightUniforms.lights[0].diffuse * structureUniforms.atomDiffuseColor * input.instanceDiffuseColor;
-    output.specular = lightUniforms.lights[0].specular * structureUniforms.atomSpecularColor * input.instanceSpecularColor;
+    output.ambient = structureUniforms.atomAmbientColor * input.instanceAmbientColor;
+    output.diffuse = structureUniforms.atomDiffuseColor * input.instanceDiffuseColor;
+    output.specular = structureUniforms.atomSpecularColor * input.instanceSpecularColor;
   }
 
   output.N = float3(0, 0, 1);
@@ -211,7 +219,6 @@ VSOutput VSMain(VSInput input)
   output.instancePosition = input.instancePosition;
   output.frag_center = output.eye_position.xyz;
 
-  output.L = (lightUniforms.lights[0].position - output.eye_position * lightUniforms.lights[0].position.w).xyz;
   output.V = -output.eye_position.xyz;
 
   output.texcoords = input.vertexPosition.xy;
@@ -243,6 +250,7 @@ std::string DirectXAtomPerspectiveImposterShader::pixelShaderSource(bool perSamp
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
 std::string(R"foo(
 Texture2D ambientOcclusionTexture : register(t0);
@@ -318,13 +326,15 @@ PSOutput PSMain(PSInput input)
     if (dot(structureUniforms.clipPlaneBack, position) < 0.0) discard;
   }
 
-  float3 L = normalize(input.L);
   float3 V = normalize(input.V);
-  float3 R = reflect(-L, N);
 
-  float3 ambient = input.ambient.xyz;
-  float3 diffuse = max(dot(N, L), 0.0) * input.diffuse.xyz;
-  float3 specular = pow(max(dot(R, V), 0.0), lightUniforms.lights[0].shininess + structureUniforms.atomShininess) * input.specular.xyz;
+  LightingWeights lighting = accumulateLighting(N, V, float4(hit, 1.0),
+                                                structureUniforms.atomShininess,
+                                                shadowMaskAtFragment(input.position));
+
+  float3 ambient = lighting.ambient * input.ambient.xyz;
+  float3 diffuse = lighting.diffuse * input.diffuse.xyz;
+  float3 specular = lighting.specular * input.specular.xyz;
 
   float ao = 1.0;
   if (structureUniforms.ambientOcclusion != 0)
@@ -337,7 +347,11 @@ PSOutput PSMain(PSInput input)
     ao = ambientOcclusionTexture.Sample(ambientOcclusionSampler, m2).r;
   }
 
-  float4 color = float4(ao * (ambient + diffuse + specular), 1.0);
+  // Occlusion says how much of the environment a point can see, so physically it belongs on the
+  // ambient term alone. The strength blends it back into the direct terms to recover the contrast of
+  // the older look, which a camera light cannot otherwise produce since it casts no shadows.
+  float aoDirect = lerp(1.0, ao, clamp(structureUniforms.ambientOcclusionStrength, 0.0, 1.0));
+  float4 color = float4(ao * ambient + aoDirect * (diffuse + specular), 1.0);
 
   if (structureUniforms.atomHDR != 0)
   {

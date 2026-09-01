@@ -59,19 +59,27 @@ struct VSInput
   // Varyings of the selection overlays. frag_center and frag_pos are only read by the perspective
   // intersection, texcoords and eye_position only by the orthographic one; both are always filled
   // so the two projections can share one vertex shader body and one struct.
-  inline const std::string SelectionVaryingsStringLiteral = R"foo(
-  float4 position : SV_POSITION;
-  float4 eye_position : TEXCOORD0;
-  float2 texcoords : TEXCOORD1;
-  nointerpolation float4 ambient : COLOR0;
-  nointerpolation float4 diffuse : COLOR1;
-  nointerpolation float4 specular : COLOR2;
-  float3 frag_pos : TEXCOORD2;
-  nointerpolation float3 frag_center : TEXCOORD3;
-  float3 L : TEXCOORD4;
-  float3 V : TEXCOORD5;
-  nointerpolation float4 sphere_radius : TEXCOORD6;
-)foo";
+  //
+  // Under `perSample` the pixel shader runs once per MSAA sample and the intersection is solved at
+  // each sample's own position rather than at the pixel centre, so the depth it writes is the
+  // sphere's depth there. Only the two varyings the intersection reads need to move: texcoords
+  // under an orthographic projection and frag_pos under a perspective one. A vertex output always
+  // uses the plain form, the rate being a property of the pixel stage alone.
+  inline std::string selectionVaryings(bool perSample)
+  {
+    const std::string rate = perSample ? "  sample " : "  ";
+    return
+"  float4 position : SV_POSITION;\n"
+"  float4 eye_position : TEXCOORD0;\n" +
+rate + "float2 texcoords : TEXCOORD1;\n"
+"  nointerpolation float4 ambient : COLOR0;\n"
+"  nointerpolation float4 diffuse : COLOR1;\n"
+"  nointerpolation float4 specular : COLOR2;\n" +
+rate + "float3 frag_pos : TEXCOORD2;\n"
+"  nointerpolation float3 frag_center : TEXCOORD3;\n"
+"  float3 V : TEXCOORD5;\n"
+"  nointerpolation float4 sphere_radius : TEXCOORD6;\n";
+  }
 
   // The overlays wrap the atom they mark, so the sphere is inflated by atomSelectionScaling. The
   // perspective quad is widened further because a sphere seen in perspective projects to an
@@ -84,13 +92,14 @@ VSOutput VSMain(VSInput input)
   VSOutput output;
 
   float4 scale = structureUniforms.atomSelectionScaling * structureUniforms.atomScaleFactor * input.instanceScale;
-  output.ambient = lightUniforms.lights[0].ambient * structureUniforms.atomAmbientColor * input.instanceAmbientColor;
-  output.diffuse = lightUniforms.lights[0].diffuse * structureUniforms.atomDiffuseColor * input.instanceDiffuseColor;
-  output.specular = lightUniforms.lights[0].specular * structureUniforms.atomSpecularColor * input.instanceSpecularColor;
+  // Material colours only: the pixel stage sums the rig, so a light colour folded in here would be
+  // applied once per light.
+  output.ambient = structureUniforms.atomAmbientColor * input.instanceAmbientColor;
+  output.diffuse = structureUniforms.atomDiffuseColor * input.instanceDiffuseColor;
+  output.specular = structureUniforms.atomSpecularColor * input.instanceSpecularColor;
 
   output.eye_position = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, input.instancePosition));
   output.frag_center = output.eye_position.xyz;
-  output.L = (lightUniforms.lights[0].position - output.eye_position * lightUniforms.lights[0].position.w).xyz;
   output.V = -output.eye_position.xyz;
 
   output.texcoords = input.vertexPosition.xy;
@@ -127,9 +136,12 @@ VSOutput VSMain(VSInput input)
   float z = sqrt(zz);
   float3 N = float3(x, y, z);
 
-  float4 pos = input.eye_position;
-  pos.z += input.sphere_radius.z * z;
-  pos = mul(frameUniforms.projectionMatrix, pos);
+  // The point actually shaded is on the sphere, not at its centre, which is what a positional or
+  // spot light has to be measured from.
+  float4 surfaceEyePosition = input.eye_position;
+  surfaceEyePosition.z += input.sphere_radius.z * z;
+
+  float4 pos = mul(frameUniforms.projectionMatrix, surfaceEyePosition);
   output.depth = 0.5 * (pos.z / pos.w) + 0.5;
 )foo";
     }
@@ -149,7 +161,11 @@ VSOutput VSMain(VSInput input)
   float3 hit = t * vij;
   float3 N = normalize(hit - input.frag_center);
 
-  float4 pos = mul(frameUniforms.projectionMatrix, float4(hit, 1.0));
+  // Named to match the orthographic branch, so a shader that shades from it reads the same either
+  // way; here the ray-sphere hit is already the point on the surface.
+  float4 surfaceEyePosition = float4(hit, 1.0);
+
+  float4 pos = mul(frameUniforms.projectionMatrix, surfaceEyePosition);
   output.depth = 0.5 * (pos.z / pos.w) + 0.5;
 )foo";
   }

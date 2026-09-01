@@ -221,9 +221,8 @@ std::string DirectXAtomSelectionWorleyNoise3DShader::vertexShaderSource(bool ort
   return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 DirectXAtomImposter::SelectionVertexInputStringLiteral +
-"struct VSOutput\n{" + DirectXAtomImposter::SelectionVaryingsStringLiteral + "};\n" +
+"struct VSOutput\n{" + DirectXAtomImposter::selectionVaryings(false) + "};\n" +
 DirectXAtomImposter::selectionVertexShaderBody(orthographic);
 }
 
@@ -233,22 +232,22 @@ std::string DirectXAtomSelectionWorleyNoise3DShader::pixelShaderSource(bool orth
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
 DirectXUniformStringLiterals::WorleyNoise3DStringLiteral +
-"struct PSInput\n{" + DirectXAtomImposter::SelectionVaryingsStringLiteral + "};\n" +
+"struct PSInput\n{" + DirectXAtomImposter::selectionVaryings(false) + "};\n" +
 DirectXAtomImposter::DepthOutputStringLiteral +
 std::string(R"foo(
 PSOutput PSMain(PSInput input)
 {
   PSOutput output;
 )foo") + DirectXAtomImposter::hitStringLiteral(orthographic) + std::string(R"foo(
-  float3 L = normalize(input.L);
-  float3 V = normalize(input.V);
-  float3 R = reflect(-L, N);
-
-  float3 ambient = input.ambient.xyz;
-  float3 diffuse = max(dot(N, L), 0.0) * input.diffuse.xyz;
-  float3 specular = pow(max(dot(R, V), 0.0), lightUniforms.lights[0].shininess + structureUniforms.atomShininess) * input.specular.xyz;
+  // Unshadowed, as the overlay marks a selection rather than describing the scene's light.
+  LightingWeights lighting = accumulateLighting(N, normalize(input.V), surfaceEyePosition,
+                                                structureUniforms.atomShininess);
+  float3 ambient = lighting.ambient * input.ambient.xyz;
+  float3 diffuse = lighting.diffuse * input.diffuse.xyz;
+  float3 specular = lighting.specular * input.specular.xyz;
 )foo") + DirectXAtomImposter::ModelNormalStringLiteral + std::string(R"foo(
   float frequency = structureUniforms.atomSelectionWorleyNoise3DFrequency;
   float jitter = structureUniforms.atomSelectionWorleyNoise3DJitter;

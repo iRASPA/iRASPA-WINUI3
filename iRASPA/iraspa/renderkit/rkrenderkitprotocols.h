@@ -36,6 +36,8 @@
 #include "rkglobalaxes.h"
 #include "rklocalaxes.h"
 #include "rkribbonmesh.h"
+#include "rkrendersettings.h"
+#include <algorithm>
 
 // forward declaration
 struct RKInPerInstanceAttributesAtoms;
@@ -88,8 +90,11 @@ class RKRenderAtomSource
 public:
   virtual ~RKRenderAtomSource() = 0;
 
-  virtual int numberOfAtoms() const = 0;
   virtual bool drawAtoms() const = 0;
+
+  /// Which depth cues the atoms and their bonds are drawn with. Not pure, unlike the rest of this:
+  /// an object with no notion of them takes none, and there is nothing for it to decide.
+  virtual RKEdgeCueing atomEdgeCueing() const { return RKEdgeCueing::off; }
 
   virtual RKColor atomAmbientColor() const = 0;
   virtual RKColor atomDiffuseColor() const = 0;
@@ -195,6 +200,10 @@ public:
 
   virtual bool drawRibbon() const = 0;
   virtual double ribbonScaleFactor() const = 0;
+
+  /// The ribbon's own cues, kept apart from the atoms' so that a cartoon can be cued over plain
+  /// atoms, or the other way about. See atomEdgeCueing for why this is not pure.
+  virtual RKEdgeCueing ribbonEdgeCueing() const { return RKEdgeCueing::off; }
 
   // By reference: a large protein's ribbon runs to hundreds of megabytes, and the renderer only
   // reads it to fill the GPU buffers.
@@ -402,6 +411,59 @@ public:
   virtual int numberOfMovies(int sceneIndex) const = 0;
 
   virtual std::vector<std::shared_ptr<RKLight>>& renderLights() = 0;
+
+  /// Light arriving from the environment as a whole, which is why it sits beside the lights rather
+  /// than inside one of them: a rig is free to turn every lamp off without the scene going black.
+  /// Acts as a multiplier on each material's own ambient, which the representation style owns.
+  virtual double renderSceneAmbientIntensity() const = 0;
+  virtual RKColor renderSceneAmbientColor() const = 0;
+
+  /// How much of the ambient occlusion darkens the direct light as well as the ambient term, where 0
+  /// is physically correct and 1 reproduces the older "Fancy" look. Applies to both the rasterizer
+  /// and the path tracer, and to both interactive frames and exports: it is purely a look, with no
+  /// bearing on render cost, so there is no reason for it to differ between them.
+  virtual double renderAmbientOcclusionStrength() const = 0;
+
+  /// Whether the renderer traces the scene to find out which lights actually reach each surface, so
+  /// that geometry standing in the way casts a shadow. Only meaningful for a rig whose lights sit off
+  /// the camera axis: a light at the eye can never be blocked from anything the eye can see.
+  ///
+  /// Read by the rasterizer. The path tracer casts its own shadow rays and ignores it.
+  virtual bool renderShadows() const = 0;
+
+  /// Whether shadows are asked for and there is a light able to cast one. A light at the eye can
+  /// never be blocked from anything the eye can see, so under a rig whose lights all sit on the
+  /// camera axis the pass that traces them is skipped rather than traced for nothing. This is what
+  /// leaves the setting free to be on by default.
+  bool wantsShadows()
+  {
+    if (!renderShadows())
+      return false;
+    for (const std::shared_ptr<RKLight> &light : renderLights())
+    {
+      if (light && light->castsShadows())
+        return true;
+    }
+    return false;
+  }
+
+  /// How exported pictures and movies are rendered. Unlike the interactive settings, which describe
+  /// what the current machine can keep up with, these are choices about the output and so travel with
+  /// the document.
+  virtual bool renderPictureRayTracing() const = 0;
+  virtual int renderPictureSampleCount() const = 0;
+  virtual int renderPictureMaximumBounces() const = 0;
+
+  /// The stored export settings, clamped to what the tracer can be asked for. The stored values come
+  /// from editable fields and from documents written by other versions, so neither is trusted here.
+  int picturePathTracerSampleCount() const
+  {
+    return std::clamp(renderPictureSampleCount(), 1, RKRenderSettings::maximumSupportedPictureSamples);
+  }
+  int picturePathTracerMaximumBounces() const
+  {
+    return std::clamp(renderPictureMaximumBounces(), 0, RKRenderSettings::maximumSupportedPictureBounces);
+  }
 
   virtual std::vector<RKInPerInstanceAttributesAtoms> renderMeasurementPoints() const = 0;
   virtual std::vector<RKRenderObject> renderMeasurementStructure() const = 0;

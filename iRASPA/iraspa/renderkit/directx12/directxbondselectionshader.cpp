@@ -56,12 +56,18 @@ void DirectXBondSelectionShader::initialize(ID3D12Device *device, ID3D12RootSign
                                             DXGI_FORMAT dsvFormat)
 {
   ComPtr<ID3DBlob> vs = compileShader(_vertexShaderSource, "VSMain", "vs_5_0");
-  ComPtr<ID3DBlob> stripesPs = compileShader(pixelShaderSource(Style::striped, false), "PSMain", "ps_5_0");
-  ComPtr<ID3DBlob> worleyPs = compileShader(pixelShaderSource(Style::worleyNoise3D, false), "PSMain", "ps_5_0");
-  ComPtr<ID3DBlob> glowPs = compileShader(pixelShaderSource(Style::glow, false), "PSMain", "ps_5_0");
-  ComPtr<ID3DBlob> externalStripesPs = compileShader(pixelShaderSource(Style::striped, true), "PSMain", "ps_5_0");
-  ComPtr<ID3DBlob> externalWorleyPs = compileShader(pixelShaderSource(Style::worleyNoise3D, true), "PSMain", "ps_5_0");
-  ComPtr<ID3DBlob> externalGlowPs = compileShader(pixelShaderSource(Style::glow, true), "PSMain", "ps_5_0");
+  ComPtr<ID3DBlob> stripesPs = compileShader(pixelShaderSource(Style::striped, false, false), "PSMain", "ps_5_0");
+  ComPtr<ID3DBlob> worleyPs = compileShader(pixelShaderSource(Style::worleyNoise3D, false, false), "PSMain", "ps_5_0");
+  ComPtr<ID3DBlob> glowPs = compileShader(pixelShaderSource(Style::glow, false, false), "PSMain", "ps_5_0");
+  ComPtr<ID3DBlob> externalStripesPs = compileShader(pixelShaderSource(Style::striped, true, false), "PSMain", "ps_5_0");
+  ComPtr<ID3DBlob> externalWorleyPs = compileShader(pixelShaderSource(Style::worleyNoise3D, true, false), "PSMain", "ps_5_0");
+  ComPtr<ID3DBlob> externalGlowPs = compileShader(pixelShaderSource(Style::glow, true, false), "PSMain", "ps_5_0");
+
+  const bool multisampled = DirectXDeviceHelpers::sceneSampleCount() > 1;
+  ComPtr<ID3DBlob> glowPerSamplePs = multisampled
+      ? compileShader(pixelShaderSource(Style::glow, false, true), "PSMain", "ps_5_0") : nullptr;
+  ComPtr<ID3DBlob> externalGlowPerSamplePs = multisampled
+      ? compileShader(pixelShaderSource(Style::glow, true, true), "PSMain", "ps_5_0") : nullptr;
   if (!vs || !stripesPs || !worleyPs || !glowPs)
     return;
 
@@ -97,7 +103,8 @@ void DirectXBondSelectionShader::initialize(ID3D12Device *device, ID3D12RootSign
   createPso(_externalWorleyPso, externalWorleyPs.Get(), overlayRtvFormat, true,
             _externalWorleyReady, "external worley PSO");
 
-  // Glow targets are single-sample (offscreen), not the MSAA scene color.
+  // The glow target carries the scene's sample count, the shells being depth-tested against the
+  // scene's own multisampled depth rather than a resolved copy of it.
   auto createGlowPso = [&](ComPtr<ID3D12PipelineState> &out, ID3DBlob *ps, bool &readyFlag,
                            const char *name) {
     if (!ps)
@@ -109,8 +116,6 @@ void DirectXBondSelectionShader::initialize(ID3D12Device *device, ID3D12RootSign
     psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     fillCommonRasterDepth(psoDesc, dsvFormat, inputLayout);
     psoDesc.RTVFormats[0] = glowRtvFormat;
-    psoDesc.SampleDesc.Count = 1;
-    psoDesc.SampleDesc.Quality = 0;
     if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&out))))
     {
       std::cerr << "DirectXBondSelectionShader: failed to create" << name;
@@ -120,6 +125,9 @@ void DirectXBondSelectionShader::initialize(ID3D12Device *device, ID3D12RootSign
   };
   createGlowPso(_glowPso, glowPs.Get(), _glowReady, "glow PSO");
   createGlowPso(_externalGlowPso, externalGlowPs.Get(), _externalGlowReady, "external glow PSO");
+  createGlowPso(_glowPerSamplePso, glowPerSamplePs.Get(), _glowPerSampleReady, "per-sample glow PSO");
+  createGlowPso(_externalGlowPerSamplePso, externalGlowPerSamplePs.Get(), _externalGlowPerSampleReady,
+                "external per-sample glow PSO");
 }
 
 void DirectXBondSelectionShader::setRenderStructures(
@@ -306,14 +314,22 @@ void DirectXBondSelectionShader::paintGlow(ID3D12GraphicsCommandList *commandLis
 {
   commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-  if (_glowReady && _glowPso)
+  // Shaded at the scene's rate, so a shell and the bond it clears are measured at the same points.
+  const bool perSample = DirectXDeviceHelpers::perSampleImposterShading();
+  ID3D12PipelineState *internalPso = (perSample && _glowPerSampleReady) ? _glowPerSamplePso.Get()
+                                   : (_glowReady ? _glowPso.Get() : nullptr);
+  ID3D12PipelineState *externalPso = (perSample && _externalGlowPerSampleReady)
+                                       ? _externalGlowPerSamplePso.Get()
+                                       : (_externalGlowReady ? _externalGlowPso.Get() : nullptr);
+
+  if (internalPso)
   {
-    commandList->SetPipelineState(_glowPso.Get());
+    commandList->SetPipelineState(internalPso);
     paintBondSet(commandList, structureCBVBase, structureCBVStride, _internalBuffers, RKSelectionStyle::glow);
   }
-  if (_externalGlowReady && _externalGlowPso)
+  if (externalPso)
   {
-    commandList->SetPipelineState(_externalGlowPso.Get());
+    commandList->SetPipelineState(externalPso);
     paintBondSet(commandList, structureCBVBase, structureCBVStride, _externalBuffers, RKSelectionStyle::glow);
   }
 }
@@ -345,7 +361,6 @@ bool DirectXBondSelectionShader::hasGlowWork() const
 const std::string DirectXBondSelectionShader::_vertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 std::string(R"foo(
 struct VSInput
 {
@@ -357,7 +372,7 @@ struct VSInput
 
 struct VSOutput
 {
-)foo") + DirectXBondImposter::SelectionVaryingsStringLiteral + std::string(R"foo(
+)foo") + DirectXBondImposter::selectionVaryings(false) + std::string(R"foo(
 };
 )foo") + DirectXBondImposter::HullStringLiteral + std::string(R"foo(
 VSOutput VSMain(VSInput input)
@@ -367,12 +382,14 @@ VSOutput VSMain(VSInput input)
   float4 pos1 = input.instancePosition1;
   float4 pos2 = input.instancePosition2;
 
-  output.ambient = lightUniforms.lights[0].ambient * structureUniforms.bondAmbientColor;
-  output.specular = lightUniforms.lights[0].specular * structureUniforms.bondSpecularColor;
+  // Material colours only: the pixel stage sums the rig, so a light colour folded in here would be
+  // applied once per light.
+  output.ambient = structureUniforms.bondAmbientColor;
+  output.specular = structureUniforms.bondSpecularColor;
   float4 diffuseColor = (structureUniforms.bondColorMode == 0) ? structureUniforms.bondDiffuseColor
                                                                : structureUniforms.atomDiffuseColor;
-  output.color1 = lightUniforms.lights[0].diffuse * diffuseColor * input.instanceColor1;
-  output.color2 = lightUniforms.lights[0].diffuse * diffuseColor * input.instanceColor2;
+  output.color1 = diffuseColor * input.instanceColor1;
+  output.color2 = diffuseColor * input.instanceColor2;
 
   // The overlay is a slightly fatter copy of the bond, so it wraps the surface it marks.
   float radiusScale = 1.01 * structureUniforms.bondSelectionScaling;
@@ -398,24 +415,22 @@ VSOutput VSMain(VSInput input)
 }
 )foo");
 
-std::string DirectXBondSelectionShader::pixelShaderSource(Style style, bool external)
+std::string DirectXBondSelectionShader::pixelShaderSource(Style style, bool external, bool perSample)
 {
   // Shading of the ray-traced overlay surface, shared by the glow and Worley-noise styles.
   const std::string shade = R"foo(
 float4 bondSelectionShade(PSInput input, float3 pos, float3 N, float ct)
 {
-  float3 L = normalize((lightUniforms.lights[0].position - float4(pos, 1.0) * lightUniforms.lights[0].position.w).xyz);
-  float3 V = normalize(-pos);
-  float3 R = reflect(-L, N);
+  // Unshadowed, as the overlay marks a selection rather than describing the scene's light.
+  LightingWeights lighting = accumulateLighting(N, normalize(-pos), float4(pos, 1.0),
+                                                structureUniforms.bondShininess);
 
-  float4 ambient = input.ambient;
-  float4 specular = pow(max(dot(R, V), 0.0), lightUniforms.lights[0].shininess + structureUniforms.bondShininess)
-                    * input.specular;
-  float d = max(dot(N, L), 0.0);
-  float4 diffuse = float4(d, d, d, 1.0);
+  float4 ambient = float4(lighting.ambient, 1.0) * input.ambient;
+  float4 specular = float4(lighting.specular, 1.0) * input.specular;
+  float4 diffuse = float4(lighting.diffuse, 1.0);
 
   if (structureUniforms.bondColorMode == 0)
-    diffuse *= lightUniforms.lights[0].diffuse * structureUniforms.bondDiffuseColor;
+    diffuse *= structureUniforms.bondDiffuseColor;
   else if (structureUniforms.bondColorMode == 1)
     diffuse *= (ct < 0.5 ? input.color1 : input.color2);
   else if (structureUniforms.bondColorMode == 2)
@@ -444,8 +459,10 @@ float4 bondSelectionShade(PSInput input, float3 pos, float3 N, float ct)
   if (frac(st.x * stripesFrequency) >= uDensity && frac(st.y * stripesFrequency) >= uDensity)
     discard;
 
-  float3 L = normalize((lightUniforms.lights[0].position - float4(pos, 1.0) * lightUniforms.lights[0].position.w).xyz);
-  float4 color = max(dot(N, L), 0.0) * float4(1.0, 1.0, 0.0, 1.0);
+  // Unshadowed, as the overlay marks a selection rather than describing the scene's light.
+  LightingWeights lighting = accumulateLighting(N, normalize(-pos), float4(pos, 1.0),
+                                                structureUniforms.bondShininess);
+  float4 color = float4(lighting.diffuse, 1.0) * float4(1.0, 1.0, 0.0, 1.0);
 )foo";
       break;
     case Style::worleyNoise3D:
@@ -467,10 +484,11 @@ float4 bondSelectionShade(PSInput input, float3 pos, float3 N, float ct)
   return DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
          DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
          DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+         DirectXUniformStringLiterals::LightingStringLiteral +
          DirectXUniformStringLiterals::RGBHSVStringLiteral +
          (style == Style::worleyNoise3D ? DirectXUniformStringLiterals::WorleyNoise3DStringLiteral
                                         : std::string()) +
-         std::string("\nstruct PSInput\n{\n") + DirectXBondImposter::SelectionVaryingsStringLiteral +
+         std::string("\nstruct PSInput\n{\n") + DirectXBondImposter::selectionVaryings(perSample) +
          std::string("};\n") +
          DirectXBondImposter::DepthOutputStringLiteral +
          (external ? DirectXBondImposter::ClippedIntersectStringLiteral

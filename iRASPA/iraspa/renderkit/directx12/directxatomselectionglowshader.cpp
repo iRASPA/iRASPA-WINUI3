@@ -18,16 +18,21 @@ void DirectXAtomSelectionGlowShader::loadShader(ID3D12Device * /*device*/)
 void DirectXAtomSelectionGlowShader::initialize(ID3D12Device *device, ID3D12RootSignature *rootSignature,
                                                 DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat)
 {
-  initializePSO(device, rootSignature, rtvFormat, dsvFormat, true);
-  initializePSO(device, rootSignature, rtvFormat, dsvFormat, false);
+  for (bool orthographic : {true, false})
+    for (bool perSample : {false, true})
+      initializePSO(device, rootSignature, rtvFormat, dsvFormat, orthographic, perSample);
 }
 
 void DirectXAtomSelectionGlowShader::initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,
                                                    DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat,
-                                                   bool orthographic)
+                                                   bool orthographic, bool perSample)
 {
+  // A single-sampled scene has no sample rate to shade at, so that pipeline is never built.
+  if (perSample && DirectXDeviceHelpers::sceneSampleCount() <= 1)
+    return;
+
   ComPtr<ID3DBlob> vs = compileShader(vertexShaderSource(orthographic), "VSMain", "vs_5_0");
-  ComPtr<ID3DBlob> ps = compileShader(pixelShaderSource(orthographic), "PSMain", "ps_5_0");
+  ComPtr<ID3DBlob> ps = compileShader(pixelShaderSource(orthographic, perSample), "PSMain", "ps_5_0");
   if (!vs || !ps)
     return;
 
@@ -51,19 +56,27 @@ void DirectXAtomSelectionGlowShader::initializePSO(ID3D12Device *device, ID3D12R
   psoDesc.NumRenderTargets = 1;
   psoDesc.RTVFormats[0] = rtvFormat;
   psoDesc.DSVFormat = dsvFormat;
-  // The glow is drawn into the 1x glow target against the resolved scene depth, never into the
-  // multisampled scene, so it stays single-sampled whatever the scene's sample count is.
-  psoDesc.SampleDesc.Count = 1;
+  // The glow shell clears its own atom by a thousandth of a radius, so it is drawn into a
+  // multisampled glow target against the scene's own multisampled depth: resolving that depth first
+  // would collapse the samples to one value that beats the shell wherever the sphere is steep, and
+  // leave the glow visible only over the flat centre of an atom.
+  psoDesc.SampleDesc = DirectXDeviceHelpers::sceneSampleDesc();
 
-  ComPtr<ID3D12PipelineState> &pso = orthographic ? _orthographicPso : _perspectivePso;
-  bool &ready = orthographic ? _orthographicPsoReady : _perspectivePsoReady;
-  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso))))
+  PipelineVariant &variant = pipelineVariant(orthographic, perSample);
+  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&variant.pso))))
   {
     std::cerr << "DirectXAtomSelectionGlowShader: failed to create "
-              << (orthographic ? "orthographic" : "perspective") << " PSO";
+              << (orthographic ? "orthographic" : "perspective")
+              << (perSample ? " per-sample" : " per-pixel") << " PSO";
     return;
   }
-  ready = true;
+  variant.ready = true;
+}
+
+DirectXAtomSelectionGlowShader::PipelineVariant &
+DirectXAtomSelectionGlowShader::pipelineVariant(bool orthographic, bool perSample)
+{
+  return _pipelines[(orthographic ? 0u : 1u) * 2u + (perSample ? 1u : 0u)];
 }
 
 void DirectXAtomSelectionGlowShader::setRenderStructures(
@@ -82,8 +95,14 @@ void DirectXAtomSelectionGlowShader::paint(ID3D12GraphicsCommandList *commandLis
                                            const DirectXAtomSelectionWorleyNoise3DShader &instanceSource,
                                            bool orthographic)
 {
-  ID3D12PipelineState *pso = orthographic ? (_orthographicPsoReady ? _orthographicPso.Get() : nullptr)
-                                          : (_perspectivePsoReady ? _perspectivePso.Get() : nullptr);
+  // Shaded at the same rate as the scene atoms, so the shell and the atom it tests against are
+  // measured at the same points. At mixed rates the comparison is out by the depth slope times the
+  // sample offset, which dwarfs the shell's clearance on an atom's flanks and flips the test there.
+  const bool perSample = DirectXDeviceHelpers::perSampleImposterShading();
+  PipelineVariant &wanted = pipelineVariant(orthographic, perSample);
+  PipelineVariant &fallback = pipelineVariant(orthographic, false);
+  ID3D12PipelineState *pso = wanted.ready ? wanted.pso.Get()
+                                          : (fallback.ready ? fallback.pso.Get() : nullptr);
   if (!pso || !instanceSource.isQuadReady())
     return;
 
@@ -122,19 +141,17 @@ std::string DirectXAtomSelectionGlowShader::vertexShaderSource(bool orthographic
   return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 DirectXAtomImposter::SelectionVertexInputStringLiteral +
-"struct VSOutput\n{" + DirectXAtomImposter::SelectionVaryingsStringLiteral + "};\n" +
+"struct VSOutput\n{" + DirectXAtomImposter::selectionVaryings(false) + "};\n" +
 DirectXAtomImposter::selectionVertexShaderBody(orthographic);
 }
 
-std::string DirectXAtomSelectionGlowShader::pixelShaderSource(bool orthographic)
+std::string DirectXAtomSelectionGlowShader::pixelShaderSource(bool orthographic, bool perSample)
 {
   return
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
-"struct PSInput\n{" + DirectXAtomImposter::SelectionVaryingsStringLiteral + "};\n" +
+"struct PSInput\n{" + DirectXAtomImposter::selectionVaryings(perSample) + "};\n" +
 DirectXAtomImposter::DepthOutputStringLiteral +
 std::string(R"foo(
 PSOutput PSMain(PSInput input)
@@ -142,7 +159,8 @@ PSOutput PSMain(PSInput input)
   PSOutput output;
 )foo") + DirectXAtomImposter::hitStringLiteral(orthographic) + std::string(R"foo(
   // The glow is a flat silhouette that the blur pass turns into a halo, so the hit only
-  // contributes its depth and the atom's own colour.
+  // contributes its depth and the atom's own colour. Unlit by design, which is why it reads the
+  // material colours the vertex stage hands on and never consults the light rig.
   output.color = float4(structureUniforms.atomSelectionIntensity * (input.ambient.xyz + input.diffuse.xyz), 1.0);
   return output;
 }

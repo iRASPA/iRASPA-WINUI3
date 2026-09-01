@@ -45,6 +45,8 @@ public:
   void setRibbonRepresentationStyle(ProteinRibbonRepresentationStyle value) override;
   ProteinRibbonSecondaryStructureMethod ribbonSecondaryStructureMethod() const override;
   void setRibbonSecondaryStructureMethod(ProteinRibbonSecondaryStructureMethod value) override;
+  RKEdgeCueing ribbonEdgeCueing() const override {return _ribbonEdgeCueing;}
+  void setRibbonEdgeCueing(RKEdgeCueing value) override {_ribbonEdgeCueing = value;}
   ProteinRibbonSplineType ribbonSplineType() const override;
   void setRibbonSplineType(ProteinRibbonSplineType value) override;
   int ribbonSubdivisionsPerSegment() const override;
@@ -182,6 +184,8 @@ protected:
   ProteinRibbonColorSet _ribbonColorSet = ProteinRibbonColorSet::standardAcademic;
   ProteinRibbonRepresentationStyle _ribbonRepresentationStyle = ProteinRibbonRepresentationStyle::defaultStyle;
   ProteinRibbonSecondaryStructureMethod _ribbonSecondaryStructureMethod = ProteinRibbonSecondaryStructureMethod::stride;
+  // As for atoms: kept across a load and save, not yet drawn.
+  RKEdgeCueing _ribbonEdgeCueing = RKEdgeCueing::off;
   ProteinRibbonSplineType _ribbonSplineType = ProteinRibbonSplineType::bSpline;
   int _ribbonSubdivisionsPerSegment = 24;
   int _ribbonCrossSectionRingResolution = 32;

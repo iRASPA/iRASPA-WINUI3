@@ -69,8 +69,12 @@ double SKBond::bondLength()
 
 BinaryArchive &operator<<(BinaryArchive &stream, const std::shared_ptr<SKBond> &bond)
 {
-  stream << bond->atom1()->tag();
-  stream << bond->atom2()->tag();
+  // The atoms are held weakly, so a copy whose atom has gone falls back on the tag it was read with.
+  // The vector of copies leaves such a copy out; this only keeps a lone write from falling over.
+  const std::shared_ptr<SKAtomCopy> atom1 = bond->atom1();
+  const std::shared_ptr<SKAtomCopy> atom2 = bond->atom2();
+  stream << (atom1 ? atom1->tag() : bond->_tag1);
+  stream << (atom2 ? atom2->tag() : bond->_tag2);
   stream << static_cast<typename std::underlying_type<SKBond::BoundaryType>::type>(bond->_boundaryType);
   return stream;
 }

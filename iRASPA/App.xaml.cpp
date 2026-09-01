@@ -2,6 +2,11 @@
 #include "App.xaml.h"
 #include "MainWindow.xaml.h"
 
+// The application's own opt-in. The live view never traces on the software adapter, being far too
+// slow for a frame, but the renderer asks the runtime what it can do in either process, and the two
+// should not be answering from different runtimes.
+#include "directxagilitysdk.h"
+
 #if __has_include("App.g.cpp")
 #include "App.g.cpp"
 #endif

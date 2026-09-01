@@ -47,8 +47,10 @@ public:
 private:
     std::weak_ptr<SKAtomCopy> _atom1;
     std::weak_ptr<SKAtomCopy> _atom2;
-    int64_t _tag1;
-    int64_t _tag2;
+    // The atom copies as the archive named them, which is all a copy read from one has until they
+    // have been looked up.
+    int64_t _tag1{0};
+    int64_t _tag2{0};
     BoundaryType _boundaryType = BoundaryType::internal;
 
     friend BinaryArchive &operator<<(BinaryArchive &, const std::shared_ptr<SKBond> &);

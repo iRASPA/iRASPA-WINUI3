@@ -150,6 +150,32 @@
     <Content Include="..\build\$(Platform)\$(Configuration)\*.xaml">
       <Link>%(Filename)%(Extension)</Link>
     </Content>
+    <!-- Everything ray tracing needs, none of which the harvester sees: the app project puts all
+         of it beside the loose exe after its own build, and post-build copies are invisible here.
+         Left out, a packaged build has no Shader Model 6 compiler and so cannot compile a
+         RayQuery at all, and no software adapter to fall back to on a card without DXR 1.1; it
+         rasterizes instead, with the ray-tracing settings still offering themselves in the UI.
+
+         Taken from the app's output directory rather than from their original homes in the
+         Windows SDK and external\d3d12, so that what the package carries is what was tested
+         loose. $(Platform) keeps an ARM64 package from carrying x64 binaries.
+
+         The two halves of the Direct3D runtime are not interchangeable and must land exactly
+         here: D3D12Core.dll in D3D12\ where directxagilitysdk.h points, d3d10warp.dll at the
+         root where the loader looks. Both executables sit at the package root, so one copy of
+         each serves the app and the export helper alike. -->
+    <Content Include="..\build\$(Platform)\$(Configuration)\dxcompiler.dll">
+      <Link>dxcompiler.dll</Link>
+    </Content>
+    <Content Include="..\build\$(Platform)\$(Configuration)\dxil.dll">
+      <Link>dxil.dll</Link>
+    </Content>
+    <Content Include="..\build\$(Platform)\$(Configuration)\d3d10warp.dll">
+      <Link>d3d10warp.dll</Link>
+    </Content>
+    <Content Include="..\build\$(Platform)\$(Configuration)\D3D12\*.dll">
+      <Link>D3D12\%(Filename)%(Extension)</Link>
+    </Content>
     <!-- WinUI ships Microsoft.ui.xaml.dll.mui under en-US\, en-GB\, … . The WAP
          payload only keeps a couple of root .mui files, so packaged en-GB (and
          other) locales hit "resource loader cache doesn't have loaded MUI entry".

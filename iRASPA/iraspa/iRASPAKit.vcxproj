@@ -524,6 +524,10 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
+    <ClCompile Include="renderkit\rkrendersettings.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
     <ClCompile Include="renderkit\rkribbonmesh.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -613,6 +617,22 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <ClCompile Include="renderkit\directx12\directxshader.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="renderkit\directx12\directxdxccompiler.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="renderkit\directx12\directxpathtracergeometry.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="renderkit\directx12\directxpathtracershader.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="renderkit\directx12\directxshadowmaskshader.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -725,6 +745,14 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <ClCompile Include="renderkit\directx12\directxcompositeshader.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="renderkit\directx12\directxedgecueingshader.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="renderkit\directx12\directxtracedpresentshader.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -1087,7 +1115,16 @@
     <ClInclude Include="renderkit\directx12\directxbondshader.h" />
     <ClInclude Include="renderkit\directx12\directxboundingboxshader.h" />
     <ClInclude Include="renderkit\directx12\directxcompositeshader.h" />
+    <ClInclude Include="renderkit\directx12\directxedgecueingshader.h" />
+    <ClInclude Include="renderkit\directx12\directxedgecueingstringliterals.h" />
+    <ClInclude Include="renderkit\directx12\directxtracedpresentshader.h" />
     <ClInclude Include="renderkit\directx12\directxdevicehelpers.h" />
+    <ClInclude Include="renderkit\directx12\directxdxccompiler.h" />
+    <ClInclude Include="renderkit\directx12\directxpathtracercommon.h" />
+    <ClInclude Include="renderkit\directx12\directxpathtracergeometry.h" />
+    <ClInclude Include="renderkit\directx12\directxpathtracerstringliterals.h" />
+    <ClInclude Include="renderkit\directx12\directxpathtracershader.h" />
+    <ClInclude Include="renderkit\directx12\directxshadowmaskshader.h" />
     <ClInclude Include="renderkit\directx12\directxenergysurface.h" />
     <ClInclude Include="renderkit\directx12\directxenergyvolumerenderedsurface.h" />
     <ClInclude Include="renderkit\directx12\directxglobalaxesshader.h" />
@@ -1100,6 +1137,7 @@
     <ClInclude Include="renderkit\directx12\directxribbonshader.h" />
     <ClInclude Include="renderkit\directx12\directxselectionshader.h" />
     <ClInclude Include="renderkit\directx12\directxshader.h" />
+    <ClInclude Include="renderkit\directx12\directxshadervisibleheap.h" />
     <ClInclude Include="renderkit\directx12\directxtextrenderingshader.h" />
     <ClInclude Include="renderkit\directx12\directxuniformstringliterals.h" />
     <ClInclude Include="renderkit\directx12\directxunitcellshader.h" />
@@ -1133,6 +1171,7 @@
     <ClInclude Include="renderkit\rklocalaxes.h" />
     <ClInclude Include="renderkit\rkrenderkitprotocols.h" />
     <ClInclude Include="renderkit\rkrenderuniforms.h" />
+    <ClInclude Include="renderkit\rkrendersettings.h" />
     <ClInclude Include="renderkit\rkribbonmesh.h" />
     <ClInclude Include="renderkit\trackball.h" />
     <ClInclude Include="simulationkit\constants.h" />

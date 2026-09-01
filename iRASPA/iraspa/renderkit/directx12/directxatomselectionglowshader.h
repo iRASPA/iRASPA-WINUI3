@@ -32,15 +32,21 @@ public:
              bool orthographic);
 
 private:
-  void initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,
-                     DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat, bool orthographic);
+  struct PipelineVariant
+  {
+    ComPtr<ID3D12PipelineState> pso;
+    bool ready = false;
+  };
 
-  ComPtr<ID3D12PipelineState> _orthographicPso;
-  ComPtr<ID3D12PipelineState> _perspectivePso;
+  void initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,
+                     DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat,
+                     bool orthographic, bool perSample);
+  /// One pipeline per projection and per shading rate, indexed as projection × rate.
+  PipelineVariant &pipelineVariant(bool orthographic, bool perSample);
+
+  PipelineVariant _pipelines[4];
   std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
-  bool _orthographicPsoReady = false;
-  bool _perspectivePsoReady = false;
 
   static std::string vertexShaderSource(bool orthographic);
-  static std::string pixelShaderSource(bool orthographic);
+  static std::string pixelShaderSource(bool orthographic, bool perSample);
 };

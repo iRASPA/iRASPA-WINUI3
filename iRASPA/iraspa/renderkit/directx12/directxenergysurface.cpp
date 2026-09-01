@@ -40,6 +40,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC DirectXEnergySurface::basePsoDesc(
   psoDesc.DepthStencilState.DepthEnable = TRUE;
   psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
   psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+  DirectXDeviceHelpers::recordEdgeCueingInStencil(psoDesc.DepthStencilState);
   psoDesc.InputLayout = { inputLayout, inputLayoutCount };
   psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   psoDesc.NumRenderTargets = 1;
@@ -336,7 +337,6 @@ const std::string DirectXEnergySurface::_vertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::IsosurfaceUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 std::string(R"foo(
 struct VSInput
 {
@@ -349,7 +349,6 @@ struct VSOutput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
   float3 V : TEXCOORD1;
 };
 
@@ -363,7 +362,6 @@ VSOutput VSMain(VSInput input)
                      mul(isosurfaceUniforms.unitCellNormalMatrix, input.vertexNormal))).xyz;
 
   float4 P = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, pos));
-  output.L = (lightUniforms.lights[0].position - P * lightUniforms.lights[0].position.w).xyz;
   output.V = -P.xyz;
 
   float4 clip = mul(frameUniforms.mvpMatrix, mul(structureUniforms.modelMatrix, pos));
@@ -374,21 +372,22 @@ VSOutput VSMain(VSInput input)
 )foo");
 
 const std::string DirectXEnergySurface::_pixelShaderSource =
+DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::IsosurfaceUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
 std::string(R"foo(
 struct PSInput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
   float3 V : TEXCOORD1;
 };
 
 float4 PSMain(PSInput input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
 {
   float3 N = normalize(input.N);
-  float3 L = normalize(input.L);
   float3 V = normalize(input.V);
 
   float4 ambient;
@@ -398,10 +397,13 @@ float4 PSMain(PSInput input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
 
   if (isFrontFace)
   {
-    float3 R = reflect(-L, N);
-    ambient = isosurfaceUniforms.ambientFrontSide;
-    diffuse = max(dot(N, L), 0.0) * isosurfaceUniforms.diffuseFrontSide;
-    specular = pow(max(dot(R, V), 0.0), isosurfaceUniforms.shininessFrontSide) * isosurfaceUniforms.specularFrontSide;
+    // The two sides carry their own materials and their own shininess, so the rig is summed once
+    // per side rather than shared. Unshadowed: the surface is not part of the traced geometry.
+    LightingWeights lighting = accumulateLighting(N, V, float4(-input.V, 1.0),
+                                                  isosurfaceUniforms.shininessFrontSide);
+    ambient = float4(lighting.ambient, 1.0) * isosurfaceUniforms.ambientFrontSide;
+    diffuse = float4(lighting.diffuse, 1.0) * isosurfaceUniforms.diffuseFrontSide;
+    specular = float4(lighting.specular, 1.0) * isosurfaceUniforms.specularFrontSide;
     color = float4(ambient.xyz + diffuse.xyz + specular.xyz, 1.0);
     if (isosurfaceUniforms.frontHDR)
     {
@@ -412,10 +414,12 @@ float4 PSMain(PSInput input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
   }
   else
   {
-    float3 R = reflect(-L, -N);
-    ambient = isosurfaceUniforms.ambientBackSide;
-    diffuse = max(dot(-N, L), 0.0) * isosurfaceUniforms.diffuseBackSide;
-    specular = pow(max(dot(R, V), 0.0), isosurfaceUniforms.shininessBackSide) * isosurfaceUniforms.specularBackSide;
+    // The normal is flipped so the far side is lit by what actually reaches it.
+    LightingWeights lighting = accumulateLighting(-N, V, float4(-input.V, 1.0),
+                                                  isosurfaceUniforms.shininessBackSide);
+    ambient = float4(lighting.ambient, 1.0) * isosurfaceUniforms.ambientBackSide;
+    diffuse = float4(lighting.diffuse, 1.0) * isosurfaceUniforms.diffuseBackSide;
+    specular = float4(lighting.specular, 1.0) * isosurfaceUniforms.specularBackSide;
     color = float4(ambient.xyz + diffuse.xyz + specular.xyz, 1.0);
     if (isosurfaceUniforms.backHDR)
     {

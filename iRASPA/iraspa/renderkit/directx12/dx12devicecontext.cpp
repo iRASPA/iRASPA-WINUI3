@@ -6,6 +6,7 @@
 #include "directxdevicehelpers.h"
 #include <algorithm>
 #include <cstdio>
+#include <vector>
 
 namespace
 {
@@ -14,14 +15,52 @@ namespace
     return a.LowPart == b.LowPart && a.HighPart == b.HighPart;
   }
 
+  // Read once: every context of a run has to land on the same adapter, since resources
+  // cannot be shared across devices.
+  bool forceWarpAdapter()
+  {
+    static const bool forced = GetEnvironmentVariableW(L"IRASPA_D3D12_FORCE_WARP", nullptr, 0) != 0;
+    return forced;
+  }
+
+  /// Whether an exported picture is to be path-traced, which on a card without ray tracing only the
+  /// software adapter can do. Asked here rather than left to the renderer so that the export takes
+  /// the software adapter on its own: the window's device is created in a different process and has
+  /// no need of it, and drawing the interface in software is painful enough to be worth avoiding.
+  bool tracePicturesRequested()
+  {
+    static const bool requested =
+        GetEnvironmentVariableW(L"IRASPA_D3D12_TRACE_PICTURE", nullptr, 0) != 0;
+    return requested;
+  }
+
+  /// Whether an adapter can trace rays inline. Answering needs a device, so this makes a throwaway
+  /// one; the tier of the device that is kept is read again in detectRaytracingSupport().
+  bool adapterTracesRays(IDXGIAdapter1 *adapter)
+  {
+    ComPtr<ID3D12Device> device;
+    if (FAILED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device))))
+      return false;
+    D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
+    if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5))))
+      return false;
+    return options5.RaytracingTier >= D3D12_RAYTRACING_TIER_1_1;
+  }
+
   // First usable hardware adapter, except that an adapter matching avoidAdapter is only
   // taken when it is the sole candidate. Offscreen export passes the adapter the window
   // is already on, so a second GPU takes the export work instead of competing for the one
   // drawing the UI; on a single-GPU machine it falls back to sharing.
-  void getHardwareAdapter(IDXGIFactory4 *factory, IDXGIAdapter1 **outAdapter, const LUID *avoidAdapter)
+  //
+  // When rays are to be traced, a card that cannot trace them is passed over in favour of one that
+  // can, however much better it would otherwise be. Only when none can does one come back, the
+  // caller deciding then between rasterizing on it and tracing in software.
+  void getHardwareAdapter(IDXGIFactory4 *factory, IDXGIAdapter1 **outAdapter, const LUID *avoidAdapter,
+                          bool preferRaytracing)
   {
     *outAdapter = nullptr;
     ComPtr<IDXGIAdapter1> fallback;
+    ComPtr<IDXGIAdapter1> withoutRaytracing;
     ComPtr<IDXGIAdapter1> adapter;
     for (UINT i = 0; factory->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i)
     {
@@ -31,6 +70,13 @@ namespace
         continue;
       if (FAILED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr)))
         continue;
+
+      if (preferRaytracing && !adapterTracesRays(adapter.Get()))
+      {
+        if (!withoutRaytracing)
+          withoutRaytracing = adapter;
+        continue;
+      }
 
       if (avoidAdapter && sameAdapter(desc.AdapterLuid, *avoidAdapter))
       {
@@ -44,6 +90,8 @@ namespace
     }
     if (fallback)
       *outAdapter = fallback.Detach();
+    else if (withoutRaytracing)
+      *outAdapter = withoutRaytracing.Detach();
   }
 }
 
@@ -65,40 +113,70 @@ void Dx12DeviceContext::setExtraRenderTargetCount(int count)
   m_extraRenderTargetCount = (std::max)(0, count);
 }
 
-bool Dx12DeviceContext::createDeviceAndQueues(const LUID *avoidAdapter)
+bool Dx12DeviceContext::createDeviceAndQueues(const LUID *avoidAdapter, bool requireRaytracing)
 {
+  // Debug builds only. This used to be unconditional, which was harmless while the layer was
+  // absent from the machines that ship: without the Graphics Tools feature installed the call
+  // simply fails. Deploying the Agility SDK changes that, since d3d12SDKLayers.dll travels with
+  // it, so leaving this on would hand every user the validating runtime and the frame rate that
+  // comes with it.
+#ifndef NDEBUG
   ComPtr<ID3D12Debug> debugController;
   if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
     debugController->EnableDebugLayer();
+#endif
 
   if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&m_factory))))
     return false;
 
   ComPtr<IDXGIAdapter1> adapter;
-  getHardwareAdapter(m_factory.Get(), &adapter, avoidAdapter);
+  getHardwareAdapter(m_factory.Get(), &adapter, avoidAdapter, requireRaytracing);
 
-  bool warp = true;
-  if (adapter)
-  {
-    if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device))))
-    {
-      warp = false;
-      DXGI_ADAPTER_DESC1 desc = {};
-      adapter->GetDesc1(&desc);
-      m_adapterLuid = desc.AdapterLuid;
-      m_adapterDescription = desc.Description;
-    }
-  }
+  // WARP implements DXR 1.1, so on a machine whose cards do not it is the only way to trace at all.
+  // It traverses in a shader and is far too slow for interactive work, which is why the render view
+  // never comes here on its own; an export is not a frame anyone is waiting on, so it does.
+  //
+  // Only the redistributable WARP does, though: the one that ships with Windows reports no ray
+  // tracing at all and no shader model 6.5 either. It takes both halves of the redistributable, the
+  // driver and the D3D12 runtime it belongs to, deployed into D3D12\ and opted into by
+  // directxagilitysdk.h. The driver alone is worse than neither: paired with an older operating
+  // system runtime it reports tier 1.1 and then intersects nothing at all, so a traced picture comes
+  // back empty with every capability query having said yes.
+  const bool warpAsked = forceWarpAdapter() || (m_offscreen && tracePicturesRequested());
+  const bool warpToTrace = requireRaytracing && !(adapter && adapterTracesRays(adapter.Get()));
 
-  if (warp)
+  if (warpAsked || warpToTrace)
   {
     ComPtr<IDXGIAdapter> warpAdapter;
     m_factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter));
-    if (FAILED(D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device))))
-      return false;
-    m_adapterLuid = LUID{};
-    m_adapterDescription = L"WARP software adapter";
+    if (SUCCEEDED(D3D12CreateDevice(warpAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device))))
+    {
+      m_adapterLuid = LUID{};
+      m_adapterDescription = L"WARP software adapter";
+      m_warpAdapter = true;
+      detectRaytracingSupport();
+
+      // Come to only for a tracing it turns out not to offer, so the card is the better bet after
+      // all: it cannot trace either, but it rasterizes many times faster than this does.
+      if (warpToTrace && !warpAsked && m_raytracingTier < D3D12_RAYTRACING_TIER_1_1 && adapter)
+        m_device.Reset();
+    }
   }
+
+  if (!m_device)
+  {
+    if (!adapter)
+      return false;
+    if (FAILED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_device))))
+      return false;
+    DXGI_ADAPTER_DESC1 desc = {};
+    adapter->GetDesc1(&desc);
+    m_adapterLuid = desc.AdapterLuid;
+    m_adapterDescription = desc.Description;
+    m_warpAdapter = false;
+  }
+
+  detectRaytracingSupport();
 
   D3D12_COMMAND_QUEUE_DESC queueDesc = {};
   queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -115,6 +193,27 @@ bool Dx12DeviceContext::createDeviceAndQueues(const LUID *avoidAdapter)
     return false;
 
   return createHeaps();
+}
+
+void Dx12DeviceContext::detectRaytracingSupport()
+{
+  m_device5.Reset();
+  m_raytracingTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
+  if (!m_device)
+    return;
+
+  // ID3D12Device5 arrived with the DXR runtime, so failing to get it means no ray tracing
+  // at all rather than merely an unsupported adapter.
+  if (FAILED(m_device->QueryInterface(IID_PPV_ARGS(&m_device5))))
+    return;
+
+  D3D12_FEATURE_DATA_D3D12_OPTIONS5 options5 = {};
+  if (FAILED(m_device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS5, &options5, sizeof(options5))))
+  {
+    m_device5.Reset();
+    return;
+  }
+  m_raytracingTier = options5.RaytracingTier;
 }
 
 bool Dx12DeviceContext::createHeaps()
@@ -208,7 +307,8 @@ bool Dx12DeviceContext::initializeForComposition(UINT width, UINT height, float 
   return true;
 }
 
-bool Dx12DeviceContext::initializeOffscreen(UINT width, UINT height, const LUID *avoidAdapter)
+bool Dx12DeviceContext::initializeOffscreen(UINT width, UINT height, const LUID *avoidAdapter,
+                                            bool requireRaytracing)
 {
   release();
   // Not a composition context: without a swap chain there is no premultiplied-alpha
@@ -218,7 +318,7 @@ bool Dx12DeviceContext::initializeOffscreen(UINT width, UINT height, const LUID 
   m_width = (std::max)(1u, width);
   m_height = (std::max)(1u, height);
 
-  if (!createDeviceAndQueues(avoidAdapter))
+  if (!createDeviceAndQueues(avoidAdapter, requireRaytracing))
     return false;
 
   // Only the scene targets; setupRenderTargets() would go looking for backbuffers. The
@@ -254,8 +354,11 @@ void Dx12DeviceContext::release()
   m_frameIndex = 0;
   m_commandQueue.Reset();
   m_swapChain.Reset();
+  m_device5.Reset();
   m_device.Reset();
   m_factory.Reset();
+  m_raytracingTier = D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
+  m_warpAdapter = false;
   m_initialized = false;
   m_offscreen = false;
   m_offscreenActive = false;
@@ -589,7 +692,8 @@ void Dx12DeviceContext::endOffscreenCapture()
   createSceneMsaaTargets();
 }
 
-ID3D12Resource *Dx12DeviceContext::resolveSceneDepth(ID3D12GraphicsCommandList *commandList)
+ID3D12Resource *Dx12DeviceContext::resolveSceneDepth(ID3D12GraphicsCommandList *commandList,
+                                                     D3D12_RESOURCE_STATES finalState)
 {
   if (!commandList || !m_depthStencil || !m_resolvedDepth)
     return nullptr;
@@ -639,31 +743,68 @@ ID3D12Resource *Dx12DeviceContext::resolveSceneDepth(ID3D12GraphicsCommandList *
     }
   }
 
-  transitionResource(m_resolvedDepth.Get(), commandList, m_resolvedDepthState,
-                     D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-  m_resolvedDepthState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+  transitionResource(m_resolvedDepth.Get(), commandList, m_resolvedDepthState, finalState);
+  m_resolvedDepthState = finalState;
 
   transitionResource(m_depthStencil.Get(), commandList, m_sceneDepthState, D3D12_RESOURCE_STATE_DEPTH_WRITE);
   m_sceneDepthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
   return m_resolvedDepth.Get();
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE Dx12DeviceContext::resolvedDepthCPUHandle() const
+void Dx12DeviceContext::beginSceneStencilRead(ID3D12GraphicsCommandList *commandList)
 {
-  D3D12_CPU_DESCRIPTOR_HANDLE dsv = m_dsvHeap->GetCPUDescriptorHandleForHeapStart();
-  dsv.ptr += m_dsvStride;
-  return dsv;
+  if (!commandList || !m_depthStencil)
+    return;
+  if (m_sceneDepthState == D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+    return;
+  transitionResource(m_depthStencil.Get(), commandList, m_sceneDepthState,
+                     D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+  m_sceneDepthState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 }
 
-void Dx12DeviceContext::prepareResolvedDepthForDepthTest(ID3D12GraphicsCommandList *commandList)
+void Dx12DeviceContext::endSceneStencilRead(ID3D12GraphicsCommandList *commandList)
 {
-  if (!commandList || !m_resolvedDepth)
+  if (!commandList || !m_depthStencil)
     return;
-  if (m_resolvedDepthState == D3D12_RESOURCE_STATE_DEPTH_READ)
+  if (m_sceneDepthState == D3D12_RESOURCE_STATE_DEPTH_WRITE)
     return;
-  transitionResource(m_resolvedDepth.Get(), commandList, m_resolvedDepthState,
-                     D3D12_RESOURCE_STATE_DEPTH_READ);
-  m_resolvedDepthState = D3D12_RESOURCE_STATE_DEPTH_READ;
+  transitionResource(m_depthStencil.Get(), commandList, m_sceneDepthState,
+                     D3D12_RESOURCE_STATE_DEPTH_WRITE);
+  m_sceneDepthState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+}
+
+std::string Dx12DeviceContext::takeDebugMessages()
+{
+  if (!m_device)
+    return std::string();
+
+  ComPtr<ID3D12InfoQueue> queue;
+  if (FAILED(m_device->QueryInterface(IID_PPV_ARGS(&queue))) || !queue)
+    return std::string();
+
+  std::string collected;
+  const UINT64 count = queue->GetNumStoredMessages();
+  std::vector<char> storage;
+  for (UINT64 i = 0; i < count; ++i)
+  {
+    SIZE_T length = 0;
+    if (FAILED(queue->GetMessage(i, nullptr, &length)) || length == 0)
+      continue;
+    storage.resize(length);
+    D3D12_MESSAGE *message = reinterpret_cast<D3D12_MESSAGE *>(storage.data());
+    if (FAILED(queue->GetMessage(i, message, &length)))
+      continue;
+    if (message->Severity > D3D12_MESSAGE_SEVERITY_WARNING)
+      continue;
+
+    if (!collected.empty())
+      collected += "; ";
+    collected.append(message->pDescription, message->DescriptionByteLength > 0
+                                                 ? message->DescriptionByteLength - 1
+                                                 : 0);
+  }
+  queue->ClearStoredMessages();
+  return collected;
 }
 
 uint32_t Dx12DeviceContext::alignedCBSize(uint32_t size) const

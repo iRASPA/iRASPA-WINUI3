@@ -35,15 +35,21 @@ public:
     sticks_and_balls = 0, vdw = 1, unity = 2, multiple_values = 3
   };
 
+  /// quteMol is Fancy plus edge cueing, and takes the raw value after Objects because that is what
+  /// Cocoa appended it as; documents written there store 4 for it. The mixed-selection sentinel
+  /// moves along to 5 rather than keeping 4, which would read a quteMol document as "several
+  /// values". It is not a style a document holds, so nothing on disk names it.
   enum class RepresentationStyle: int64_t
   {
-    custom = -1, defaultStyle = 0, fancy = 1, licorice = 2, objects = 3, multiple_values = 4
+    custom = -1, defaultStyle = 0, fancy = 1, licorice = 2, objects = 3, quteMol = 4,
+    multiple_values = 5
   };
 
   virtual ~AtomStructureViewer() = 0;
 
   virtual RepresentationType atomRepresentationType() = 0;
   virtual RepresentationStyle atomRepresentationStyle() = 0;
+  virtual RKEdgeCueing atomEdgeCueing() const = 0;
   virtual RKString atomColorSchemeIdentifier() = 0;
   virtual SKColorSet::ColorSchemeOrder colorSchemeOrder() = 0;
   virtual RKString atomForceFieldIdentifier() = 0;
@@ -90,6 +96,7 @@ public:
   virtual void setRepresentationType(RepresentationType) = 0;
   virtual void setRepresentationStyle(RepresentationStyle style) = 0;
   virtual void setRepresentationStyle(RepresentationStyle style, const SKColorSets &colorSets) = 0;
+  virtual void setAtomEdgeCueing(RKEdgeCueing cueing) = 0;
   virtual void setRepresentationColorSchemeIdentifier(const RKString colorSchemeName, const SKColorSets &colorSets) = 0;
   virtual void setColorSchemeOrder(SKColorSet::ColorSchemeOrder order) = 0;
   virtual void setAtomForceFieldIdentifier(RKString identifier, ForceFieldSets &forceFieldSets) = 0;

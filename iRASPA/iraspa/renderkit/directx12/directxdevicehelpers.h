@@ -49,6 +49,26 @@ namespace DirectXDeviceHelpers
   inline bool perSampleImposterShading() { return perSampleImposterShadingStorage(); }
   inline void setPerSampleImposterShading(bool enabled) { perSampleImposterShadingStorage() = enabled; }
 
+  /// Records in the stencil which edge cues the surface a pass draws asked for, for the pass that
+  /// draws those cues to read back. Written wherever the depth test passes, so the nearest surface
+  /// decides whatever order the passes ran in; the value itself is dynamic state, set per structure
+  /// with OMSetStencilRef from RKEdgeCueingParameters::stencilValue.
+  ///
+  /// Geometry that is not a structure writes too, with reference zero, which is what takes the tag
+  /// off a pixel it covers: without that a contour would be drawn along a unit cell edge wherever
+  /// that edge crosses an atom, the cue reading the depth of the edge and the tag of the atom.
+  inline void recordEdgeCueingInStencil(D3D12_DEPTH_STENCIL_DESC &state)
+  {
+    state.StencilEnable = TRUE;
+    state.StencilReadMask = 0xFF;
+    state.StencilWriteMask = 0xFF;
+    state.FrontFace.StencilFailOp = D3D12_STENCIL_OP_KEEP;
+    state.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_KEEP;
+    state.FrontFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;
+    state.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+    state.BackFace = state.FrontFace;
+  }
+
   inline uint32_t alignedCBSize(uint32_t size)
   {
     return (size + D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT - 1)
@@ -116,6 +136,28 @@ namespace DirectXDeviceHelpers
     }
   }
 
+  /// Where createSceneRootSignature puts the ray-traced shadow mask. A root shader-resource view
+  /// rather than a descriptor table, so that it survives the descriptor heaps the renderer swaps
+  /// between passes; it therefore has to be re-bound whenever the root signature is set.
+  inline constexpr UINT kShadowMaskRootParameter = 6;
+
+  /// Writes over part of a buffer, leaving the rest of it as it was. For a field that is only known
+  /// after the rest of its block has been written, which the size of the ray-traced shadow mask is:
+  /// what it will be is not settled until the trace has been recorded.
+  inline void writeUploadBufferAt(ID3D12Resource *buffer, const void *data, size_t size,
+                                  size_t offset)
+  {
+    if (!buffer || !data || size == 0)
+      return;
+    void *mapped = nullptr;
+    D3D12_RANGE readRange = {0, 0};
+    if (SUCCEEDED(buffer->Map(0, &readRange, &mapped)))
+    {
+      std::memcpy(static_cast<std::byte *>(mapped) + offset, data, size);
+      buffer->Unmap(0, nullptr);
+    }
+  }
+
   // One copy of a static VB/IB, shared by every structure (Cocoa: one sphere, one quad, one cylinder).
   struct IndexedMesh
   {
@@ -162,7 +204,8 @@ namespace DirectXDeviceHelpers
     return true;
   }
 
-  // Root signature: b0 frame, b1 structure, b3 lights, t0 SRV, b2 isosurface, b5 globalAxes
+  // Root signature: b0 frame, b1 structure, b3 lights, t0 SRV, b2 isosurface, b5 globalAxes,
+  // t1 shadow mask.
   // Root indices 0–4 keep existing SetGraphicsRoot* call sites; globalAxes is Root5 = register b5.
   inline ComPtr<ID3D12RootSignature> createSceneRootSignature(ID3D12Device *device)
   {
@@ -173,7 +216,7 @@ namespace DirectXDeviceHelpers
     srvRange.RegisterSpace = 0;
     srvRange.OffsetInDescriptorsFromTableStart = 0;
 
-    D3D12_ROOT_PARAMETER params[6] = {};
+    D3D12_ROOT_PARAMETER params[7] = {};
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[0].Descriptor.ShaderRegister = 0;
     params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -199,6 +242,14 @@ namespace DirectXDeviceHelpers
     params[5].Descriptor.ShaderRegister = 5;
     params[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
+    // The ray tracer's shadow mask, as a root view rather than a descriptor table: the renderer
+    // binds a different heap for the atom and ribbon occlusion bakes and for the volume shader, and
+    // a root view is bound by address and so survives all of that. Shaders that do not read it
+    // simply do not declare t1.
+    params[6].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+    params[6].Descriptor.ShaderRegister = 1;
+    params[6].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
@@ -209,7 +260,7 @@ namespace DirectXDeviceHelpers
     sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
-    rootDesc.NumParameters = 6;
+    rootDesc.NumParameters = 7;
     rootDesc.pParameters = params;
     rootDesc.NumStaticSamplers = 1;
     rootDesc.pStaticSamplers = &sampler;

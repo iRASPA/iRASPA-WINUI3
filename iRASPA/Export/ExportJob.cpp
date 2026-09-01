@@ -61,6 +61,20 @@ bool readExportJob(BinaryArchive &archive, ExportJob &job, std::wstring &error)
   job.avoidAdapter.LowPart = static_cast<DWORD>(static_cast<uint64_t>(avoidAdapterLuid) & 0xffffffffull);
   job.avoidAdapter.HighPart = static_cast<LONG>(avoidAdapterLuid >> 32);
 
+  // A project written in a format this build does not read means the two executables came from
+  // different builds, which is worth saying outright: read on, and the first nested version number
+  // the misalignment lands on would be blamed instead.
+  int64_t projectFormat = 0;
+  archive >> projectFormat;
+  if (projectFormat != ProjectStructure::archiveVersion)
+  {
+    error = L"the application and the export helper are from different builds (the project is in "
+            L"format " + std::to_wstring(projectFormat) + L", this helper reads format " +
+            std::to_wstring(ProjectStructure::archiveVersion) +
+            L"): rebuild both and restart iRASPA";
+    return false;
+  }
+
   if (archive.status() != BinaryArchive::Status::Ok)
     return fail(error, L"the export job header is truncated");
 
@@ -75,6 +89,16 @@ bool readExportJob(BinaryArchive &archive, ExportJob &job, std::wstring &error)
   try
   {
     archive >> job.project;
+  }
+  // Which class refused the archive and where, since "invalid archive version" on its own says
+  // nothing about which of the dozens of nested versions it was, and a reader that has lost its
+  // place reports the failure at whichever nested version it stumbles into next.
+  catch (const InvalidArchiveVersionException &ex)
+  {
+    error = L"the project could not be read: " + RKString(ex.what()).toStdWString() + L" (" +
+            RKString(ex.get_func()).toStdWString() + L", " + RKString(ex.get_file()).toStdWString() +
+            L":" + std::to_wstring(ex.get_line()) + L")";
+    return false;
   }
   catch (const std::exception &ex)
   {

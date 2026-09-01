@@ -63,6 +63,7 @@ void DirectXObjectShader::initializePSOs(ID3D12Device *device, ID3D12RootSignatu
     psoDesc.DepthStencilState.DepthWriteMask =
         opaque ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
     psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+    DirectXDeviceHelpers::recordEdgeCueingInStencil(psoDesc.DepthStencilState);
     psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
     psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     psoDesc.NumRenderTargets = 1;
@@ -396,7 +397,6 @@ void DirectXObjectShader::drawPickGeometry(ID3D12GraphicsCommandList *commandLis
 const std::string DirectXObjectShader::_vertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 std::string(R"foo(
 struct VSInput
 {
@@ -410,7 +410,6 @@ struct VSOutput
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
   float3 ModelN : NORMAL1;
-  float3 L : TEXCOORD0;
   float3 V : TEXCOORD1;
 };
 
@@ -426,7 +425,6 @@ VSOutput VSMain(VSInput input)
                      mul(structureUniforms.transformationNormalMatrix, input.vertexNormal))).xyz;
 
   float4 P = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, pos));
-  output.L = (lightUniforms.lights[0].position - P * lightUniforms.lights[0].position.w).xyz;
   output.V = -P.xyz;
 
   float4 clip = mul(frameUniforms.mvpMatrix, mul(structureUniforms.modelMatrix, pos));
@@ -440,6 +438,7 @@ const std::string DirectXObjectShader::_pixelShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
 DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 DirectXUniformStringLiterals::RGBHSVStringLiteral +
 std::string(R"foo(
 struct PSInput
@@ -447,7 +446,6 @@ struct PSInput
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
   float3 ModelN : NORMAL1;
-  float3 L : TEXCOORD0;
   float3 V : TEXCOORD1;
   bool isFrontFace : SV_IsFrontFace;
 };
@@ -455,17 +453,18 @@ struct PSInput
 float4 PSMain(PSInput input) : SV_TARGET
 {
   float3 N = normalize(input.N);
-  float3 L = normalize(input.L);
   float3 V = normalize(input.V);
-  float3 R = reflect(-L, N);
 
   float4 ambient, diffuse, specular, color;
   if (input.isFrontFace)
   {
-    ambient = structureUniforms.primitiveAmbientFrontSide;
-    diffuse = max(dot(N, L), 0.0) * structureUniforms.primitiveDiffuseFrontSide;
-    specular = pow(max(dot(R, V), 0.0), structureUniforms.primitiveShininessFrontSide)
-               * structureUniforms.primitiveSpecularFrontSide;
+    // The two sides carry their own materials and their own shininess, so the rig is summed once
+    // per side rather than shared. Unshadowed: a primitive is not part of the traced geometry.
+    LightingWeights lighting = accumulateLighting(N, V, float4(-input.V, 1.0),
+                                                  structureUniforms.primitiveShininessFrontSide);
+    ambient = float4(lighting.ambient, 1.0) * structureUniforms.primitiveAmbientFrontSide;
+    diffuse = float4(lighting.diffuse, 1.0) * structureUniforms.primitiveDiffuseFrontSide;
+    specular = float4(lighting.specular, 1.0) * structureUniforms.primitiveSpecularFrontSide;
     color = float4(ambient.xyz + diffuse.xyz + specular.xyz, 1.0);
     if (structureUniforms.primitiveFrontSideHDR != 0)
     {
@@ -476,10 +475,12 @@ float4 PSMain(PSInput input) : SV_TARGET
   }
   else
   {
-    ambient = structureUniforms.primitiveAmbientBackSide;
-    diffuse = max(dot(-N, L), 0.0) * structureUniforms.primitiveDiffuseBackSide;
-    specular = pow(max(dot(R, V), 0.0), structureUniforms.primitiveShininessBackSide)
-               * structureUniforms.primitiveSpecularBackSide;
+    // The normal is flipped so the far side is lit by what actually reaches it.
+    LightingWeights lighting = accumulateLighting(-N, V, float4(-input.V, 1.0),
+                                                  structureUniforms.primitiveShininessBackSide);
+    ambient = float4(lighting.ambient, 1.0) * structureUniforms.primitiveAmbientBackSide;
+    diffuse = float4(lighting.diffuse, 1.0) * structureUniforms.primitiveDiffuseBackSide;
+    specular = float4(lighting.specular, 1.0) * structureUniforms.primitiveSpecularBackSide;
     color = float4(ambient.xyz + diffuse.xyz + specular.xyz, 1.0);
     if (structureUniforms.primitiveBackSideHDR != 0)
     {

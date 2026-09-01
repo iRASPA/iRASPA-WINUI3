@@ -14,6 +14,10 @@ enum class ProteinRibbonRepresentationStyle
 {
   defaultStyle,
   fancy,
+  // Fancy plus edge cueing, which the renderer does not draw yet. It is named here so that a
+  // document that carries it keeps it: an unrecognised name falls back to Default, and saving would
+  // then write that back in its place.
+  illustrative,
   custom
 };
 
@@ -23,6 +27,7 @@ inline RKString proteinRibbonRepresentationStyleDisplayName(ProteinRibbonReprese
   {
   case ProteinRibbonRepresentationStyle::defaultStyle: return RKString("Default");
   case ProteinRibbonRepresentationStyle::fancy: return RKString("Fancy");
+  case ProteinRibbonRepresentationStyle::illustrative: return RKString("Illustrative");
   case ProteinRibbonRepresentationStyle::custom: return RKString("Custom");
   }
   return RKString();
@@ -32,6 +37,7 @@ inline ProteinRibbonRepresentationStyle proteinRibbonRepresentationStyleFromName
 {
   for (const ProteinRibbonRepresentationStyle style : {ProteinRibbonRepresentationStyle::defaultStyle,
                                                       ProteinRibbonRepresentationStyle::fancy,
+                                                      ProteinRibbonRepresentationStyle::illustrative,
                                                       ProteinRibbonRepresentationStyle::custom})
   {
     if (proteinRibbonRepresentationStyleDisplayName(style) == name) { return style; }
@@ -41,5 +47,6 @@ inline ProteinRibbonRepresentationStyle proteinRibbonRepresentationStyleFromName
 
 inline std::vector<ProteinRibbonRepresentationStyle> proteinRibbonRepresentationSelectableCases()
 {
-  return {ProteinRibbonRepresentationStyle::defaultStyle, ProteinRibbonRepresentationStyle::fancy};
+  return {ProteinRibbonRepresentationStyle::defaultStyle, ProteinRibbonRepresentationStyle::fancy,
+          ProteinRibbonRepresentationStyle::illustrative};
 }

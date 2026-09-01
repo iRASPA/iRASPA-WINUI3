@@ -47,6 +47,7 @@ void DirectXLocalAxesShader::initializePSO(ID3D12Device *device, ID3D12RootSigna
   psoDesc.DepthStencilState.DepthEnable = TRUE;
   psoDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
   psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+  DirectXDeviceHelpers::recordEdgeCueingInStencil(psoDesc.DepthStencilState);
   psoDesc.InputLayout = { inputLayout, _countof(inputLayout) };
   psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
   psoDesc.NumRenderTargets = 1;
@@ -210,7 +211,6 @@ void DirectXLocalAxesShader::paint(ID3D12GraphicsCommandList *commandList,
 const std::string DirectXLocalAxesShader::_vertexShaderSource =
 DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
 DirectXUniformStringLiterals::StructureUniformBlockStringLiteral +
-DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
 std::string(R"foo(
 struct VSInput
 {
@@ -223,7 +223,7 @@ struct VSOutput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
+  float3 V : TEXCOORD0;
   float4 diffuse : COLOR0;
 };
 
@@ -234,7 +234,7 @@ VSOutput VSMain(VSInput input)
   output.N = mul(frameUniforms.normalMatrix, mul(structureUniforms.modelMatrix, input.vertexNormal)).xyz;
   output.diffuse = input.vertexColor;
   float4 P = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, pos));
-  output.L = (lightUniforms.lights[0].position - P * lightUniforms.lights[0].position.w).xyz;
+  output.V = -P.xyz;
   float4 clip = mul(frameUniforms.mvpMatrix, mul(structureUniforms.modelMatrix, pos));
   clip.z = clip.z * 0.5f + clip.w * 0.5f;
   output.position = clip;
@@ -243,21 +243,25 @@ VSOutput VSMain(VSInput input)
 )foo");
 
 const std::string DirectXLocalAxesShader::_pixelShaderSource =
+DirectXUniformStringLiterals::FrameUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightUniformBlockStringLiteral +
+DirectXUniformStringLiterals::LightingStringLiteral +
 std::string(R"foo(
 struct PSInput
 {
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD0;
+  float3 V : TEXCOORD0;
   float4 diffuse : COLOR0;
 };
 
 float4 PSMain(PSInput input) : SV_TARGET
 {
   float3 N = normalize(input.N);
-  float3 L = normalize(input.L);
-  float4 color = max(dot(N, L), 0.0) * input.diffuse;
-  float4 ldr = 1.0 - exp2(-color * 1.5);
-  return float4(ldr.xyz, 1.0);
+  // Unshadowed: the axes are a guide, drawn to be read rather than lit realistically.
+  LightingWeights lighting = accumulateLighting(N, normalize(input.V), float4(-input.V, 1.0), 0.0);
+  float3 shade = (guideGeometryAmbient * lighting.ambient + lighting.diffuse) * input.diffuse.xyz;
+  float3 ldr = 1.0 - exp2(-shade * 1.5);
+  return float4(ldr, 1.0);
 }
 )foo");

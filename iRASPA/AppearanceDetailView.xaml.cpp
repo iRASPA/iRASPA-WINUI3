@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include <type_traits>
 #include <utility>
 
@@ -53,20 +54,38 @@ namespace winrt::iRASPA_WinUI::implementation
             return { L"Element", L"Force Field First", L"Force Field Only" };
         }
 
+        // The cues of Tarini, Cignoni and Montani, in Cocoa's order and wording.
+        std::vector<hstring> EdgeCueings()
+        {
+            return { L"None", L"Contour lines", L"Halos", L"Contour lines and halos" };
+        }
+
         // The style popup lists the predefined styles, and "Custom" last. As in
         // Cocoa, "Custom" cannot be picked: it is what the popup shows once the
         // settings no longer match a predefined style.
-        constexpr int kCustomStyleItem = 4;
+        //
+        // The order is Cocoa's rather than the enum's. QuteMol belongs beside the Fancy style whose
+        // material it shares, while its raw value had to be appended after the styles that shipped
+        // before it, so the two no longer coincide and the popup maps between them.
+        constexpr AtomStructureViewer::RepresentationStyle kStyleItems[] = {
+            AtomStructureViewer::RepresentationStyle::defaultStyle,
+            AtomStructureViewer::RepresentationStyle::fancy,
+            AtomStructureViewer::RepresentationStyle::quteMol,
+            AtomStructureViewer::RepresentationStyle::licorice,
+            AtomStructureViewer::RepresentationStyle::objects };
+        constexpr int kCustomStyleItem = static_cast<int>(std::size(kStyleItems));
 
         std::vector<hstring> RepresentationStyles()
         {
-            return { L"Default", L"Fancy", L"Licorice", L"Objects", L"Custom" };
+            return { L"Default", L"Fancy", L"QuteMol", L"Licorice", L"Objects", L"Custom" };
         }
 
         int StyleItem(AtomStructureViewer::RepresentationStyle style)
         {
-            const int index = static_cast<int>(style);
-            return (index >= 0 && index < kCustomStyleItem) ? index : kCustomStyleItem;
+            const auto item = std::find(std::begin(kStyleItems), std::end(kStyleItems), style);
+            return item == std::end(kStyleItems)
+                       ? kCustomStyleItem
+                       : static_cast<int>(item - std::begin(kStyleItems));
         }
 
         // The item of a popup whose order follows an enum, and nothing when the
@@ -906,9 +925,9 @@ namespace winrt::iRASPA_WinUI::implementation
         // puts the popup back on the style the settings match.
         BindCombo(AtomStyle(), [this](int index, hstring const&)
         {
-            if (!m_controller || !m_controller->Document() || index >= kCustomStyleItem)
+            if (!m_controller || !m_controller->Document() || index < 0 || index >= kCustomStyleItem)
                 return;
-            const auto style = static_cast<AtomStructureEditor::RepresentationStyle>(index);
+            const auto style = kStyleItems[index];
             auto& colorSets = m_controller->Document()->colorSets();
             try
             {
@@ -963,6 +982,18 @@ namespace winrt::iRASPA_WinUI::implementation
             ForEachAs<AtomStructureEditor>(m_controller, [index](auto editor)
             {
                 editor->setForceFieldSchemeOrder(static_cast<ForceFieldSet::ForceFieldSchemeOrder>(index));
+            });
+        });
+        // The recheck that follows every binding in this group is what moves the style row between
+        // Fancy and QuteMol, the two differing in nothing else.
+        BindCombo(AtomEdgeCueing(), [this](int index, hstring const&)
+        {
+            if (index < 0 || index > static_cast<int>(RKEdgeCueing::contoursAndHalos))
+                return;
+            const auto cueing = static_cast<RKEdgeCueing>(index);
+            ForEachAs<AtomStructureEditor>(m_controller, [cueing](auto editor)
+            {
+                editor->setAtomEdgeCueing(cueing);
             });
         });
 
@@ -1302,6 +1333,17 @@ namespace winrt::iRASPA_WinUI::implementation
             shade([index](auto editor)
             {
                 editor->setRibbonColorSet(static_cast<ProteinRibbonColorSet>(index));
+            });
+        });
+        // Cues on the Fancy material are the Illustrative style, so this row moves the style row as
+        // the atom one does, through the recheck that shading a ribbon already performs.
+        BindCombo(RibbonEdgeCueing(), [shade](int index, hstring const&)
+        {
+            if (index < 0 || index > static_cast<int>(RKEdgeCueing::contoursAndHalos))
+                return;
+            shade([index](auto editor)
+            {
+                editor->setRibbonEdgeCueing(static_cast<RKEdgeCueing>(index));
             });
         });
 
@@ -2063,6 +2105,8 @@ namespace winrt::iRASPA_WinUI::implementation
                   ItemOf(agreed([](auto const& a) { return a->colorSchemeOrder(); })));
         FillCombo(AtomFFOrder(), SchemeOrders(),
                   ItemOf(agreed([](auto const& a) { return a->forceFieldSchemeOrder(); })));
+        FillCombo(AtomEdgeCueing(), EdgeCueings(),
+                  ItemOf(agreed([](auto const& a) { return a->atomEdgeCueing(); })));
 
         FillCombo(AtomSelStyle(), SelectionStyles(),
                   ItemOf(agreed([](auto const& a) { return a->atomSelectionStyle(); })));
@@ -2189,11 +2233,13 @@ namespace winrt::iRASPA_WinUI::implementation
                   ItemOf(agreed([](auto const& r) { return r->ribbonSecondaryStructureMethod(); })));
         FillCombo(RibbonSpline(), { L"B-Spline", L"Catmull-Rom" },
                   ItemOf(agreed([](auto const& r) { return r->ribbonSplineType(); })));
-        FillCombo(RibbonStyle(), { L"Default", L"Fancy", L"Custom" },
+        FillCombo(RibbonStyle(), { L"Default", L"Fancy", L"Illustrative", L"Custom" },
                   ItemOf(agreed([](auto const& r) { return r->ribbonRepresentationStyle(); })));
         FillCombo(RibbonColorSet(),
                   { L"Standard Academic", L"Modern UI", L"Biophysical Properties", L"Infographic" },
                   ItemOf(agreed([](auto const& r) { return r->ribbonColorSet(); })));
+        FillCombo(RibbonEdgeCueing(), EdgeCueings(),
+                  ItemOf(agreed([](auto const& r) { return r->ribbonEdgeCueing(); })));
 
         auto agreedSelection = [this](auto const& read)
         {
