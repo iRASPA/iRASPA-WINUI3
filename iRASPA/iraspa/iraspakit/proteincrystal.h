@@ -166,6 +166,8 @@ public:
   bool drawAdsorptionSurface() const override final {return _drawAdsorptionSurface;}
   int3 dimensions() const override final {return _dimensions;}
   std::vector<float> gridData() override final;
+  std::vector<float> wellFieldData() override final;
+  void refineWellSurface(std::vector<float4> &triangleData, float trimIsovalue) override final;
   std::vector<float4> gridValueAndGradientData() override final;
   bool isImmutable() const override final {return false;}
 
@@ -256,6 +258,7 @@ public:
 
   double computeVoidFractionAccelerated() const noexcept(false) override final;
   double computeNitrogenSurfaceAreaAccelerated() const noexcept(false) override final;
+  double computeWellSurfaceAreaAccelerated() const noexcept(false) override final;
   double computeVoidFraction() const noexcept override final;
   double computeNitrogenSurfaceArea() const noexcept override final;
   void recomputeDensityProperties() override final {Structure::recomputeDensityProperties();}
@@ -270,6 +273,8 @@ public:
   double structureAccessiblePoreVolume() const override final {return _structureAccessiblePoreVolume;}
   double structureVolumetricNitrogenSurfaceArea() const override final {return _structureVolumetricNitrogenSurfaceArea;}
   double structureGravimetricNitrogenSurfaceArea() const override final {return _structureGravimetricNitrogenSurfaceArea;}
+  double structureVolumetricWellSurfaceArea() const override final {return _structureVolumetricWellSurfaceArea;}
+  double structureGravimetricWellSurfaceArea() const override final {return _structureGravimetricWellSurfaceArea;}
   int structureNumberOfChannelSystems() const override final {return _structureNumberOfChannelSystems;}
   int structureNumberOfInaccessiblePockets() const override final {return _structureNumberOfInaccessiblePockets;}
   int structureDimensionalityOfPoreSystem() const override final {return _structureDimensionalityOfPoreSystem;}
@@ -289,6 +294,8 @@ public:
   void setStructureAccessiblePoreVolume(double value) override final {_structureAccessiblePoreVolume = value;}
   void setStructureVolumetricNitrogenSurfaceArea(double value) override final;
   void setStructureGravimetricNitrogenSurfaceArea(double value) override final;
+  void setStructureVolumetricWellSurfaceArea(double value) override final {_structureVolumetricWellSurfaceArea = value;}
+  void setStructureGravimetricWellSurfaceArea(double value) override final {_structureGravimetricWellSurfaceArea = value;}
   void setStructureNumberOfChannelSystems(int value) override final {_structureNumberOfChannelSystems = value;}
   void setStructureNumberOfInaccessiblePockets(int value) override final {_structureNumberOfInaccessiblePockets = value;}
   void setStructureDimensionalityOfPoreSystem(int value) override final {_structureDimensionalityOfPoreSystem = value;}

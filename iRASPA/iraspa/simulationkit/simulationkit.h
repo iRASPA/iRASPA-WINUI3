@@ -29,5 +29,7 @@
 #include <skcomputeenergygrid.h>
 #include <skcomputeisosurface.h>
 #include <skcomputevoidfraction.h>
+#include <skcomputewellfield.h>
+#include <skwellsurface.h>
 
 

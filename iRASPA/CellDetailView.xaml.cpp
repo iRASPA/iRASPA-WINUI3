@@ -242,6 +242,10 @@ namespace winrt::iRASPA_WinUI::implementation
             &StructuralPropertyEditor::setStructureVolumetricNitrogenSurfaceArea);
         add(GravimetricAreaBox(), &StructuralPropertyViewer::structureGravimetricNitrogenSurfaceArea,
             &StructuralPropertyEditor::setStructureGravimetricNitrogenSurfaceArea);
+        add(VolumetricWellAreaBox(), &StructuralPropertyViewer::structureVolumetricWellSurfaceArea,
+            &StructuralPropertyEditor::setStructureVolumetricWellSurfaceArea);
+        add(GravimetricWellAreaBox(), &StructuralPropertyViewer::structureGravimetricWellSurfaceArea,
+            &StructuralPropertyEditor::setStructureGravimetricWellSurfaceArea);
         addInt(ChannelSystemsBox(), &StructuralPropertyViewer::structureNumberOfChannelSystems,
                &StructuralPropertyEditor::setStructureNumberOfChannelSystems);
         addInt(PocketsBox(), &StructuralPropertyViewer::structureNumberOfInaccessiblePockets,
@@ -264,6 +268,8 @@ namespace winrt::iRASPA_WinUI::implementation
         ConfigureNumber(PoreVolumeBox(), 0.0, 1.0e12, 0.01, 6);
         ConfigureNumber(VolumetricAreaBox(), 0.0, 1.0e12, 1.0, 6);
         ConfigureNumber(GravimetricAreaBox(), 0.0, 1.0e12, 1.0, 6);
+        ConfigureNumber(VolumetricWellAreaBox(), 0.0, 1.0e12, 1.0, 6);
+        ConfigureNumber(GravimetricWellAreaBox(), 0.0, 1.0e12, 1.0, 6);
         ConfigureNumber(ChannelSystemsBox(), 0.0, 1.0e12, 1.0, 0);
         ConfigureNumber(PocketsBox(), 0.0, 1.0e12, 1.0, 0);
         ConfigureNumber(DimensionalityBox(), 0.0, 1.0e12, 1.0, 0);
@@ -355,6 +361,7 @@ namespace winrt::iRASPA_WinUI::implementation
             ReloadTransform();
             ReloadStructural();
             ReloadSymmetry();
+            ReloadBlockingPockets();
         }
         catch (...)
         {
@@ -579,6 +586,63 @@ namespace winrt::iRASPA_WinUI::implementation
         DetailControls::SelectOrMultiple(
             ProbeCombo(),
             ItemOf(agreed([](auto const& v) { return v->frameworkProbeMolecule(); })));
+    }
+
+    // Cocoa lists the pockets of the first selected structure, read-only: they are
+    // replaced wholesale by reading a file, never edited row by row.
+    void CellDetailView::ReloadBlockingPockets()
+    {
+        std::shared_ptr<Structure> structure;
+        if (m_controller)
+        {
+            for (auto const& target : m_controller->TargetStructures())
+            {
+                if (auto s = target ? std::dynamic_pointer_cast<Structure>(target->object()) : nullptr)
+                {
+                    structure = s;
+                    break;
+                }
+            }
+        }
+        BlockingHint().Visibility(structure ? Visibility::Collapsed : Visibility::Visible);
+        BlockingBody().Visibility(structure ? Visibility::Visible : Visibility::Collapsed);
+        if (!structure)
+            return;
+
+        auto const pockets = m_controller->BlockingPockets();
+        BlockingCountLabel().Text(hstring(std::to_wstring(pockets.size()) + L" blocking pockets"));
+
+        auto rows = BlockingRows();
+        rows.Children().Clear();
+        for (size_t i = 0; i < pockets.size(); ++i)
+        {
+            auto const& pocket = pockets[i];
+            Grid row;
+            for (double width : { 40.0, 0.0, 0.0, 0.0, 0.0 })
+            {
+                ColumnDefinition column;
+                column.Width(width > 0.0 ? GridLengthHelper::FromPixels(width)
+                                         : GridLengthHelper::FromValueAndType(1.0, GridUnitType::Star));
+                row.ColumnDefinitions().Append(column);
+            }
+
+            const double values[5] = { static_cast<double>(i + 1), pocket.x, pocket.y, pocket.z,
+                                       pocket.w };
+            for (int column = 0; column < 5; ++column)
+            {
+                wchar_t text[32];
+                if (column == 0)
+                    swprintf_s(text, L"%d", static_cast<int>(values[column]));
+                else
+                    swprintf_s(text, L"%.4f", values[column]);
+                TextBlock cell;
+                cell.Text(hstring(text));
+                cell.FontSize(11.0);
+                Grid::SetColumn(cell, column);
+                row.Children().Append(cell);
+            }
+            rows.Children().Append(row);
+        }
     }
 
     void CellDetailView::ReloadSymmetry()
@@ -1060,6 +1124,22 @@ namespace winrt::iRASPA_WinUI::implementation
             return;
         m_controller->ComputeNitrogenSurfaceArea();
         Reload();
+    }
+
+    void CellDetailView::OnComputeWellSurfaceArea(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_controller)
+            return;
+        m_controller->ComputeWellSurfaceArea();
+        Reload();
+    }
+
+    void CellDetailView::OnLoadBlockingPockets(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_controller)
+            return;
+        // The picker runs on the window; the rows follow once it has read a file.
+        m_controller->LoadBlockingPocketsFile();
     }
 
     void CellDetailView::OnSpaceGroupNumberChanged(IInspectable const& sender,

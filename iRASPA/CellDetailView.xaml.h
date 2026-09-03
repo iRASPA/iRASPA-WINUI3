@@ -60,6 +60,10 @@ namespace winrt::iRASPA_WinUI::implementation
                                    winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnComputeSurfaceArea(winrt::Windows::Foundation::IInspectable const& sender,
                                   winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnComputeWellSurfaceArea(winrt::Windows::Foundation::IInspectable const& sender,
+                                      winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnLoadBlockingPockets(winrt::Windows::Foundation::IInspectable const& sender,
+                                   winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnSpaceGroupNumberChanged(winrt::Windows::Foundation::IInspectable const& sender,
                                        winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
         void OnQualifierChanged(winrt::Windows::Foundation::IInspectable const& sender,
@@ -93,6 +97,7 @@ namespace winrt::iRASPA_WinUI::implementation
         void ReloadTransform();
         void ReloadStructural();
         void ReloadSymmetry();
+        void ReloadBlockingPockets();
         // Flip checkboxes live in a collapsed Expander; re-push visuals after
         // Reload and when a section opens (same WinUI Indeterminate stickiness
         // as Appearance).

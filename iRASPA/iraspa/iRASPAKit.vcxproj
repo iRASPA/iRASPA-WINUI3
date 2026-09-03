@@ -494,6 +494,14 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
+    <ClCompile Include="simulationkit\directx12\skcomputewellfield.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="simulationkit\skwellsurface.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup Label="RenderKit">
     <ClCompile Include="renderkit\rkcamera.cpp">
@@ -701,6 +709,10 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <ClCompile Include="renderkit\directx12\directxglobalaxesshader.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="renderkit\directx12\directxblockingpocketsshader.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -1125,6 +1137,7 @@
     <ClInclude Include="renderkit\directx12\directxpathtracerstringliterals.h" />
     <ClInclude Include="renderkit\directx12\directxpathtracershader.h" />
     <ClInclude Include="renderkit\directx12\directxshadowmaskshader.h" />
+    <ClInclude Include="renderkit\directx12\directxblockingpocketsshader.h" />
     <ClInclude Include="renderkit\directx12\directxenergysurface.h" />
     <ClInclude Include="renderkit\directx12\directxenergyvolumerenderedsurface.h" />
     <ClInclude Include="renderkit\directx12\directxglobalaxesshader.h" />
@@ -1178,6 +1191,8 @@
     <ClInclude Include="simulationkit\directx12\skcomputeenergygrid.h" />
     <ClInclude Include="simulationkit\directx12\skcomputeisosurface.h" />
     <ClInclude Include="simulationkit\directx12\skcomputevoidfraction.h" />
+    <ClInclude Include="simulationkit\directx12\skcomputewellfield.h" />
+    <ClInclude Include="simulationkit\skwellsurface.h" />
     <ClInclude Include="simulationkit\directx12\skdx12.h" />
     <ClInclude Include="simulationkit\forcefieldset.h" />
     <ClInclude Include="simulationkit\forcefieldsets.h" />

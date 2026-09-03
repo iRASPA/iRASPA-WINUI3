@@ -71,6 +71,10 @@ struct DocumentHost
     // baked with the others standing around it (Cocoa
     // invalidateCachedAmbientOcclusionTexture).
     virtual void InvalidateSceneAmbientOcclusion(std::shared_ptr<Scene> const& scene) = 0;
+    // The same for the cached energy grids and well fields, which a change to the
+    // probe, the grid size or the blocking pockets no longer describes (Cocoa
+    // invalidateIsosurface).
+    virtual void InvalidateSceneIsosurfaces(std::shared_ptr<Scene> const& scene) = 0;
     // Rebuild whichever inspector tab is showing, so its rows follow the model.
     virtual void RefreshInspector() = 0;
     virtual void RefreshEditMenuLabels() = 0;
@@ -92,6 +96,12 @@ struct DocumentHost
     virtual void SaveTextFile(std::wstring const& text, std::wstring const& extension,
                               std::wstring const& typeName,
                               std::wstring const& suggestedName) = 0;
+    // The other direction, for the small text files the inspector reads (a
+    // blocking-pocket file). The callback runs on the UI thread once a file has
+    // been picked, and not at all when the user cancels.
+    virtual void OpenTextFile(std::wstring const& extension,
+                              std::function<void(std::wstring const& name,
+                                                 std::wstring const& contents)> completion) = 0;
 };
 
 // What the document layer needs from whatever is displaying the project tree.
@@ -201,6 +211,9 @@ public:
     // Atom or ribbon visibility changes what occludes what, so the baked ambient
     // occlusion of the selected scene is thrown away before the reload.
     void ReloadRendererInvalidatingAmbientOcclusion() const;
+    // The same for the cached energy grids and well fields, which the blocking
+    // pockets and the probe are part of the input to.
+    void ReloadRendererInvalidatingIsosurfaces() const;
     // ... and those of them that move the bounding box refit the camera to it
     // first, as a cell edit does.
     void RefitCameraToBoundingBox() const;
@@ -476,6 +489,8 @@ public:
         double accessiblePoreVolume = 0.0;
         double volumetricSurfaceArea = 0.0;
         double gravimetricSurfaceArea = 0.0;
+        double volumetricWellSurfaceArea = 0.0;
+        double gravimetricWellSurfaceArea = 0.0;
         int numberOfChannelSystems = 0;
         int numberOfInaccessiblePockets = 0;
         int dimensionalityOfPoreSystem = 0;
@@ -534,9 +549,27 @@ public:
     // Cocoa setSpaceGroup: re-imposing symmetry regenerates the copies and the
     // bonds, so it does not go through EditCells.
     void SetSpaceGroupHallNumber(int hall);
-    // The two recompute buttons in the structural group.
+    // The recompute buttons in the structural group. The nitrogen area is the one
+    // over the probe-accessible energy iso-surface; the well area is the one over
+    // the locus of energy minima the well surface is drawn on.
     void ComputeHeliumVoidFraction();
     void ComputeNitrogenSurfaceArea();
+    void ComputeWellSurfaceArea();
+
+    // ---- Blocking pockets -------------------------------------------------
+    // The pockets of the first structure of the selection, which is what the cell
+    // pane lists (Cocoa renderBlockingPockets).
+    std::vector<double4> BlockingPockets() const;
+    // Cocoa setBlockingPockets: a file read in replaces the pockets of the whole
+    // selection. They are drawn as spheres and are cut out of the energy grid, so
+    // both the render data and the cached grids follow.
+    void SetBlockingPockets(std::vector<std::vector<double4>> const& pockets,
+                            std::wstring const& actionName = L"Change Blocking Pockets");
+    void ApplyBlockingPockets(std::vector<std::shared_ptr<Structure>> const& structures,
+                              std::vector<std::vector<double4>> const& pockets,
+                              std::wstring const& actionName);
+    // Asks the window for a .block file and applies what it holds.
+    void LoadBlockingPocketsFile();
 
     // ---- Atoms ------------------------------------------------------------
     // Where an atom node sat, so a move or a delete can be undone by putting it

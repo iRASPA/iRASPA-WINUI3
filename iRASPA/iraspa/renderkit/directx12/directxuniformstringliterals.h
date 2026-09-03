@@ -617,6 +617,24 @@ float2 cellular3D(float3 P, float jitter)
 }
 )foo";
 
+  inline static const std::string BlockingPocketUniformBlockStringLiteral = R"foo(
+struct BlockingPocketUniformData
+{
+  float4 ambient;
+  float4 diffuse;
+  float4 specular;
+  int hdr;
+  float hdrExposure;
+  float shininess;
+  float pad0;
+};
+
+cbuffer BlockingPocketUniformBlock : register(b4)
+{
+  BlockingPocketUniformData blockingPocketUniforms;
+};
+)foo";
+
   inline static const std::string GlobalAxesUniformBlockStringLiteral = R"foo(
 struct GlobalAxesUniformData
 {

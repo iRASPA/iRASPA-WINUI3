@@ -1580,7 +1580,8 @@ std::vector<float> ProteinCrystal::gridData()
   try
   {
     std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGrid(int3(size,size,size),
-                                                        probeParameter, positions, parameters, unitCell, numberOfReplicas);
+                                                        probeParameter, positions, parameters, unitCell, numberOfReplicas,
+                                                        appliedBlockingPockets());
     _adsorptionVolumeStepLength = 0.25 / double(size);
 
     const auto [min, max] = std::minmax_element(begin(gridData), end(gridData));
@@ -1594,6 +1595,34 @@ std::vector<float> ProteinCrystal::gridData()
     return std::vector<float>();
   }
 }
+// The analytic (energy, Apollonius-distance, medial-reliability) field the well surface is extracted from.
+std::vector<float> ProteinCrystal::wellFieldData()
+{
+  int size = pow(2,encompassingPowerOfTwoCubicGridSize());
+  _dimensions = int3(size,size,size);
+
+  try
+  {
+    return SKComputeWellField::computeWellFieldGrid(int3(size,size,size), adsorptionSurfaceProbeParameters(),
+                                                    atomUnitCellPositions(), potentialParameters(),
+                                                    cell()->unitCell(), cell()->numberOfReplicas(12.0),
+                                                    appliedBlockingPockets());
+  }
+  catch (std::exception const& e)
+  {
+    std::cerr << "Exception caught: " << e.what() << std::endl;
+    return std::vector<float>();
+  }
+}
+
+void ProteinCrystal::refineWellSurface(std::vector<float4> &triangleData, float trimIsovalue)
+{
+  SKComputeWellField::refineWellSurfaceVertices(triangleData, adsorptionSurfaceProbeParameters(),
+                                                atomUnitCellPositions(), potentialParameters(),
+                                                cell()->unitCell(), cell()->numberOfReplicas(12.0),
+                                                appliedBlockingPockets(), trimIsovalue);
+}
+
 std::vector<float4> ProteinCrystal::gridValueAndGradientData()
 {
   std::vector<float> energyData = gridData();
@@ -1675,7 +1704,7 @@ double ProteinCrystal::computeVoidFractionAccelerated() const noexcept(false)
   double3x3 unitCell = cell()->unitCell();
   int3 numberOfReplicas = cell()->numberOfReplicas(12.0);
 
-  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGrid(size, probeParameter, positions, parameters, unitCell, numberOfReplicas);
+  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGrid(size, probeParameter, positions, parameters, unitCell, numberOfReplicas, appliedBlockingPockets());
   double sumBoltzmannWeight = 0.0;
   for(const float &value: gridData)
   {
@@ -1695,7 +1724,8 @@ double ProteinCrystal::computeNitrogenSurfaceAreaAccelerated() const noexcept(fa
   int3 numberOfReplicas = cell()->numberOfReplicas(12.0);
 
   std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGrid(size, probeParameter, positions,
-                                                                       parameters, unitCell, numberOfReplicas);
+                                                                       parameters, unitCell, numberOfReplicas,
+                                                                       appliedBlockingPockets());
 
   double isoValue = 0.0;
 
@@ -1717,6 +1747,48 @@ double ProteinCrystal::computeNitrogenSurfaceAreaAccelerated() const noexcept(fa
   return totalArea;
 }
 
+// Marching cubes puts the vertices on the probe-contact distance surface; the refinement slides each one
+// onto the true multi-atom well floor, which is the surface being measured. Where a channel is narrower
+// than the probe's contact diameter there is no sheet to measure, and the area of that stretch of pore is
+// honestly zero rather than the area of rolling the probe over the wall.
+double ProteinCrystal::computeWellSurfaceAreaAccelerated() const noexcept(false)
+{
+  int3 size = int3(128,128,128);
+
+  double2 probeParameter = frameworkProbeParameters();
+  std::vector<double3> positions = atomUnitCellPositions();
+  std::vector<double2> parameters = potentialParameters();
+  double3x3 unitCell = cell()->unitCell();
+  int3 numberOfReplicas = cell()->numberOfReplicas(12.0);
+  std::vector<double4> blockingPockets = appliedBlockingPockets();
+
+  std::vector<float> field = SKComputeWellField::computeWellFieldGrid(size, probeParameter, positions, parameters,
+                                                                     unitCell, numberOfReplicas, blockingPockets);
+
+  std::vector<float4> triangleData = SKWellSurface::constructWellSurface(field, 0.0, size);
+  if(triangleData.empty()) {return 0.0;}
+
+  float trimIsovalue = SKWellSurface::effectiveTrimIsovalue(field, 0.0, size);
+  SKComputeWellField::refineWellSurfaceVertices(triangleData, probeParameter, positions, parameters, unitCell,
+                                                numberOfReplicas, blockingPockets, trimIsovalue);
+
+  // Nine float4 per triangle --- three vertices of (position, normal, pad). The surface is watertight and
+  // single-sheeted by construction, so every triangle counts.
+  double totalArea = 0.0;
+  for(size_t i=0; i+8<triangleData.size(); i+=9)
+  {
+    double3 p1 = unitCell * double3(triangleData[i].x,triangleData[i].y,triangleData[i].z);
+    double3 p2 = unitCell * double3(triangleData[i+3].x,triangleData[i+3].y,triangleData[i+3].z);
+    double3 p3 = unitCell * double3(triangleData[i+6].x,triangleData[i+6].y,triangleData[i+6].z);
+    double area = 0.5 * double3::cross(p2-p1,p3-p1).length();
+    if(std::isfinite(area))
+    {
+      totalArea += area;
+    }
+  }
+  return totalArea;
+}
+
 double ProteinCrystal::computeVoidFraction() const noexcept
 {
   int3 size = int3(128,128,128);
@@ -1726,7 +1798,7 @@ double ProteinCrystal::computeVoidFraction() const noexcept
   double3x3 unitCell = cell()->unitCell();
   int3 numberOfReplicas = cell()->numberOfReplicas(12.0);
 
-  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGridCPUImplementation(size, probeParameter, positions, parameters, unitCell, numberOfReplicas);
+  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGridCPUImplementation(size, probeParameter, positions, parameters, unitCell, numberOfReplicas, appliedBlockingPockets());
   double sumBoltzmannWeight = 0.0;
   for(const float &value: gridData)
   {
@@ -1745,7 +1817,7 @@ double ProteinCrystal::computeNitrogenSurfaceArea() const noexcept
   double3x3 unitCell = cell()->unitCell();
   int3 numberOfReplicas = cell()->numberOfReplicas(12.0);
 
-  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGridCPUImplementation(size, probeParameter, positions, parameters, unitCell, numberOfReplicas);
+  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGridCPUImplementation(size, probeParameter, positions, parameters, unitCell, numberOfReplicas, appliedBlockingPockets());
 
   std::vector<float4> triangleData = SKComputeIsosurface::computeIsosurfaceCPUImplementation(size, &gridData, 0.0);
 

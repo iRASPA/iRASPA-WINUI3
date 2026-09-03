@@ -18,6 +18,7 @@
 #include "directxribbonambientocclusionshader.h"
 #include "directxtextrenderingshader.h"
 #include "directxglobalaxesshader.h"
+#include "directxblockingpocketsshader.h"
 #include "directxenergysurface.h"
 #include "directxenergyvolumerenderedsurface.h"
 #include "directxpickingshader.h"
@@ -120,6 +121,10 @@ public:
   // baked occlusion of the rest describing a scene that is no longer there. Cocoa throws the cached
   // textures of the whole scene away on such a change and lets the next reload bake them again.
   void invalidateCachedAmbientOcclusionTextures(std::vector<std::shared_ptr<RKRenderObject>> structures);
+  // The grids and well fields are cached per structure because computing one costs seconds, so a
+  // change to what they are computed from -- the probe, the grid size, the blocking pockets --
+  // has to throw them away before the next reload rebuilds the surfaces.
+  void invalidateCachedIsosurfaces(std::vector<std::shared_ptr<RKRenderObject>> structures);
 
   std::array<int, 4> pickTexture(int x, int y, int width, int height);
 
@@ -222,6 +227,7 @@ private:
   void updateTransformUniforms();
   void updateStructureUniforms();
   void updateIsosurfaceUniforms();
+  void updateBlockingPocketUniforms();
   void updateLightUniforms();
   void updateGlobalAxesUniforms();
   void pushStructuresToShaders();
@@ -238,6 +244,7 @@ private:
   ID3D12Resource *structureCB() const { return m_structureCBV[inflightSlot()].Get(); }
   ID3D12Resource *lightsCB() const { return m_lightsCBV[inflightSlot()].Get(); }
   ID3D12Resource *isosurfaceCB() const { return m_isosurfaceCBV[inflightSlot()].Get(); }
+  ID3D12Resource *blockingPocketCB() const { return m_blockingPocketCBV[inflightSlot()].Get(); }
   ID3D12Resource *globalAxesCB() const { return m_globalAxesCBV[inflightSlot()].Get(); }
 
   Dx12DeviceContext m_device;
@@ -263,11 +270,14 @@ private:
   ComPtr<ID3D12Resource> m_structureCBV[Dx12DeviceContext::kInflightFrameCount];
   ComPtr<ID3D12Resource> m_lightsCBV[Dx12DeviceContext::kInflightFrameCount];
   ComPtr<ID3D12Resource> m_isosurfaceCBV[Dx12DeviceContext::kInflightFrameCount];
+  ComPtr<ID3D12Resource> m_blockingPocketCBV[Dx12DeviceContext::kInflightFrameCount];
   ComPtr<ID3D12Resource> m_globalAxesCBV[Dx12DeviceContext::kInflightFrameCount];
   UINT m_structureCBVStride = 0;
   UINT m_structureCBVCapacity = 0;
   UINT m_isosurfaceCBVStride = 0;
   UINT m_isosurfaceCBVCapacity = 0;
+  UINT m_blockingPocketCBVStride = 0;
+  UINT m_blockingPocketCBVCapacity = 0;
   uint64_t m_frameFenceValues[Dx12DeviceContext::kInflightFrameCount] = {};
   bool m_gpuFrameStarted = false;
 
@@ -296,6 +306,7 @@ private:
   DirectXBoundingBoxShader m_boundingBoxShader;
   DirectXEnergySurface m_energySurfaceShader;
   DirectXEnergyVolumeRenderedSurface m_energyVolumeShader;
+  DirectXBlockingPocketsShader m_blockingPocketsShader;
   DirectXPickingShader m_pickingShader;
   DirectXSelectionShader m_selectionShader;
   DirectXTextRenderingShader m_textShader;

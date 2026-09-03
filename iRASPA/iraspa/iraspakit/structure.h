@@ -62,7 +62,8 @@ struct enum_hash
 class Structure: public Object, public InfoEditor,  public AtomViewer, public BondViewer,
                  public AtomStructureEditor, public BondStructureEditor,
                  public AnnotationEditor,
-                 public RKRenderAtomSource, public RKRenderBondSource
+                 public RKRenderAtomSource, public RKRenderBondSource,
+                 public RKRenderBlockingPocketsSource
 {
 public:
   Structure();
@@ -393,6 +394,53 @@ public:
   void recomputeDensityProperties();
   double2 frameworkProbeParameters() const;
   void setStructureNitrogenSurfaceArea(double value);
+  void setStructureWellSurfaceArea(double value);
+
+  // Blocking pockets
+  // ===============================================================================================
+  // Reads blocking pockets from the contents of a RASPA '.block'-file. The first line holds the
+  // number of pockets, every following line a fractional position and a radius in Angstrom. Lines
+  // that do not hold four numbers (like the count on the first line) are skipped, so that files
+  // without a count and files with comments are read as well.
+  static std::vector<double4> parseBlockingPockets(const RKString &contents);
+
+  // The fractional position (x,y,z) and the radius in Angstrom (w) of the blocking pockets.
+  const std::vector<double4> &blockingPockets() const {return _blockingPockets;}
+  void setBlockingPockets(std::vector<double4> pockets) {_blockingPockets = pockets;}
+
+  // What the energy grid has to leave out. Reading it through one property keeps the flag out of the
+  // crystal types that compute a grid, and out of SimulationKit, which is handed the pockets to
+  // apply and nothing else.
+  std::vector<double4> appliedBlockingPockets() const
+  {
+    return _applyBlockingPockets ? _blockingPockets : std::vector<double4>();
+  }
+
+  bool drawBlockingPockets() const override {return _drawBlockingPockets;}
+  void setDrawBlockingPockets(bool value) {_drawBlockingPockets = value;}
+  bool applyBlockingPockets() const {return _applyBlockingPockets;}
+  void setApplyBlockingPockets(bool value) {_applyBlockingPockets = value;}
+
+  std::vector<RKInPerInstanceAttributesAtoms> renderBlockingPockets() const override;
+
+  bool blockingPocketsFrontSideHDR() const override {return _blockingPocketsFrontSideHDR;}
+  void setBlockingPocketsFrontSideHDR(bool value) {_blockingPocketsFrontSideHDR = value;}
+  double blockingPocketsFrontSideHDRExposure() const override {return _blockingPocketsFrontSideHDRExposure;}
+  void setBlockingPocketsFrontSideHDRExposure(double value) {_blockingPocketsFrontSideHDRExposure = value;}
+  RKColor blockingPocketsFrontSideAmbientColor() const override {return _blockingPocketsFrontSideAmbientColor;}
+  void setBlockingPocketsFrontSideAmbientColor(RKColor color) {_blockingPocketsFrontSideAmbientColor = color;}
+  RKColor blockingPocketsFrontSideDiffuseColor() const override {return _blockingPocketsFrontSideDiffuseColor;}
+  void setBlockingPocketsFrontSideDiffuseColor(RKColor color) {_blockingPocketsFrontSideDiffuseColor = color;}
+  RKColor blockingPocketsFrontSideSpecularColor() const override {return _blockingPocketsFrontSideSpecularColor;}
+  void setBlockingPocketsFrontSideSpecularColor(RKColor color) {_blockingPocketsFrontSideSpecularColor = color;}
+  double blockingPocketsFrontSideAmbientIntensity() const override {return _blockingPocketsFrontSideAmbientIntensity;}
+  void setBlockingPocketsFrontSideAmbientIntensity(double value) {_blockingPocketsFrontSideAmbientIntensity = value;}
+  double blockingPocketsFrontSideDiffuseIntensity() const override {return _blockingPocketsFrontSideDiffuseIntensity;}
+  void setBlockingPocketsFrontSideDiffuseIntensity(double value) {_blockingPocketsFrontSideDiffuseIntensity = value;}
+  double blockingPocketsFrontSideSpecularIntensity() const override {return _blockingPocketsFrontSideSpecularIntensity;}
+  void setBlockingPocketsFrontSideSpecularIntensity(double value) {_blockingPocketsFrontSideSpecularIntensity = value;}
+  double blockingPocketsFrontSideShininess() const override {return _blockingPocketsFrontSideShininess;}
+  void setBlockingPocketsFrontSideShininess(double value) {_blockingPocketsFrontSideShininess = value;}
 
   SKSpaceGroup& legacySpaceGroup() {return _legacySpaceGroup;}
 
@@ -595,7 +643,7 @@ public:
   friend BinaryArchive &operator<<(BinaryArchive &, const std::shared_ptr<Structure> &);
   friend BinaryArchive &operator>>(BinaryArchive &, std::shared_ptr<Structure> &);
 protected:
-  int64_t _versionNumber{11};
+  int64_t _versionNumber{13};
 
   std::shared_ptr<SKAtomTreeController> _atomsTreeController;
   std::shared_ptr<SKBondSetController> _bondSetController;
@@ -787,12 +835,32 @@ protected:
   double _structureAccessiblePoreVolume = 0.0;
   double _structureVolumetricNitrogenSurfaceArea = 0.0;
   double _structureGravimetricNitrogenSurfaceArea = 0.0;
+  double _structureVolumetricWellSurfaceArea = 0.0;
+  double _structureGravimetricWellSurfaceArea = 0.0;
   int64_t _structureNumberOfChannelSystems = 0;
   int64_t _structureNumberOfInaccessiblePockets = 0;
   int64_t _structureDimensionalityOfPoreSystem = 0;
   double _structureLargestCavityDiameter = 0.0;
   double _structureRestrictingPoreLimitingDiameter = 0.0;
   double _structureLargestCavityDiameterAlongAViablePath = 0.0;
+
+  // The fractional position (x,y,z) and the radius in Angstrom (w) of the blocking pockets.
+  std::vector<double4> _blockingPockets{};
+  bool _drawBlockingPockets = false;
+  // When set, grid positions inside a blocking pocket are treated as inaccessible.
+  bool _applyBlockingPockets = false;
+
+  // The material of the pocket spheres. The diffuse colour defaults to a cyan that no element in
+  // the CPK palette is drawn in, so that a pocket is not mistaken for a large atom.
+  bool _blockingPocketsFrontSideHDR = true;
+  double _blockingPocketsFrontSideHDRExposure = 1.5;
+  RKColor _blockingPocketsFrontSideAmbientColor = RKColor::fromRgb(0, 0, 0, 255);
+  RKColor _blockingPocketsFrontSideDiffuseColor = RKColor::fromRgb(51, 166, 217, 255);
+  RKColor _blockingPocketsFrontSideSpecularColor = RKColor::fromRgb(235, 235, 235, 255);
+  double _blockingPocketsFrontSideAmbientIntensity = 0.2;
+  double _blockingPocketsFrontSideDiffuseIntensity = 1.0;
+  double _blockingPocketsFrontSideSpecularIntensity = 0.5;
+  double _blockingPocketsFrontSideShininess = 4.0;
 
   // ================================================================
   // remove in future version

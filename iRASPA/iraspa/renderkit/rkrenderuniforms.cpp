@@ -526,6 +526,35 @@ RKIsosurfaceUniforms::RKIsosurfaceUniforms(std::shared_ptr<RKRenderObject> struc
   }
 };
 
+RKBlockingPocketUniforms::RKBlockingPocketUniforms()
+{
+
+}
+
+RKBlockingPocketUniforms::RKBlockingPocketUniforms(std::shared_ptr<RKRenderObject> structure)
+{
+  if (RKRenderBlockingPocketsSource* source = dynamic_cast<RKRenderBlockingPocketsSource*>(structure.get()))
+  {
+    const float alpha = float(RKBlockingPocketUniforms::opacity);
+
+    this->ambient = float(source->blockingPocketsFrontSideAmbientIntensity()) *
+                    float4(source->blockingPocketsFrontSideAmbientColor().redF(),
+                           source->blockingPocketsFrontSideAmbientColor().greenF(),
+                           source->blockingPocketsFrontSideAmbientColor().blueF(), alpha);
+    this->diffuse = float(source->blockingPocketsFrontSideDiffuseIntensity()) *
+                    float4(source->blockingPocketsFrontSideDiffuseColor().redF(),
+                           source->blockingPocketsFrontSideDiffuseColor().greenF(),
+                           source->blockingPocketsFrontSideDiffuseColor().blueF(), alpha);
+    this->specular = float(source->blockingPocketsFrontSideSpecularIntensity()) *
+                     float4(source->blockingPocketsFrontSideSpecularColor().redF(),
+                            source->blockingPocketsFrontSideSpecularColor().greenF(),
+                            source->blockingPocketsFrontSideSpecularColor().blueF(), alpha);
+
+    this->hdr = source->blockingPocketsFrontSideHDR() ? 1 : 0;
+    this->hdrExposure = float(source->blockingPocketsFrontSideHDRExposure());
+    this->shininess = float(source->blockingPocketsFrontSideShininess());
+  }
+}
 
 RKLightUniform::RKLightUniform(std::shared_ptr<RKRenderDataSource> project, int lightIndex)
 {

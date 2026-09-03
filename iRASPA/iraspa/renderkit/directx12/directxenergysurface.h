@@ -75,6 +75,11 @@ private:
   std::vector<std::vector<MeshBuffers>> _buffers;
 
   std::array<RKCache<RKRenderObject *, std::vector<float>>, 9> _caches;
+  /// The well surface reads a three-floats-per-point (energy, Apollonius distance, medial
+  /// reliability) field rather than the energy grid; cached apart so that switching rendering
+  /// methods cannot hand one builder the other's data. Like the energy grid it depends on the probe
+  /// and the force field, and is purged by the same invalidateIsosurface calls.
+  std::array<RKCache<RKRenderObject *, std::vector<float>>, 9> _wellFieldCaches;
 
   static const std::string _vertexShaderSource;
   static const std::string _pixelShaderSource;

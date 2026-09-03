@@ -260,6 +260,32 @@ public:
   virtual void rebuildRibbonMesh() = 0;
 };
 
+/// Regions of the pore space that are inaccessible to an adsorbate, drawn as one translucent sphere
+/// per pocket per cell replica of the radius the pocket was read with.
+///
+/// A property of the framework rather than of a grid, which is why this is not part of
+/// `RKRenderVolumetricDataSource`: imported volumetric data has no framework to block off. The
+/// spheres are drawn two-sided and share one material, the far wall taking it with the normal
+/// flipped.
+class RKRenderBlockingPocketsSource
+{
+public:
+  virtual ~RKRenderBlockingPocketsSource() = 0;
+
+  virtual bool drawBlockingPockets() const = 0;
+  virtual std::vector<RKInPerInstanceAttributesAtoms> renderBlockingPockets() const = 0;
+
+  virtual bool blockingPocketsFrontSideHDR() const = 0;
+  virtual double blockingPocketsFrontSideHDRExposure() const = 0;
+  virtual RKColor blockingPocketsFrontSideAmbientColor() const = 0;
+  virtual RKColor blockingPocketsFrontSideDiffuseColor() const = 0;
+  virtual RKColor blockingPocketsFrontSideSpecularColor() const = 0;
+  virtual double blockingPocketsFrontSideAmbientIntensity() const = 0;
+  virtual double blockingPocketsFrontSideDiffuseIntensity() const = 0;
+  virtual double blockingPocketsFrontSideSpecularIntensity() const = 0;
+  virtual double blockingPocketsFrontSideShininess() const = 0;
+};
+
 class RKRenderVolumetricDataSource
 {
 public:
@@ -271,6 +297,22 @@ public:
   virtual std::vector<float> gridData()  = 0;
   virtual std::vector<float4> gridValueAndGradientData()  = 0;
   virtual bool isImmutable() const = 0;
+
+  /// The analytic field the well surface is extracted from: three floats per grid point, the energy
+  /// U, the additively weighted (Apollonius) distance to the framework, and the medial reliability
+  /// (0 on the axis of a channel where opposing walls cancel). Empty where no analytic form exists
+  /// (imported volumetric data), and the renderer then falls back to the iso-surface.
+  virtual std::vector<float> wellFieldData() { return {}; }
+
+  /// Slides every vertex of a well surface along the ray toward its nearest atom onto the 1D minimum
+  /// of the exact analytic energy --- the true multi-atom well floor, which sits slightly off the
+  /// probe-contact distance surface marching cubes puts the vertices on. Only the framework knows
+  /// its atoms and force field, so the renderer asks for the refinement rather than performing it.
+  virtual void refineWellSurface(std::vector<float4> &triangleData, float trimIsovalue)
+  {
+    (void)triangleData;
+    (void)trimIsovalue;
+  }
 
   virtual RKEnergySurfaceType adsorptionSurfaceRenderingMethod() const = 0;
   virtual RKPredefinedVolumeRenderingTransferFunction adsorptionVolumeTransferFunction() const = 0;

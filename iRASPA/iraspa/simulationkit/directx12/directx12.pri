@@ -6,13 +6,15 @@ SOURCES += \
     $$PWD/skdx12.cpp \
     $$PWD/skcomputeenergygrid.cpp \
     $$PWD/skcomputeisosurface.cpp \
-    $$PWD/skcomputevoidfraction.cpp
+    $$PWD/skcomputevoidfraction.cpp \
+    $$PWD/skcomputewellfield.cpp
 
 HEADERS += \
     $$PWD/skdx12.h \
     $$PWD/skcomputeenergygrid.h \
     $$PWD/skcomputeisosurface.h \
-    $$PWD/skcomputevoidfraction.h
+    $$PWD/skcomputevoidfraction.h \
+    $$PWD/skcomputewellfield.h
 
 # Embedded HLSL string for isosurface compute kernels
 OTHER_FILES += $$PWD/skcomputeisosurface_kernel_string.inc \

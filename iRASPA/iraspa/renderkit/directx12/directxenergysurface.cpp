@@ -9,6 +9,7 @@
 #include "directxuniformstringliterals.h"
 #include <simulationkit.h>
 #include <skcomputeisosurface.h>
+#include <skwellsurface.h>
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -16,6 +17,8 @@
 DirectXEnergySurface::~DirectXEnergySurface()
 {
   for (RKCache<RKRenderObject *, std::vector<float>> &cache : _caches)
+    cache.clear();
+  for (RKCache<RKRenderObject *, std::vector<float>> &cache : _wellFieldCaches)
     cache.clear();
 }
 
@@ -136,6 +139,8 @@ void DirectXEnergySurface::invalidateIsosurface(std::vector<std::shared_ptr<RKRe
   {
     for (RKCache<RKRenderObject *, std::vector<float>> &cache : _caches)
       cache.remove(structure.get());
+    for (RKCache<RKRenderObject *, std::vector<float>> &cache : _wellFieldCaches)
+      cache.remove(structure.get());
   }
 }
 
@@ -178,48 +183,83 @@ void DirectXEnergySurface::initializeVertexBuffers(ID3D12Device *device)
       auto *source = dynamic_cast<RKRenderVolumetricDataSource *>(_renderStructures[i][j].get());
       if (!renderStructure || !source)
         continue;
-      if (!source->drawAdsorptionSurface()
-          || source->adsorptionSurfaceRenderingMethod() != RKEnergySurfaceType::isoSurface)
+      if (!source->drawAdsorptionSurface() || !isTriangulated(source->adsorptionSurfaceRenderingMethod()))
         continue;
 
       const double isoValue = source->adsorptionSurfaceIsoValue();
 
-      std::vector<float> *energyGridPointer = nullptr;
-      int powerOfTwo = 0;
-      int3 dimensions = source->dimensions();
+      // The well surface and its filament overlay are level sets of the analytic force field; the
+      // iso-surface is a level set of the energy grid. The two fields are cached apart, so that
+      // switching rendering methods cannot hand one builder the other's data. Where no well field
+      // exists (imported volumetric data has no analytic form) the iso-surface stands in for it.
+      const RKEnergySurfaceType renderingMethod = source->adsorptionSurfaceRenderingMethod();
+      bool wellSurface = isWellSurface(renderingMethod);
 
-      // Prefer cached grid; otherwise compute (updates source dimensions).
-      {
-        const int largestSizeHint = std::max({dimensions.x, dimensions.y, dimensions.z});
-        powerOfTwo = 1;
-        while (largestSizeHint > static_cast<int>(std::pow(2, powerOfTwo)))
+      auto cacheSlot = [this](int3 dims) {
+        const int largestSize = std::max({dims.x, dims.y, dims.z});
+        int powerOfTwo = 1;
+        while (largestSize > static_cast<int>(std::pow(2, powerOfTwo)))
           powerOfTwo += 1;
-        if (powerOfTwo < 0 || powerOfTwo >= static_cast<int>(_caches.size()))
-          powerOfTwo = static_cast<int>(_caches.size()) - 1;
-      }
+        return std::clamp(powerOfTwo, 0, static_cast<int>(_caches.size()) - 1);
+      };
 
-      const bool cached = _caches[powerOfTwo].contains(_renderStructures[i][j].get());
+      std::vector<float> *fieldPointer = nullptr;
+      int3 dimensions = source->dimensions();
+      int powerOfTwo = cacheSlot(dimensions);
+      auto &caches = wellSurface ? _wellFieldCaches : _caches;
+
+      bool cached = caches[powerOfTwo].contains(_renderStructures[i][j].get());
       if (cached)
       {
-        energyGridPointer = _caches[powerOfTwo].object(_renderStructures[i][j].get());
+        fieldPointer = caches[powerOfTwo].object(_renderStructures[i][j].get());
       }
       else
       {
-        std::vector<float> gridData = source->gridData();
-        if (gridData.empty())
-          continue;
-        dimensions = source->dimensions();
-        const int largestSize = std::max({dimensions.x, dimensions.y, dimensions.z});
-        powerOfTwo = 1;
-        while (largestSize > static_cast<int>(std::pow(2, powerOfTwo)))
-          powerOfTwo += 1;
-        if (powerOfTwo < 0 || powerOfTwo >= static_cast<int>(_caches.size()))
-          powerOfTwo = static_cast<int>(_caches.size()) - 1;
-        energyGridPointer = new std::vector<float>(std::move(gridData));
+        std::vector<float> field = wellSurface ? source->wellFieldData() : source->gridData();
+        if (field.empty() && wellSurface)
+        {
+          std::cerr << "DirectXEnergySurface: no well field for this structure; showing the isosurface "
+                       "instead\n";
+          wellSurface = false;
+          dimensions = source->dimensions();
+          powerOfTwo = cacheSlot(dimensions);
+          cached = _caches[powerOfTwo].contains(_renderStructures[i][j].get());
+          if (cached)
+            fieldPointer = _caches[powerOfTwo].object(_renderStructures[i][j].get());
+          else
+            field = source->gridData();
+        }
+        if (!cached)
+        {
+          if (field.empty())
+            continue;
+          dimensions = source->dimensions();
+          powerOfTwo = cacheSlot(dimensions);
+          fieldPointer = new std::vector<float>(std::move(field));
+        }
       }
 
-      std::vector<float4> triangleData =
-          SKComputeIsosurface::computeIsosurface(dimensions, energyGridPointer, isoValue);
+      std::vector<float4> triangleData;
+      if (wellSurface && renderingMethod == RKEnergySurfaceType::wellSurfaceOverlay)
+      {
+        // The merged-well filament: the thin tube along channel axes too narrow for the probe's
+        // contact sheet, where the adsorbate is enclosed and sits on the axis.
+        triangleData = SKWellSurface::constructWellFilament(*fieldPointer, isoValue, dimensions,
+                                                            renderStructure->cell()->unitCell());
+      }
+      else if (wellSurface)
+      {
+        triangleData = SKWellSurface::constructWellSurface(*fieldPointer, isoValue, dimensions);
+        if (!triangleData.empty())
+        {
+          source->refineWellSurface(
+              triangleData, SKWellSurface::effectiveTrimIsovalue(*fieldPointer, isoValue, dimensions));
+        }
+      }
+      else
+      {
+        triangleData = SKComputeIsosurface::computeIsosurface(dimensions, fieldPointer, isoValue);
+      }
       bufs.numberOfIndices = triangleData.size() / (3 * 3);
       bufs.vertexCount = static_cast<UINT>(3 * bufs.numberOfIndices);
 
@@ -245,7 +285,10 @@ void DirectXEnergySurface::initializeVertexBuffers(ID3D12Device *device)
 
       // Insert last so a failed/evicting insert does not free the grid mid-use.
       if (!cached)
-        _caches[powerOfTwo].insert(_renderStructures[i][j].get(), energyGridPointer);
+      {
+        (wellSurface ? _wellFieldCaches : _caches)[powerOfTwo].insert(_renderStructures[i][j].get(),
+                                                                      fieldPointer);
+      }
     }
   }
 }
@@ -310,7 +353,7 @@ void DirectXEnergySurface::paintTransparent(ID3D12GraphicsCommandList *commandLi
   if (!source
       || !_renderStructures[sceneIndex][movieIndex]->isVisible()
       || !source->drawAdsorptionSurface()
-      || source->adsorptionSurfaceRenderingMethod() != RKEnergySurfaceType::isoSurface
+      || !isTriangulated(source->adsorptionSurfaceRenderingMethod())
       || source->adsorptionSurfaceOpacity() > 0.99999
       || bufs.numberOfIndices == 0
       || bufs.instanceCount == 0

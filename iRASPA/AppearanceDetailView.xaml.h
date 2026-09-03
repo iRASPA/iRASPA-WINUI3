@@ -90,6 +90,7 @@ namespace winrt::iRASPA_WinUI::implementation
         void WireUnitCell();
         void WireLocalAxes();
         void WireVolumetric();
+        void WireBlockingPockets();
         void WireAnnotation();
 
         void ReloadPrimitive();
@@ -99,6 +100,7 @@ namespace winrt::iRASPA_WinUI::implementation
         void ReloadUnitCell();
         void ReloadLocalAxes();
         void ReloadVolumetric();
+        void ReloadBlockingPockets();
         void ReloadAnnotation();
         // Cocoa outline sections are Expanders; re-push checkbox visuals after
         // Reload and when a collapsed section opens.

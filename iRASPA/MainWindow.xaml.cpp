@@ -1704,6 +1704,45 @@ namespace winrt::iRASPA_WinUI::implementation
         }
     }
 
+    // The read half, for the small text files the inspector loads. The picker
+    // needs the window handle, so the window opens the file and the document
+    // layer only sees its contents.
+    winrt::fire_and_forget MainWindow::OpenTextFileAsync(
+        std::wstring extension,
+        std::function<void(std::wstring const&, std::wstring const&)> completion)
+    {
+        try
+        {
+            FileOpenPicker picker;
+            picker.SuggestedStartLocation(PickerLocationId::DocumentsLibrary);
+            picker.FileTypeFilter().Append(hstring(extension));
+
+            if (auto native = try_as<IWindowNative>())
+            {
+                HWND hwnd{};
+                native->get_WindowHandle(&hwnd);
+                if (auto init = picker.as<IInitializeWithWindow>())
+                    init->Initialize(hwnd);
+            }
+
+            StorageFile file = co_await picker.PickSingleFileAsync();
+            if (!file)
+                co_return;
+
+            hstring const contents = co_await FileIO::ReadTextAsync(file);
+            if (completion)
+                completion(std::wstring(file.Name()), std::wstring(contents));
+        }
+        catch (hresult_error const& ex)
+        {
+            AppendLog(std::wstring(L"Could not read the file: ") + std::wstring(ex.message()));
+        }
+        catch (...)
+        {
+            AppendLog(L"Could not read the file");
+        }
+    }
+
     void MainWindow::ZoomRendererCamera(double amount)
     {
         // Before the render view is up the camera is still there to zoom, so the
@@ -1790,6 +1829,30 @@ namespace winrt::iRASPA_WinUI::implementation
             }
         }
         renderer->invalidateCachedAmbientOcclusionTextures(frames);
+    }
+
+    // Cocoa invalidateIsosurface, over the whole scene rather than the frame on
+    // screen: a movie the scene is not scrubbed to keeps its cached grid too.
+    void MainWindow::InvalidateSceneIsosurfaces(std::shared_ptr<Scene> const& scene)
+    {
+        auto *renderer = Renderer();
+        if (!renderer || !scene)
+            return;
+
+        std::vector<std::shared_ptr<RKRenderObject>> frames;
+        for (auto const& movie : scene->movies())
+        {
+            if (!movie)
+                continue;
+            for (auto const& frame : movie->frames())
+            {
+                if (!frame)
+                    continue;
+                if (auto object = std::dynamic_pointer_cast<RKRenderObject>(frame->object()))
+                    frames.push_back(object);
+            }
+        }
+        renderer->invalidateCachedIsosurfaces(frames);
     }
 
     void MainWindow::ApplyCellEditAndReload()

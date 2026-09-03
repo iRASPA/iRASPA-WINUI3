@@ -21,6 +21,7 @@ SOURCES += \
     $$PWD/directxboundingboxshader.cpp \
     $$PWD/directxtextrenderingshader.cpp \
     $$PWD/directxglobalaxesshader.cpp \
+    $$PWD/directxblockingpocketsshader.cpp \
     $$PWD/directxenergysurface.cpp \
     $$PWD/directxenergyvolumerenderedsurface.cpp \
     $$PWD/directxenergyvolumetransferfunctions.cpp \
@@ -51,6 +52,7 @@ HEADERS += \
     $$PWD/directxboundingboxshader.h \
     $$PWD/directxtextrenderingshader.h \
     $$PWD/directxglobalaxesshader.h \
+    $$PWD/directxblockingpocketsshader.h \
     $$PWD/directxenergysurface.h \
     $$PWD/directxenergyvolumerenderedsurface.h \
     $$PWD/directxpickingshader.h \

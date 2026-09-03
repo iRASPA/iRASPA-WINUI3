@@ -152,6 +152,25 @@ Structure::Structure(const std::shared_ptr<Object> object): Object(object), _ato
 
   }
 
+  // The blocking pockets are not part of a viewer protocol, so a structure changing type carries them
+  // across directly rather than losing them.
+  if (std::shared_ptr<Structure> structure = std::dynamic_pointer_cast<Structure>(object))
+  {
+    _blockingPockets = structure->_blockingPockets;
+    _drawBlockingPockets = structure->_drawBlockingPockets;
+    _applyBlockingPockets = structure->_applyBlockingPockets;
+
+    _blockingPocketsFrontSideHDR = structure->_blockingPocketsFrontSideHDR;
+    _blockingPocketsFrontSideHDRExposure = structure->_blockingPocketsFrontSideHDRExposure;
+    _blockingPocketsFrontSideAmbientColor = structure->_blockingPocketsFrontSideAmbientColor;
+    _blockingPocketsFrontSideDiffuseColor = structure->_blockingPocketsFrontSideDiffuseColor;
+    _blockingPocketsFrontSideSpecularColor = structure->_blockingPocketsFrontSideSpecularColor;
+    _blockingPocketsFrontSideAmbientIntensity = structure->_blockingPocketsFrontSideAmbientIntensity;
+    _blockingPocketsFrontSideDiffuseIntensity = structure->_blockingPocketsFrontSideDiffuseIntensity;
+    _blockingPocketsFrontSideSpecularIntensity = structure->_blockingPocketsFrontSideSpecularIntensity;
+    _blockingPocketsFrontSideShininess = structure->_blockingPocketsFrontSideShininess;
+  }
+
   if (std::shared_ptr<AnnotationViewer> annotationViewer = std::dynamic_pointer_cast<AnnotationViewer>(object))
   {
     _atomTextType = annotationViewer->renderTextType();
@@ -241,6 +260,22 @@ Structure::Structure(const Structure &structure): Object(structure),  _atomsTree
   _structureLargestCavityDiameter = structure._structureLargestCavityDiameter;
   _structureRestrictingPoreLimitingDiameter = structure._structureRestrictingPoreLimitingDiameter;
   _structureLargestCavityDiameterAlongAViablePath = structure._structureLargestCavityDiameterAlongAViablePath;
+  _structureVolumetricWellSurfaceArea = structure._structureVolumetricWellSurfaceArea;
+  _structureGravimetricWellSurfaceArea = structure._structureGravimetricWellSurfaceArea;
+
+  _blockingPockets = structure._blockingPockets;
+  _drawBlockingPockets = structure._drawBlockingPockets;
+  _applyBlockingPockets = structure._applyBlockingPockets;
+
+  _blockingPocketsFrontSideHDR = structure._blockingPocketsFrontSideHDR;
+  _blockingPocketsFrontSideHDRExposure = structure._blockingPocketsFrontSideHDRExposure;
+  _blockingPocketsFrontSideAmbientColor = structure._blockingPocketsFrontSideAmbientColor;
+  _blockingPocketsFrontSideDiffuseColor = structure._blockingPocketsFrontSideDiffuseColor;
+  _blockingPocketsFrontSideSpecularColor = structure._blockingPocketsFrontSideSpecularColor;
+  _blockingPocketsFrontSideAmbientIntensity = structure._blockingPocketsFrontSideAmbientIntensity;
+  _blockingPocketsFrontSideDiffuseIntensity = structure._blockingPocketsFrontSideDiffuseIntensity;
+  _blockingPocketsFrontSideSpecularIntensity = structure._blockingPocketsFrontSideSpecularIntensity;
+  _blockingPocketsFrontSideShininess = structure._blockingPocketsFrontSideShininess;
 
   _authorFirstName = structure._authorFirstName;
   _authorMiddleName = structure._authorMiddleName;
@@ -1626,6 +1661,107 @@ void Structure::setStructureNitrogenSurfaceArea(double value)
   _structureVolumetricNitrogenSurfaceArea = value * 1e4 / cell()->volume();
 }
 
+void Structure::setStructureWellSurfaceArea(double value)
+{
+  _structureGravimetricWellSurfaceArea = _structureMass > 0.0 ?
+      value * Constants::AvogadroConstantPerAngstromSquared / _structureMass : 0.0;
+  _structureVolumetricWellSurfaceArea = cell()->volume() > 0.0 ? value * 1e4 / cell()->volume() : 0.0;
+}
+
+// MARK: Blocking pockets
+// =====================================================================
+
+std::vector<double4> Structure::parseBlockingPockets(const RKString &contents)
+{
+  std::vector<double4> blockingPockets{};
+
+  std::string text = contents.toStdString();
+  std::size_t lineStart = 0;
+  while(lineStart <= text.size())
+  {
+    std::size_t lineEnd = text.find_first_of("\r\n", lineStart);
+    std::string line = text.substr(lineStart, lineEnd == std::string::npos ? std::string::npos : lineEnd - lineStart);
+    lineStart = lineEnd == std::string::npos ? text.size() + 1 : lineEnd + 1;
+
+    for(const char *commentMarker: {"#", "//", "!", ";"})
+    {
+      std::size_t comment = line.find(commentMarker);
+      if(comment != std::string::npos)
+      {
+        line = line.substr(0, comment);
+      }
+    }
+
+    std::vector<double> numbers{};
+    std::size_t wordStart = 0;
+    const std::string separators = " \t,";
+    while(wordStart < line.size() && numbers.size() < 5)
+    {
+      std::size_t wordEnd = line.find_first_of(separators, wordStart);
+      std::string word = line.substr(wordStart, wordEnd == std::string::npos ? std::string::npos : wordEnd - wordStart);
+      wordStart = wordEnd == std::string::npos ? line.size() : wordEnd + 1;
+      if(word.empty()) continue;
+
+      try
+      {
+        std::size_t used = 0;
+        double value = std::stod(word, &used);
+        if(used != word.size()) {numbers.clear(); break;}
+        numbers.push_back(value);
+      }
+      catch(...)
+      {
+        numbers.clear();
+        break;
+      }
+    }
+
+    if(numbers.size() >= 4)
+    {
+      blockingPockets.push_back(double4(numbers[0], numbers[1], numbers[2], numbers[3]));
+    }
+  }
+
+  return blockingPockets;
+}
+
+// The pockets are stored as fractional positions, so they follow the content shift and flip of the
+// cell just like the atoms do, and the radius is used unchanged as the sphere radius in Angstrom.
+// Every sphere shares one material, which travels in the uniforms, so an instance carries only its
+// placement.
+std::vector<RKInPerInstanceAttributesAtoms> Structure::renderBlockingPockets() const
+{
+  if(_blockingPockets.empty() || !_cell) {return std::vector<RKInPerInstanceAttributesAtoms>();}
+
+  double3 contentShift = _cell->contentShift();
+  bool3 contentFlip = _cell->contentFlip();
+
+  std::vector<RKInPerInstanceAttributesAtoms> data{};
+
+  for(const double4 &blockingPocket: _blockingPockets)
+  {
+    double3 pocketPosition = double3::flip(double3(blockingPocket.x, blockingPocket.y, blockingPocket.z),
+                                           contentFlip, double3(1.0,1.0,1.0)) + contentShift;
+    float4 scale = float4(blockingPocket.w, blockingPocket.w, blockingPocket.w, 1.0);
+
+    for(int k1=_cell->minimumReplicaX();k1<=_cell->maximumReplicaX();k1++)
+    {
+      for(int k2=_cell->minimumReplicaY();k2<=_cell->maximumReplicaY();k2++)
+      {
+        for(int k3=_cell->minimumReplicaZ();k3<=_cell->maximumReplicaZ();k3++)
+        {
+          float4 position = float4(_cell->unitCell() * (pocketPosition + double3(k1,k2,k3)), 1.0);
+          data.push_back(RKInPerInstanceAttributesAtoms(position, float4(1.0,1.0,1.0,1.0),
+                                                        float4(1.0,1.0,1.0,1.0), float4(1.0,1.0,1.0,1.0),
+                                                        scale, uint32_t(data.size())));
+        }
+      }
+    }
+  }
+
+  return data;
+}
+
 void Structure::recomputeDensityProperties()
 {
   std::vector<std::shared_ptr<SKAtomCopy>> atomCopies = _atomsTreeController->atomCopies();
@@ -1930,6 +2066,27 @@ BinaryArchive &operator<<(BinaryArchive &stream, const std::shared_ptr<Structure
   stream << int64_t(0x6f6b6182);
 
   stream << static_cast<int64_t>(structure->_atomEdgeCueing);
+
+  stream << int64_t(structure->_blockingPockets.size());
+  for(const double4 &blockingPocket: structure->_blockingPockets)
+  {
+    stream << blockingPocket;
+  }
+  stream << structure->_drawBlockingPockets;
+  stream << structure->_applyBlockingPockets;
+
+  stream << structure->_blockingPocketsFrontSideHDR;
+  stream << structure->_blockingPocketsFrontSideHDRExposure;
+  stream << structure->_blockingPocketsFrontSideAmbientColor;
+  stream << structure->_blockingPocketsFrontSideDiffuseColor;
+  stream << structure->_blockingPocketsFrontSideSpecularColor;
+  stream << structure->_blockingPocketsFrontSideAmbientIntensity;
+  stream << structure->_blockingPocketsFrontSideDiffuseIntensity;
+  stream << structure->_blockingPocketsFrontSideSpecularIntensity;
+  stream << structure->_blockingPocketsFrontSideShininess;
+
+  stream << structure->_structureVolumetricWellSurfaceArea;
+  stream << structure->_structureGravimetricWellSurfaceArea;
 
   // handle super class
   stream << std::static_pointer_cast<Object>(structure);
@@ -2359,6 +2516,37 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<Structure> &str
                                     edgeCueing < int64_t(RKEdgeCueing::multiple_values))
                                        ? RKEdgeCueing(edgeCueing)
                                        : RKEdgeCueing::off;
+    }
+
+    if(versionNumber >= 12) // introduced in version 12
+    {
+      int64_t numberOfBlockingPockets;
+      stream >> numberOfBlockingPockets;
+      structure->_blockingPockets.clear();
+      for(int64_t i=0;i<std::max(int64_t(0), numberOfBlockingPockets);i++)
+      {
+        double4 blockingPocket;
+        stream >> blockingPocket;
+        structure->_blockingPockets.push_back(blockingPocket);
+      }
+      stream >> structure->_drawBlockingPockets;
+      stream >> structure->_applyBlockingPockets;
+
+      stream >> structure->_blockingPocketsFrontSideHDR;
+      stream >> structure->_blockingPocketsFrontSideHDRExposure;
+      stream >> structure->_blockingPocketsFrontSideAmbientColor;
+      stream >> structure->_blockingPocketsFrontSideDiffuseColor;
+      stream >> structure->_blockingPocketsFrontSideSpecularColor;
+      stream >> structure->_blockingPocketsFrontSideAmbientIntensity;
+      stream >> structure->_blockingPocketsFrontSideDiffuseIntensity;
+      stream >> structure->_blockingPocketsFrontSideSpecularIntensity;
+      stream >> structure->_blockingPocketsFrontSideShininess;
+    }
+
+    if(versionNumber >= 13) // introduced in version 13
+    {
+      stream >> structure->_structureVolumetricWellSurfaceArea;
+      stream >> structure->_structureGravimetricWellSurfaceArea;
     }
 
     std::shared_ptr<Object> object = std::static_pointer_cast<Object>(structure);

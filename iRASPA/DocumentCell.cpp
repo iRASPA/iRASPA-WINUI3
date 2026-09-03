@@ -68,6 +68,8 @@ DocumentController::SnapshotCellState(std::shared_ptr<Object> const& object) con
         properties.accessiblePoreVolume = viewer->structureAccessiblePoreVolume();
         properties.volumetricSurfaceArea = viewer->structureVolumetricNitrogenSurfaceArea();
         properties.gravimetricSurfaceArea = viewer->structureGravimetricNitrogenSurfaceArea();
+        properties.volumetricWellSurfaceArea = viewer->structureVolumetricWellSurfaceArea();
+        properties.gravimetricWellSurfaceArea = viewer->structureGravimetricWellSurfaceArea();
         properties.numberOfChannelSystems = viewer->structureNumberOfChannelSystems();
         properties.numberOfInaccessiblePockets = viewer->structureNumberOfInaccessiblePockets();
         properties.dimensionalityOfPoreSystem = viewer->structureDimensionalityOfPoreSystem();
@@ -147,6 +149,8 @@ void DocumentController::RestoreCellStates(std::wstring const& actionName,
                 editor->setStructureAccessiblePoreVolume(p.accessiblePoreVolume);
                 editor->setStructureVolumetricNitrogenSurfaceArea(p.volumetricSurfaceArea);
                 editor->setStructureGravimetricNitrogenSurfaceArea(p.gravimetricSurfaceArea);
+                editor->setStructureVolumetricWellSurfaceArea(p.volumetricWellSurfaceArea);
+                editor->setStructureGravimetricWellSurfaceArea(p.gravimetricWellSurfaceArea);
                 editor->setStructureNumberOfChannelSystems(p.numberOfChannelSystems);
                 editor->setStructureNumberOfInaccessiblePockets(p.numberOfInaccessiblePockets);
                 editor->setStructureDimensionalityOfPoreSystem(p.dimensionalityOfPoreSystem);
@@ -276,6 +280,93 @@ void DocumentController::ComputeNitrogenSurfaceArea()
         }
     }
     RegisterCellUndo(L"Compute Nitrogen Surface Area", before);
+}
+
+void DocumentController::ComputeWellSurfaceArea()
+{
+    auto before = SnapshotCellStates();
+    for (auto const& target : TargetStructures())
+    {
+        auto object = target ? target->object() : nullptr;
+        auto editor = std::dynamic_pointer_cast<StructuralPropertyEditor>(object);
+        if (!editor)
+            continue;
+        try
+        {
+            const double area = editor->computeWellSurfaceAreaAccelerated();
+            // Converts to gravimetric/volumetric units internally.
+            if (auto structure = std::dynamic_pointer_cast<Structure>(object))
+                structure->setStructureWellSurfaceArea(area);
+        }
+        catch (...)
+        {
+            Log(L"Well-surface-area computation failed");
+        }
+    }
+    RegisterCellUndo(L"Compute Well Surface Area", before);
+}
+
+std::vector<double4> DocumentController::BlockingPockets() const
+{
+    for (auto const& target : TargetStructures())
+    {
+        if (auto structure = target ? std::dynamic_pointer_cast<Structure>(target->object()) : nullptr)
+            return structure->blockingPockets();
+    }
+    return {};
+}
+
+void DocumentController::SetBlockingPockets(std::vector<std::vector<double4>> const& pockets,
+                                            std::wstring const& actionName)
+{
+    std::vector<std::shared_ptr<Structure>> structures;
+    for (auto const& target : TargetStructures())
+    {
+        if (auto structure = target ? std::dynamic_pointer_cast<Structure>(target->object()) : nullptr)
+            structures.push_back(structure);
+    }
+    ApplyBlockingPockets(structures, pockets, actionName);
+}
+
+// The undo holds on to the structures it was recorded for, so it still puts the
+// pockets back on those after the selection has moved on.
+void DocumentController::ApplyBlockingPockets(std::vector<std::shared_ptr<Structure>> const& structures,
+                                              std::vector<std::vector<double4>> const& pockets,
+                                              std::wstring const& actionName)
+{
+    if (structures.empty())
+        return;
+
+    std::vector<std::vector<double4>> before;
+    before.reserve(structures.size());
+    for (auto const& structure : structures)
+        before.push_back(structure->blockingPockets());
+
+    for (size_t i = 0; i < structures.size(); ++i)
+        structures[i]->setBlockingPockets(i < pockets.size() ? pockets[i] : std::vector<double4>());
+
+    RegisterUndo(ObjectUndoStack(), actionName, [this, structures, before, actionName]()
+                 { ApplyBlockingPockets(structures, before, actionName); });
+    // The pockets are drawn as spheres and are cut out of the energy grid, so the
+    // grids computed without them no longer hold.
+    ReloadRendererInvalidatingIsosurfaces();
+    if (m_cellPane)
+        m_cellPane->Reload();
+}
+
+void DocumentController::LoadBlockingPocketsFile()
+{
+    if (!m_host)
+        return;
+    m_host->OpenTextFile(L".block", [this](std::wstring const& name, std::wstring const& contents)
+    {
+        std::vector<double4> pockets =
+            Structure::parseBlockingPockets(RKString::fromStdWString(contents));
+        // A newly read file replaces the pockets of every selected structure.
+        std::vector<std::vector<double4>> perStructure(TargetStructures().size(), pockets);
+        SetBlockingPockets(perStructure);
+        Log(L"Read " + std::to_wstring(pockets.size()) + L" blocking pockets from " + name);
+    });
 }
 
 void DocumentController::ChangeStructureType(ObjectType type)

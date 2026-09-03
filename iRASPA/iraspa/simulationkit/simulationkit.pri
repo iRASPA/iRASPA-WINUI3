@@ -9,11 +9,13 @@ SOURCES += \
     $$PWD/forcefieldset.cpp \
     $$PWD/forcefieldtype.cpp \
     $$PWD/constants.cpp \
-    $$PWD/marchingcubes.cpp
+    $$PWD/marchingcubes.cpp \
+    $$PWD/skwellsurface.cpp
 
 HEADERS += \
     $$PWD/lookuptable.h \
     $$PWD/simulationkit.h \
+    $$PWD/skwellsurface.h \
     $$PWD/forcefieldsets.h \
     $$PWD/forcefieldset.h \
     $$PWD/forcefieldtype.h \

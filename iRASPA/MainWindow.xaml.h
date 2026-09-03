@@ -65,6 +65,7 @@ namespace winrt::iRASPA_WinUI::implementation
         void ReloadRendererData() override { ReloadRenderer(); }
         void ReloadRendererSelection() override;
         void InvalidateSceneAmbientOcclusion(std::shared_ptr<Scene> const& scene) override;
+        void InvalidateSceneIsosurfaces(std::shared_ptr<Scene> const& scene) override;
         void RefreshInspector() override;
         void RefreshEditMenuLabels() override { UpdateEditMenuLabels(); }
         void ShowMessage(std::wstring const& glyph, std::wstring const& message) override;
@@ -82,6 +83,12 @@ namespace winrt::iRASPA_WinUI::implementation
                           std::wstring const& suggestedName) override
         {
             SaveTextFileAsync(text, extension, typeName, suggestedName);
+        }
+        void OpenTextFile(std::wstring const& extension,
+                          std::function<void(std::wstring const& name,
+                                             std::wstring const& contents)> completion) override
+        {
+            OpenTextFileAsync(extension, std::move(completion));
         }
 
         DocumentController& Controller() { return m_controller; }
@@ -215,6 +222,10 @@ namespace winrt::iRASPA_WinUI::implementation
         // handle, so the window owns this half of Export As.
         winrt::fire_and_forget SaveTextFileAsync(std::wstring text, std::wstring extension,
                                                  std::wstring typeName, std::wstring suggestedName);
+        // And the other way for the .block file the cell pane reads.
+        winrt::fire_and_forget OpenTextFileAsync(
+            std::wstring extension,
+            std::function<void(std::wstring const&, std::wstring const&)> completion);
 
         // Undo/redo (Cocoa: one NSUndoManager per project plus the document's
         // own manager for the project tree; windowWillReturnUndoManager picks

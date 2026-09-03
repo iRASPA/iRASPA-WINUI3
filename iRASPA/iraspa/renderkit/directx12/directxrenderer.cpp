@@ -114,11 +114,14 @@ void DirectXRenderer::createConstantBuffers()
   m_structureCBVCapacity = 1;
   m_isosurfaceCBVStride = DirectXDeviceHelpers::alignedCBSize(sizeof(RKIsosurfaceUniforms));
   m_isosurfaceCBVCapacity = 1;
+  m_blockingPocketCBVStride = DirectXDeviceHelpers::alignedCBSize(sizeof(RKBlockingPocketUniforms));
+  m_blockingPocketCBVCapacity = 1;
 
   RKTransformationUniforms frame{};
   RKStructureUniforms structure{};
   RKLightsUniforms lights{};
   RKIsosurfaceUniforms isosurface{};
+  RKBlockingPocketUniforms blockingPocket{};
   RKGlobalAxesUniforms globalAxes(nullptr);
 
   for (UINT i = 0; i < Dx12DeviceContext::kInflightFrameCount; ++i)
@@ -127,12 +130,14 @@ void DirectXRenderer::createConstantBuffers()
     m_lightsCBV[i] = DirectXDeviceHelpers::createUploadBuffer(dev, DirectXDeviceHelpers::alignedCBSize(sizeof(RKLightsUniforms)));
     m_structureCBV[i] = DirectXDeviceHelpers::createUploadBuffer(dev, m_structureCBVStride * m_structureCBVCapacity);
     m_isosurfaceCBV[i] = DirectXDeviceHelpers::createUploadBuffer(dev, m_isosurfaceCBVStride * m_isosurfaceCBVCapacity);
+    m_blockingPocketCBV[i] = DirectXDeviceHelpers::createUploadBuffer(dev, m_blockingPocketCBVStride * m_blockingPocketCBVCapacity);
     m_globalAxesCBV[i] = DirectXDeviceHelpers::createUploadBuffer(dev, DirectXDeviceHelpers::alignedCBSize(sizeof(RKGlobalAxesUniforms)));
 
     DirectXDeviceHelpers::writeUploadBuffer(m_frameCBV[i].Get(), &frame, sizeof(frame));
     DirectXDeviceHelpers::writeUploadBuffer(m_structureCBV[i].Get(), &structure, sizeof(structure));
     DirectXDeviceHelpers::writeUploadBuffer(m_lightsCBV[i].Get(), &lights, sizeof(lights));
     DirectXDeviceHelpers::writeUploadBuffer(m_isosurfaceCBV[i].Get(), &isosurface, sizeof(isosurface));
+    DirectXDeviceHelpers::writeUploadBuffer(m_blockingPocketCBV[i].Get(), &blockingPocket, sizeof(blockingPocket));
     DirectXDeviceHelpers::writeUploadBuffer(m_globalAxesCBV[i].Get(), &globalAxes, sizeof(globalAxes));
   }
 }
@@ -152,6 +157,7 @@ void DirectXRenderer::pushStructuresToShaders()
   m_textShader.setRenderStructures(m_structures);
   m_energySurfaceShader.setRenderStructures(m_structures);
   m_energyVolumeShader.setRenderStructures(m_structures);
+  m_blockingPocketsShader.setRenderStructures(m_structures);
 }
 
 void DirectXRenderer::createGlowTarget(ID3D12Device *device, int width, int height)
@@ -277,6 +283,7 @@ void DirectXRenderer::resetSceneResources()
     m_structureCBV[i].Reset();
     m_lightsCBV[i].Reset();
     m_isosurfaceCBV[i].Reset();
+    m_blockingPocketCBV[i].Reset();
     m_globalAxesCBV[i].Reset();
     m_frameFenceValues[i] = 0;
   }
@@ -285,6 +292,8 @@ void DirectXRenderer::resetSceneResources()
   m_structureCBVCapacity = 0;
   m_isosurfaceCBVStride = 0;
   m_isosurfaceCBVCapacity = 0;
+  m_blockingPocketCBVStride = 0;
+  m_blockingPocketCBVCapacity = 0;
 
   m_glowTexture.Reset();
   m_glowMsaaTexture.Reset();
@@ -314,6 +323,7 @@ void DirectXRenderer::resetSceneResources()
   recreate(m_boundingBoxShader);
   recreate(m_energySurfaceShader);
   recreate(m_energyVolumeShader);
+  recreate(m_blockingPocketsShader);
   recreate(m_pickingShader);
   recreate(m_selectionShader);
   recreate(m_textShader);
@@ -368,6 +378,7 @@ bool DirectXRenderer::initializeScene()
   m_boundingBoxShader.initialize(dev, m_rootSignature.Get(), rtvFormat, dsvFormat);
   m_energySurfaceShader.initialize(dev, m_rootSignature.Get(), rtvFormat, dsvFormat);
   m_energyVolumeShader.initialize(dev, rtvFormat, dsvFormat);
+  m_blockingPocketsShader.initialize(dev, m_rootSignature.Get(), rtvFormat, dsvFormat);
   m_pickingShader.initialize(dev, m_rootSignature.Get(), m_device.commandQueue());
   m_pickingShader.setRibbonShader(&m_ribbonShader);
   m_pickingShader.setAtomSphereShader(&m_atomShader.atomSphereShader());
@@ -430,6 +441,7 @@ bool DirectXRenderer::initializeScene()
     m_textShader.reloadData(dev);
     m_energySurfaceShader.reloadData(dev);
     m_energyVolumeShader.reloadData(dev, m_device.commandQueue());
+    m_blockingPocketsShader.reloadData(dev);
     // After the ribbon meshes are on the GPU, since the one bake draws atoms and ribbons together.
     m_atomShader.reloadAmbientOcclusionData(dev, m_device.commandQueue(), m_dataSource,
                                             m_ambientOcclusionQuality);
@@ -917,6 +929,7 @@ void DirectXRenderer::reloadData()
   m_globalAxesShader.reloadData(dev);
   m_energySurfaceShader.reloadData(dev);
   m_energyVolumeShader.reloadData(dev, m_device.commandQueue());
+  m_blockingPocketsShader.reloadData(dev);
 
   try
   {
@@ -946,6 +959,12 @@ void DirectXRenderer::invalidateCachedAmbientOcclusionTextures(
 {
   m_atomShader.invalidateCachedAmbientOcclusionTextures(structures);
   m_ribbonAmbientOcclusionShader.invalidateCachedAmbientOcclusionTexture(structures);
+}
+
+void DirectXRenderer::invalidateCachedIsosurfaces(std::vector<std::shared_ptr<RKRenderObject>> structures)
+{
+  m_energySurfaceShader.invalidateIsosurface(structures);
+  m_energyVolumeShader.invalidateIsosurface(structures);
 }
 
 void DirectXRenderer::reloadSelectionData()
@@ -1602,6 +1621,46 @@ void DirectXRenderer::updateIsosurfaceUniforms()
   isosurfaceCB()->Unmap(0, nullptr);
 }
 
+void DirectXRenderer::updateBlockingPocketUniforms()
+{
+  if (!blockingPocketCB())
+    return;
+
+  std::vector<RKBlockingPocketUniforms> blockingPocketUniforms;
+  for (size_t i = 0; i < m_structures.size(); ++i)
+  {
+    for (size_t j = 0; j < m_structures[i].size(); ++j)
+      blockingPocketUniforms.push_back(RKBlockingPocketUniforms(m_structures[i][j]));
+  }
+  if (blockingPocketUniforms.empty())
+    blockingPocketUniforms.push_back(RKBlockingPocketUniforms());
+
+  const UINT needed = static_cast<UINT>(blockingPocketUniforms.size());
+  if (needed > m_blockingPocketCBVCapacity)
+  {
+    if (m_fence)
+      m_device.waitForGPU(m_fence);
+    m_blockingPocketCBVCapacity = needed;
+    for (UINT i = 0; i < Dx12DeviceContext::kInflightFrameCount; ++i)
+    {
+      m_blockingPocketCBV[i] = DirectXDeviceHelpers::createUploadBuffer(
+          m_device.device(), static_cast<uint64_t>(m_blockingPocketCBVStride) * m_blockingPocketCBVCapacity);
+    }
+  }
+
+  uint8_t *mapped = nullptr;
+  D3D12_RANGE readRange = {0, 0};
+  if (FAILED(blockingPocketCB()->Map(0, &readRange, reinterpret_cast<void **>(&mapped))))
+    return;
+
+  for (size_t i = 0; i < needed; ++i)
+  {
+    std::memcpy(mapped + static_cast<size_t>(i) * m_blockingPocketCBVStride,
+                &blockingPocketUniforms[i], sizeof(RKBlockingPocketUniforms));
+  }
+  blockingPocketCB()->Unmap(0, nullptr);
+}
+
 void DirectXRenderer::updateLightUniforms()
 {
   if (!lightsCB())
@@ -1625,6 +1684,7 @@ void DirectXRenderer::updateConstantBuffers()
   updateStructureUniforms();
   updateLightUniforms();
   updateIsosurfaceUniforms();
+  updateBlockingPocketUniforms();
   updateGlobalAxesUniforms();
 }
 
@@ -1940,6 +2000,11 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
                                              structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
                                              isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
                                              item.sceneIndex, item.movieIndex, item.structureIndex);
+      m_blockingPocketsShader.paintTransparent(m_commandList.Get(),
+                                               structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
+                                               blockingPocketCB()->GetGPUVirtualAddress(),
+                                               m_blockingPocketCBVStride,
+                                               item.sceneIndex, item.movieIndex, item.structureIndex);
     }
 
     // The overlays mark the very surfaces the tracer is drawing, and they are traced with it, so

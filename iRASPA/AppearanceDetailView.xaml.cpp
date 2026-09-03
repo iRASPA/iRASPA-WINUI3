@@ -18,6 +18,7 @@
 #include "rklocalaxes.h"
 #include "rkrenderuniforms.h"
 #include "rkstring.h"
+#include "structure.h"
 #include "volumetricdataviewer.h"
 
 #include <algorithm>
@@ -338,6 +339,7 @@ namespace winrt::iRASPA_WinUI::implementation
         WireUnitCell();
         WireLocalAxes();
         WireVolumetric();
+        WireBlockingPockets();
         WireAnnotation();
         WireSectionExpanders();
     }
@@ -525,6 +527,7 @@ namespace winrt::iRASPA_WinUI::implementation
             RibbonDraw(), RibbonHDR(), RibbonAO(),
             UnitCellDraw(),
             VolDraw(), VolFrontHDR(), VolBackHDR(),
+            BlockDraw(), BlockApply(), BlockHDR(),
         };
         for (auto const& check : checks)
             DetailControls::RefreshCheckVisual(check);
@@ -1557,15 +1560,43 @@ namespace winrt::iRASPA_WinUI::implementation
             if (m_controller)
                 m_controller->Log(on ? L"Draw adsorption surface: ON" : L"Draw adsorption surface: OFF");
         });
+        // Cocoa puts this with the grid: the pockets are cut out of the energy the
+        // surface is a level set of, so the cached grids go with the change.
+        BindCheck(BlockApply(), [this](bool on)
+        {
+            ForEachAs<Structure>(m_controller, [on](auto structure)
+            {
+                structure->setApplyBlockingPockets(on);
+            });
+            if (m_controller)
+            {
+                m_controller->ReloadRendererInvalidatingIsosurfaces();
+                m_controller->Log(on ? L"Apply blocking pockets: ON" : L"Apply blocking pockets: OFF");
+            }
+        });
         BindCombo(VolMethod(), [this](int index, hstring const&)
         {
             ForEachAs<VolumetricDataViewer>(m_controller, [index](auto viewer)
             {
                 viewer->setAdsorptionSurfaceRenderingMethod(static_cast<RKEnergySurfaceType>(index));
             });
-            if (m_controller)
-                m_controller->Log(index == 1 ? L"Volume rendering enabled (reloading grid…)"
-                                             : L"Isosurface rendering selected");
+            if (!m_controller)
+                return;
+            switch (static_cast<RKEnergySurfaceType>(index))
+            {
+            case RKEnergySurfaceType::volumeRendering:
+                m_controller->Log(L"Volume rendering enabled (reloading grid…)");
+                break;
+            case RKEnergySurfaceType::wellSurface:
+                m_controller->Log(L"Well surface selected (reloading grid…)");
+                break;
+            case RKEnergySurfaceType::wellSurfaceOverlay:
+                m_controller->Log(L"Well-surface overlay selected (reloading grid…)");
+                break;
+            default:
+                m_controller->Log(L"Isosurface rendering selected");
+                break;
+            }
         });
         BindCombo(VolProbe(), [this](int index, hstring const&)
         {
@@ -1573,6 +1604,10 @@ namespace winrt::iRASPA_WinUI::implementation
             {
                 viewer->setAdsorptionSurfaceProbeMolecule(static_cast<ProbeMolecule>(index));
             });
+            // The grid was computed for the previous probe, so it no longer describes
+            // what the surface is a level set of.
+            if (m_controller)
+                m_controller->ReloadRendererInvalidatingIsosurfaces();
         });
         BindCombo(VolTF(), [this](int index, hstring const&)
         {
@@ -1592,6 +1627,9 @@ namespace winrt::iRASPA_WinUI::implementation
             {
                 editor->setEncompassingPowerOfTwoCubicGridSize(index);
             });
+            // A grid of another size is a different grid, so the cached one goes.
+            if (m_controller)
+                m_controller->ReloadRendererInvalidatingIsosurfaces();
         });
         BindNumber(VolStep(), 0.001, 1.0, 0.001, [this](double value)
         {
@@ -1774,6 +1812,85 @@ namespace winrt::iRASPA_WinUI::implementation
         });
     }
 
+    // The pockets themselves are loaded in the Cell pane; this group only settles
+    // whether they are drawn, whether they are cut out of the energy grid, and
+    // what the spheres look like.
+    void AppearanceDetailView::WireBlockingPockets()
+    {
+        BindCheck(BlockDraw(), [this](bool on)
+        {
+            ForEachAs<Structure>(m_controller, [on](auto structure)
+            {
+                structure->setDrawBlockingPockets(on);
+            });
+            if (m_controller)
+                m_controller->Log(on ? L"Draw blocking pockets: ON" : L"Draw blocking pockets: OFF");
+        });
+        BindCheck(BlockHDR(), [this](bool on)
+        {
+            ForEachAs<Structure>(m_controller, [on](auto structure)
+            {
+                structure->setBlockingPocketsFrontSideHDR(on);
+            });
+        });
+        BindSlider(BlockHDRExpSlider(), BlockHDRExpBox(), 0.0, 3.0, 0.01, [this](double value)
+        {
+            ForEachAs<Structure>(m_controller, [value](auto structure)
+            {
+                structure->setBlockingPocketsFrontSideHDRExposure(value);
+            });
+        });
+        BindSlider(BlockAmbSlider(), BlockAmbBox(), 0.0, 1.0, 0.01, [this](double value)
+        {
+            ForEachAs<Structure>(m_controller, [value](auto structure)
+            {
+                structure->setBlockingPocketsFrontSideAmbientIntensity(value);
+            });
+        });
+        BindWell(BlockAmbWell(), BlockAmbSwatch(), [this](RKColor color)
+        {
+            ForEachAs<Structure>(m_controller, [color](auto structure)
+            {
+                structure->setBlockingPocketsFrontSideAmbientColor(color);
+            });
+        });
+        BindSlider(BlockDiffSlider(), BlockDiffBox(), 0.0, 1.0, 0.01, [this](double value)
+        {
+            ForEachAs<Structure>(m_controller, [value](auto structure)
+            {
+                structure->setBlockingPocketsFrontSideDiffuseIntensity(value);
+            });
+        });
+        BindWell(BlockDiffWell(), BlockDiffSwatch(), [this](RKColor color)
+        {
+            ForEachAs<Structure>(m_controller, [color](auto structure)
+            {
+                structure->setBlockingPocketsFrontSideDiffuseColor(color);
+            });
+        });
+        BindSlider(BlockSpecSlider(), BlockSpecBox(), 0.0, 1.0, 0.01, [this](double value)
+        {
+            ForEachAs<Structure>(m_controller, [value](auto structure)
+            {
+                structure->setBlockingPocketsFrontSideSpecularIntensity(value);
+            });
+        });
+        BindWell(BlockSpecWell(), BlockSpecSwatch(), [this](RKColor color)
+        {
+            ForEachAs<Structure>(m_controller, [color](auto structure)
+            {
+                structure->setBlockingPocketsFrontSideSpecularColor(color);
+            });
+        });
+        BindSlider(BlockShininessSlider(), BlockShininessBox(), 0.0, 256.0, 1.0, [this](double value)
+        {
+            ForEachAs<Structure>(m_controller, [value](auto structure)
+            {
+                structure->setBlockingPocketsFrontSideShininess(value);
+            });
+        });
+    }
+
     void AppearanceDetailView::WireAnnotation()
     {
         BindCombo(AnnType(), [this](int index, hstring const&)
@@ -1859,6 +1976,7 @@ namespace winrt::iRASPA_WinUI::implementation
             ReloadUnitCell();
             ReloadLocalAxes();
             ReloadVolumetric();
+            ReloadBlockingPockets();
             ReloadAnnotation();
         }
         catch (...)
@@ -2346,7 +2464,11 @@ namespace winrt::iRASPA_WinUI::implementation
         };
 
         SetCheck(VolDraw(), agreed([](auto const& v) { return v->drawAdsorptionSurface(); }));
-        FillCombo(VolMethod(), { L"Isosurface", L"Volume Rendering" },
+        SetCheck(BlockApply(), AgreedAs<Structure>(m_controller, [](auto const& s)
+                                                   { return s->applyBlockingPockets(); }));
+        // Order is RKEnergySurfaceType's.
+        FillCombo(VolMethod(),
+                  { L"Isosurface", L"Volume Rendering", L"Well Surface", L"Well-Surface Overlay" },
                   ItemOf(agreed([](auto const& v)
                                 { return v->adsorptionSurfaceRenderingMethod(); })));
         FillCombo(VolProbe(),
@@ -2444,6 +2566,41 @@ namespace winrt::iRASPA_WinUI::implementation
             agreed([](auto const& v) { return v->adsorptionSurfaceBackSideSpecularColor(); }));
         SetSlider(VolBackShininessSlider(), VolBackShininessBox(),
                   agreed([](auto const& v) { return v->adsorptionSurfaceBackSideShininess(); }));
+    }
+
+    void AppearanceDetailView::ReloadBlockingPockets()
+    {
+        auto structure = FirstAs<Structure>(m_controller);
+        ShowBody(BlockHint(), BlockBody(), structure != nullptr);
+        if (!structure)
+            return;
+
+        auto agreed = [this](auto const& read)
+        {
+            return AgreedAs<Structure>(m_controller, read);
+        };
+
+        SetCheck(BlockDraw(), agreed([](auto const& s) { return s->drawBlockingPockets(); }));
+        SetCheck(BlockHDR(), agreed([](auto const& s) { return s->blockingPocketsFrontSideHDR(); }));
+        SetSlider(BlockHDRExpSlider(), BlockHDRExpBox(),
+                  agreed([](auto const& s) { return s->blockingPocketsFrontSideHDRExposure(); }));
+        SetSlider(BlockAmbSlider(), BlockAmbBox(),
+                  agreed([](auto const& s) { return s->blockingPocketsFrontSideAmbientIntensity(); }));
+        DetailControls::SetColorWellOrMultiple(
+            BlockAmbSwatch(),
+            agreed([](auto const& s) { return s->blockingPocketsFrontSideAmbientColor(); }));
+        SetSlider(BlockDiffSlider(), BlockDiffBox(),
+                  agreed([](auto const& s) { return s->blockingPocketsFrontSideDiffuseIntensity(); }));
+        DetailControls::SetColorWellOrMultiple(
+            BlockDiffSwatch(),
+            agreed([](auto const& s) { return s->blockingPocketsFrontSideDiffuseColor(); }));
+        SetSlider(BlockSpecSlider(), BlockSpecBox(),
+                  agreed([](auto const& s) { return s->blockingPocketsFrontSideSpecularIntensity(); }));
+        DetailControls::SetColorWellOrMultiple(
+            BlockSpecSwatch(),
+            agreed([](auto const& s) { return s->blockingPocketsFrontSideSpecularColor(); }));
+        SetSlider(BlockShininessSlider(), BlockShininessBox(),
+                  agreed([](auto const& s) { return s->blockingPocketsFrontSideShininess(); }));
     }
 
     void AppearanceDetailView::ReloadAnnotation()

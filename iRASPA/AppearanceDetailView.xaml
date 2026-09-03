@@ -734,6 +734,10 @@
                                Text="Not available for this structure." Visibility="Collapsed"/>
                     <StackPanel x:Name="VolumetricBody" Spacing="6">
                         <CheckBox x:Name="VolDraw" Content="Show Grid Data"/>
+                        <!-- Cocoa keeps this with the grid rather than with the pockets:
+                             it settles whether the pockets are cut out of the energy the
+                             surface is a level set of. -->
+                        <CheckBox x:Name="BlockApply" Content="Apply Blocking Pockets"/>
                         <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
                             <TextBlock Text="Rendering Method" Style="{StaticResource RowLabel}"/>
                             <ComboBox x:Name="VolMethod" Grid.Column="1" HorizontalAlignment="Stretch"/>
@@ -865,6 +869,58 @@
                                     <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
                                     <Slider x:Name="VolBackShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
                                     <NumberBox x:Name="VolBackShininessBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Blocking Pockets ================= -->
+            <Expander Style="{StaticResource Section}" Header="Blocking Pockets">
+                <StackPanel Spacing="6">
+                    <TextBlock x:Name="BlockHint" Style="{StaticResource Hint}"
+                               Text="Not available for this structure." Visibility="Collapsed"/>
+                    <StackPanel x:Name="BlockBody" Spacing="6">
+                        <CheckBox x:Name="BlockDraw" Content="Show Blocking Pockets"/>
+
+                        <Border Style="{StaticResource TitledBox}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Outside Surface" Style="{StaticResource BoxHeader}"/>
+                                <CheckBox x:Name="BlockHDR" Content="High Dynamic Range"/>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Exposure" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="BlockHDRExpSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="BlockHDRExpBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Ambient Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="BlockAmbSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="BlockAmbBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="BlockAmbWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="BlockAmbSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Diffuse Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="BlockDiffSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="BlockDiffBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="BlockDiffWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="BlockDiffSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148,56">
+                                    <TextBlock Text="Specular Light Intensity" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="BlockSpecSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="BlockSpecBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
+                                    <DropDownButton x:Name="BlockSpecWell" Grid.Column="3" Style="{StaticResource ColorWell}">
+                                        <Border x:Name="BlockSpecSwatch" Style="{StaticResource Swatch}"/>
+                                    </DropDownButton>
+                                </Grid>
+                                <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,148">
+                                    <TextBlock Text="Shininess" Style="{StaticResource RowLabel}"/>
+                                    <Slider x:Name="BlockShininessSlider" Grid.Column="1" Style="{StaticResource RowSlider}"/>
+                                    <NumberBox x:Name="BlockShininessBox" Grid.Column="2" Style="{StaticResource SliderNum}"/>
                                 </Grid>
                             </StackPanel>
                         </Border>

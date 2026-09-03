@@ -34,6 +34,14 @@ public:
   virtual double computeVoidFractionAccelerated() const noexcept(false) = 0;
   virtual double computeNitrogenSurfaceAreaAccelerated() const noexcept(false) = 0;
 
+  // The area of the well surface: the sheet of positions where the probe rests at the floor of its
+  // energy well against the framework. That is the surface a molecule actually sits on, and so the
+  // accessible surface area. The zero-energy isosurface, further out, is where the probe would be
+  // turning back rather than resting, and it measures roughly twice as much area --- for silicalite
+  // 704 against 344 square metre per gram, where BET measurements land between 300 and 450. Both are
+  // reported: the energy isosurface as the nitrogen surface area, this one as the well-surface area.
+  virtual double computeWellSurfaceAreaAccelerated() const noexcept(false) = 0;
+
   virtual double computeVoidFraction() const noexcept = 0 ;
   virtual double computeNitrogenSurfaceArea() const noexcept = 0;
 
@@ -47,6 +55,8 @@ public:
   virtual double structureAccessiblePoreVolume() const = 0;
   virtual double structureVolumetricNitrogenSurfaceArea() const = 0;
   virtual double structureGravimetricNitrogenSurfaceArea() const = 0;
+  virtual double structureVolumetricWellSurfaceArea() const = 0;
+  virtual double structureGravimetricWellSurfaceArea() const = 0;
   virtual int structureNumberOfChannelSystems() const = 0;
   virtual int structureNumberOfInaccessiblePockets() const = 0;
   virtual int structureDimensionalityOfPoreSystem() const = 0;
@@ -70,6 +80,8 @@ public:
   virtual void setStructureAccessiblePoreVolume(double value) = 0;
   virtual void setStructureVolumetricNitrogenSurfaceArea(double value) = 0;
   virtual void setStructureGravimetricNitrogenSurfaceArea(double value) = 0;
+  virtual void setStructureVolumetricWellSurfaceArea(double value) = 0;
+  virtual void setStructureGravimetricWellSurfaceArea(double value) = 0;
   virtual void setStructureNumberOfChannelSystems(int value) = 0;
   virtual void setStructureNumberOfInaccessiblePockets(int value) = 0;
   virtual void setStructureDimensionalityOfPoreSystem(int value) = 0;

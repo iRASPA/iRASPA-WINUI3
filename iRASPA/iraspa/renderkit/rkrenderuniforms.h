@@ -42,8 +42,29 @@ class RKRenderDataSource;
 
 enum class RKEnergySurfaceType: int64_t
 {
-  isoSurface = 0, volumeRendering = 1, multiple_values = 2
+  isoSurface = 0,
+  volumeRendering = 1,
+  wellSurface = 2,
+  // The merged-well filament: the thin tube along channel axes too narrow for the probe's contact
+  // sheet, where the adsorbate is enclosed and sits on that axis. Drawn as its own rendering method
+  // so it can be superimposed on a copy of the structure showing the well surface, each with its
+  // own material.
+  wellSurfaceOverlay = 3,
+  multiple_values = 4
 };
+
+/// Whether the surface is a triangle mesh drawn by the isosurface pipeline, the well surface being
+/// the iso-surface mapped onto the locus of energy minima rather than a separate construction.
+inline bool isTriangulated(RKEnergySurfaceType type)
+{
+  return type != RKEnergySurfaceType::volumeRendering && type != RKEnergySurfaceType::multiple_values;
+}
+
+/// Whether the surface is a level set of the analytic well field rather than of the energy grid.
+inline bool isWellSurface(RKEnergySurfaceType type)
+{
+  return type == RKEnergySurfaceType::wellSurface || type == RKEnergySurfaceType::wellSurfaceOverlay;
+}
 
 enum class RKPredefinedVolumeRenderingTransferFunction: int64_t
 {
@@ -525,6 +546,32 @@ struct RKIsosurfaceUniforms
 
   RKIsosurfaceUniforms();
   RKIsosurfaceUniforms(std::shared_ptr<RKRenderObject> structure);
+};
+
+/// The material of the translucent spheres that show the blocking pockets of a structure.
+///
+/// One material per structure rather than per pocket: the pockets of a structure describe the same
+/// inaccessible pore space and are read from a single file. The spheres are drawn two-sided, and the
+/// far wall takes this material with the normal flipped, so there is no separate inside material.
+struct RKBlockingPocketUniforms
+{
+  /// The opacity of a single sphere face. A sphere is drawn back-face then front-face, so a pocket
+  /// covers a fragment twice, and the value is deliberately low enough to keep the framework visible
+  /// through it.
+  static constexpr double opacity = 0.3;
+
+  float4 ambient = float4(0.0f, 0.0f, 0.0f, 1.0f);
+  float4 diffuse = float4(0.2f, 0.65f, 0.85f, 1.0f);
+  float4 specular = float4(0.92f, 0.92f, 0.92f, 1.0f);
+  int32_t hdr = 1;
+  float hdrExposure = 1.5f;
+  float shininess = 4.0f;
+  float pad0 = 0.0f;
+
+  //----------------------------------------  64 bytes boundary
+
+  RKBlockingPocketUniforms();
+  RKBlockingPocketUniforms(std::shared_ptr<RKRenderObject> structure);
 };
 
 struct RKLightUniform

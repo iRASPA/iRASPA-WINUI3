@@ -43,6 +43,15 @@ void DocumentController::ReloadRendererInvalidatingAmbientOcclusion() const
     m_host->ReloadRendererData();
 }
 
+void DocumentController::ReloadRendererInvalidatingIsosurfaces() const
+{
+    if (!m_host)
+        return;
+    if (auto scene = SelectedScene())
+        m_host->InvalidateSceneIsosurfaces(scene);
+    m_host->ReloadRendererData();
+}
+
 void DocumentController::RefitCameraToBoundingBox() const
 {
     if (m_host)

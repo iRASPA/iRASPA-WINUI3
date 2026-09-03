@@ -25,6 +25,9 @@ struct EnergyGridConstants
   float cella[4];
   float cellb[4];
   float cellc[4];
+  int numberOfBlockingPockets;
+  int pad1[3];
+  float replicaCorrection[4];
 };
 
 void createBufferSrv(ID3D12Device *device, ID3D12Resource *resource, UINT numElements, UINT stride,
@@ -64,7 +67,7 @@ SKComputeEnergyGrid::SKComputeEnergyGrid()
 
   D3D12_DESCRIPTOR_RANGE ranges[2] = {};
   ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-  ranges[0].NumDescriptors = 5;
+  ranges[0].NumDescriptors = 6;
   ranges[0].BaseShaderRegister = 0;
   ranges[0].RegisterSpace = 0;
   ranges[0].OffsetInDescriptorsFromTableStart = 0;
@@ -72,7 +75,7 @@ SKComputeEnergyGrid::SKComputeEnergyGrid()
   ranges[1].NumDescriptors = 1;
   ranges[1].BaseShaderRegister = 0;
   ranges[1].RegisterSpace = 0;
-  ranges[1].OffsetInDescriptorsFromTableStart = 5;
+  ranges[1].OffsetInDescriptorsFromTableStart = 6;
 
   D3D12_ROOT_PARAMETER params[2] = {};
   params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -117,7 +120,7 @@ SKComputeEnergyGrid::SKComputeEnergyGrid()
 
   D3D12_DESCRIPTOR_HEAP_DESC heapDesc{};
   heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-  heapDesc.NumDescriptors = 6;
+  heapDesc.NumDescriptors = 7;
   heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
   if (FAILED(_device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&_descriptorHeap))))
   {
@@ -129,10 +132,49 @@ SKComputeEnergyGrid::SKComputeEnergyGrid()
   std::cerr << "SKComputeEnergyGrid: DX12 ready\n";
 }
 
+std::vector<bool> SKComputeEnergyGrid::blockedGridPoints(int3 size, double3x3 unitCell,
+                                                         const std::vector<double4> &blockingPockets) noexcept
+{
+  std::vector<bool> blocked(static_cast<size_t>(size.x) * size.y * size.z, false);
+  if (blockingPockets.empty())
+    return blocked;
+
+  const double denomX = double(std::max(size.x - 1, 1));
+  const double denomY = double(std::max(size.y - 1, 1));
+  const double denomZ = double(std::max(size.z - 1, 1));
+
+  for (int k = 0; k < size.z; ++k)
+  {
+    for (int j = 0; j < size.y; ++j)
+    {
+      for (int i = 0; i < size.x; ++i)
+      {
+        // The grid spans the unit cell, whatever the replica cell the atoms are wrapped over, and a pocket
+        // is a feature of the framework, so the nearest image is taken in unit-cell coordinates.
+        const double3 position(double(i) / denomX, double(j) / denomY, double(k) / denomZ);
+        for (const double4 &pocket : blockingPockets)
+        {
+          double3 ds = position - double3(pocket.x, pocket.y, pocket.z);
+          ds.x -= std::rint(ds.x);
+          ds.y -= std::rint(ds.y);
+          ds.z -= std::rint(ds.z);
+          if ((unitCell * ds).length() < pocket.w)
+          {
+            blocked[static_cast<size_t>(i) + static_cast<size_t>(size.x) * (j + static_cast<size_t>(size.y) * k)] = true;
+            break;
+          }
+        }
+      }
+    }
+  }
+  return blocked;
+}
+
 std::vector<float> SKComputeEnergyGrid::ComputeEnergyGrid(int3 size, double2 probeParameter,
                                                           std::vector<double3> positions,
                                                           std::vector<double2> potentialParameters,
-                                                          double3x3 unitCell, int3 numberOfReplicas)
+                                                          double3x3 unitCell, int3 numberOfReplicas,
+                                                          std::vector<double4> blockingPockets)
 {
   if (getInstance()._isDx12Ready)
   {
@@ -140,7 +182,7 @@ std::vector<float> SKComputeEnergyGrid::ComputeEnergyGrid(int3 size, double2 pro
     {
       const auto t0 = std::chrono::steady_clock::now();
       std::vector<float> result = getInstance().computeEnergyGridGPUImplementation(
-          size, probeParameter, positions, potentialParameters, unitCell, numberOfReplicas);
+          size, probeParameter, positions, potentialParameters, unitCell, numberOfReplicas, blockingPockets);
       const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                           std::chrono::steady_clock::now() - t0)
                           .count();
@@ -158,7 +200,8 @@ std::vector<float> SKComputeEnergyGrid::ComputeEnergyGrid(int3 size, double2 pro
   }
   const auto t0 = std::chrono::steady_clock::now();
   std::vector<float> result = computeEnergyGridCPUImplementation(size, probeParameter, positions,
-                                                                 potentialParameters, unitCell, numberOfReplicas);
+                                                                 potentialParameters, unitCell, numberOfReplicas,
+                                                                 blockingPockets);
   const auto ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
   std::cerr << "SKComputeEnergyGrid: CPU " << size.x << "^3 in " << ms << " ms\n";
@@ -167,7 +210,8 @@ std::vector<float> SKComputeEnergyGrid::ComputeEnergyGrid(int3 size, double2 pro
 
 std::vector<float> SKComputeEnergyGrid::computeEnergyGridGPUImplementation(
     int3 size, double2 probeParameter, std::vector<double3> positions,
-    std::vector<double2> potentialParameters, double3x3 unitCell, int3 numberOfReplicas)
+    std::vector<double2> potentialParameters, double3x3 unitCell, int3 numberOfReplicas,
+    const std::vector<double4> &blockingPockets)
 {
   std::lock_guard<std::mutex> lock(_gpuMutex);
 
@@ -261,6 +305,22 @@ std::vector<float> SKComputeEnergyGrid::computeEnergyGridGPUImplementation(
   constants.cellc[1] = static_cast<float>(replicaCell[1][2]);
   constants.cellc[2] = static_cast<float>(replicaCell[2][2]);
   constants.cellc[3] = 0.0f;
+  constants.numberOfBlockingPockets = static_cast<int>(blockingPockets.size());
+  constants.replicaCorrection[0] = static_cast<float>(correction.x);
+  constants.replicaCorrection[1] = static_cast<float>(correction.y);
+  constants.replicaCorrection[2] = static_cast<float>(correction.z);
+  constants.replicaCorrection[3] = 0.0f;
+
+  // A structured buffer cannot be zero-length, so a structure without pockets is still given one element;
+  // the count in the constants keeps the kernel out of it.
+  std::vector<float> pocketVector(std::max<size_t>(blockingPockets.size(), 1) * 4, 0.0f);
+  for (size_t i = 0; i < blockingPockets.size(); ++i)
+  {
+    pocketVector[i * 4 + 0] = static_cast<float>(blockingPockets[i].x);
+    pocketVector[i * 4 + 1] = static_cast<float>(blockingPockets[i].y);
+    pocketVector[i * 4 + 2] = static_cast<float>(blockingPockets[i].z);
+    pocketVector[i * 4 + 3] = static_cast<float>(blockingPockets[i].w);
+  }
 
   // One upload pass for all buffers (was 6 separate GPU fences).
   resetCommandList();
@@ -274,10 +334,12 @@ std::vector<float> SKComputeEnergyGrid::computeEnergyGridGPUImplementation(
                                         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
   StagedUpload repStaged = recordUpload(replicaVector.data(), replicaVector.size() * sizeof(float),
                                         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+  StagedUpload pocketStaged = recordUpload(pocketVector.data(), pocketVector.size() * sizeof(float),
+                                           D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
   StagedUpload outStaged = recordUpload(outputData.data(), outputData.size() * sizeof(float),
                                         D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
   if (!posStaged.resource || !gridStaged.resource || !epsStaged.resource || !sigStaged.resource
-      || !repStaged.resource || !outStaged.resource)
+      || !repStaged.resource || !pocketStaged.resource || !outStaged.resource)
     throw std::runtime_error("SKComputeEnergyGrid: buffer creation failed");
   executeAndWait();
 
@@ -286,6 +348,7 @@ std::vector<float> SKComputeEnergyGrid::computeEnergyGridGPUImplementation(
   ComPtr<ID3D12Resource> epsBuf = epsStaged.resource;
   ComPtr<ID3D12Resource> sigBuf = sigStaged.resource;
   ComPtr<ID3D12Resource> repBuf = repStaged.resource;
+  ComPtr<ID3D12Resource> pocketBuf = pocketStaged.resource;
   ComPtr<ID3D12Resource> outBuf = outStaged.resource;
 
   D3D12_CPU_DESCRIPTOR_HANDLE cpu = _descriptorHeap->GetCPUDescriptorHandleForHeapStart();
@@ -298,6 +361,8 @@ std::vector<float> SKComputeEnergyGrid::computeEnergyGridGPUImplementation(
   createBufferSrv(_device.Get(), sigBuf.Get(), static_cast<UINT>(numberOfAtoms), sizeof(float), cpu);
   cpu.ptr += _descriptorSize;
   createBufferSrv(_device.Get(), repBuf.Get(), static_cast<UINT>(totalNumberOfReplicas), sizeof(float) * 4, cpu);
+  cpu.ptr += _descriptorSize;
+  createBufferSrv(_device.Get(), pocketBuf.Get(), static_cast<UINT>(pocketVector.size() / 4), sizeof(float) * 4, cpu);
   cpu.ptr += _descriptorSize;
   createBufferUav(_device.Get(), outBuf.Get(), static_cast<UINT>(numberOfGridPoints), sizeof(float), cpu);
 
@@ -338,7 +403,8 @@ std::vector<float> SKComputeEnergyGrid::computeEnergyGridGPUImplementation(
 
 std::vector<float> SKComputeEnergyGrid::computeEnergyGridCPUImplementation(
     int3 size, double2 probeParameter, std::vector<double3> positions,
-    std::vector<double2> potentialParameters, double3x3 unitCell, int3 numberOfReplicas) noexcept
+    std::vector<double2> potentialParameters, double3x3 unitCell, int3 numberOfReplicas,
+    std::vector<double4> blockingPockets) noexcept
 {
   size_t numberOfAtoms = positions.size();
   int temp = size.x * size.y * size.z;
@@ -384,6 +450,26 @@ std::vector<float> SKComputeEnergyGrid::computeEnergyGridCPUImplementation(
       for (int x = 0; x < size.x; x++)
       {
         double3 gridPosition = correction * double3(double(x) / denomX, double(y) / denomY, double(z) / denomZ);
+
+        // A blocked pocket is pore the probe is not allowed into, so the point counts as an overlap and no
+        // atom is summed into it. The energy ramps with the depth rather than being one flat overlap value,
+        // so that a level set can follow the sphere rather than the grid planes.
+        double nearestPocket = 1.0e10;
+        for (const double4 &pocket : blockingPockets)
+        {
+          double3 ds = double3(double(x) / denomX, double(y) / denomY, double(z) / denomZ)
+                       - double3(pocket.x, pocket.y, pocket.z);
+          ds.x -= std::rint(ds.x);
+          ds.y -= std::rint(ds.y);
+          ds.z -= std::rint(ds.z);
+          nearestPocket = std::min(nearestPocket, (unitCell * ds).length() - pocket.w);
+        }
+        if (nearestPocket < 0.0)
+        {
+          outputData[x + y * size.x + z * size.x * size.y] =
+              static_cast<float>(std::min(-nearestPocket * double(blockedEnergyPerAngstrom), double(overlapEnergy)));
+          continue;
+        }
 
         double value = 0.0;
         for (size_t i = 0; i < numberOfAtoms; i++)
@@ -446,6 +532,9 @@ cbuffer Constants : register(b0)
   float4 cella;
   float4 cellb;
   float4 cellc;
+  int numberOfBlockingPockets;
+  int3 pad1;
+  float4 replicaCorrection;
 };
 
 StructuredBuffer<float4> position : register(t0);
@@ -453,7 +542,35 @@ StructuredBuffer<float4> gridposition : register(t1);
 StructuredBuffer<float> epsilon : register(t2);
 StructuredBuffer<float> sigma : register(t3);
 StructuredBuffer<float4> replicaCell : register(t4);
+StructuredBuffer<float4> blockingPockets : register(t5);
 RWStructuredBuffer<float> outputEnergy : register(u0);
+
+// Mirrors SKComputeEnergyGrid::overlapEnergy and ::blockedEnergyPerAngstrom.
+static const float overlapEnergy = 10000000.0f;
+static const float blockedEnergyPerAngstrom = 1000.0f;
+
+// How far a grid point is, in angstrom, from the surface of the nearest blocking pocket: negative inside
+// one, and a large positive number when the structure has no pockets.
+//
+// A pocket is a sphere given as a fractional position of the unit cell with a radius in angstrom, and it is
+// a feature of the framework, so it repeats with the unit cell. The atoms are wrapped over the replica cell
+// instead, which is a whole number of unit cells wide, so the nearest image here has to be taken in
+// unit-cell coordinates: the grid position is scaled up out of the replica cell, wrapped, and scaled back to
+// measure the distance with the replica cell matrix the kernels already carry.
+float blockingPocketDistance(float3 gridpos)
+{
+  float nearest = 1.0e10f;
+  const float3 unitCellPosition = gridpos / replicaCorrection.xyz;
+  for (int i = 0; i < numberOfBlockingPockets; ++i)
+  {
+    float3 ds = unitCellPosition - blockingPockets[i].xyz;
+    ds -= round(ds);
+    float3 t = ds * replicaCorrection.xyz;
+    float3 dr = float3(dot(cella.xyz, t), dot(cellb.xyz, t), dot(cellc.xyz, t));
+    nearest = min(nearest, length(dr) - blockingPockets[i].w);
+  }
+  return nearest;
+}
 
 [numthreads(64, 1, 1)]
 void ComputeEnergyGrid(uint3 dtid : SV_DispatchThreadID)
@@ -461,6 +578,15 @@ void ComputeEnergyGrid(uint3 dtid : SV_DispatchThreadID)
   uint igrid = dtid.x;
   float value = 0.0f;
   float4 gridpos = gridposition[igrid];
+
+  // The energy is assigned rather than accumulated, which keeps it the same value however many atom batches
+  // the caller runs over the same grid.
+  const float pocket = blockingPocketDistance(gridpos.xyz);
+  if (pocket < 0.0f)
+  {
+    outputEnergy[igrid] = min(-pocket * blockedEnergyPerAngstrom, overlapEnergy);
+    return;
+  }
 
   for (int j = 0; j < numberOfReplicas; ++j)
   {
@@ -486,6 +612,6 @@ void ComputeEnergyGrid(uint3 dtid : SV_DispatchThreadID)
     }
   }
 
-  outputEnergy[igrid] += min(value, 10000000.0f);
+  outputEnergy[igrid] += min(value, overlapEnergy);
 }
 )foo";
