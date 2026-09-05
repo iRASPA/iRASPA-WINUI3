@@ -29,6 +29,7 @@
 #include <set>
 #include "forcefieldtype.h"
 #include <iostream>
+#include <functional>
 
 class ForceFieldSet
 {
@@ -42,8 +43,23 @@ public:
   ForceFieldSet(RKString name, ForceFieldSet& forcefieldset, bool editable=false);
   /// Calero / García-Pérez / Auerbach aluminosilicate zeolite force field (Cocoa SKForceFieldSet.aluminosilicate).
   static ForceFieldSet aluminosilicate();
+  /// IZA Atlas hard-sphere oxygen framework (ε = 0, σ(O) = σ(Oa) = 2.7 Å).
+  static ForceFieldSet zeoliteAtlas();
+  /// Same types as Aluminosilicate with zeo++ / CCDC radii as Lennard-Jones σ = 2r.
+  static ForceFieldSet aluminosilicateZeoPlusPlus();
+  static ForceFieldSet predefined(const RKString& name);
+  static bool isAluminosilicateFamily(const RKString& displayName);
+  static ForceFieldType* defaultType(const RKString& symbol);
+
   static constexpr const char* defaultDisplayName = "Default";
-  static constexpr const char* aluminosilicateDisplayName = "Aluminosilicate";
+  static constexpr const char* aluminosilicateDisplayName = "Aluminosilicate Zeo-TraPPE";
+  static constexpr const char* zeoliteAtlasDisplayName = "Aluminosilicate Zeo-Atlas";
+  static constexpr const char* aluminosilicateZeoPlusPlusDisplayName = "Aluminosilicate Zeo++";
+  /// IZA Atlas oxygen diameter (Å): geometric hard-sphere radius 1.35 Å.
+  static constexpr double zeoliteAtlasOxygenSigma = 2.7;
+  /// Bridging oxygen in Si–O–Al (and Ga/B analogues).
+  static constexpr const char* bridgingAluminumOxygenIdentifier = "Oa";
+
   RKString displayName() const {return _displayName;}
 
   ForceFieldType* operator[] (const RKString name);
@@ -65,6 +81,10 @@ private:
   std::vector<ForceFieldType> _atomTypeList{};
 
   static std::vector<ForceFieldType> _defaultForceField;
+  static std::vector<ForceFieldType> makeAluminosilicateForceField();
+  static std::vector<ForceFieldType> makeAluminosilicateDerivedForceField(
+      const std::function<double2(const RKString&, int)>& parameters);
+  static double zeoPlusPlusRadius(const RKString& symbol, int atomicNumber);
 
   friend BinaryArchive &operator<<(BinaryArchive &, const ForceFieldSet &);
   friend BinaryArchive &operator>>(BinaryArchive &, ForceFieldSet &);
@@ -72,4 +92,3 @@ private:
   friend BinaryArchive &operator<<(BinaryArchive & stream, const std::vector<ForceFieldType>& val);
   friend BinaryArchive &operator>>(BinaryArchive & stream, std::vector<ForceFieldType>& val);
 };
-

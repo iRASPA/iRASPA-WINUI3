@@ -22,6 +22,7 @@
 #include "forcefieldset.h"
 #include "rkstring.h"
 #include <symmetrykit.h>
+#include <unordered_map>
 
 ForceFieldSet::ForceFieldSet()
 {
@@ -49,7 +50,36 @@ ForceFieldSet::ForceFieldSet(RKString name, ForceFieldSet& forcefieldset, bool e
   }
 }
 
-ForceFieldSet ForceFieldSet::aluminosilicate()
+ForceFieldType* ForceFieldSet::defaultType(const RKString& symbol)
+{
+  for (ForceFieldType& type : _defaultForceField)
+  {
+    if (type.forceFieldStringIdentifier().toLower() == symbol.toLower())
+      return &type;
+  }
+  return nullptr;
+}
+
+bool ForceFieldSet::isAluminosilicateFamily(const RKString& displayName)
+{
+  const RKString lower = displayName.toLower();
+  return lower == RKString(aluminosilicateDisplayName).toLower()
+      || lower == RKString(zeoliteAtlasDisplayName).toLower()
+      || lower == RKString(aluminosilicateZeoPlusPlusDisplayName).toLower();
+}
+
+ForceFieldSet ForceFieldSet::predefined(const RKString& name)
+{
+  if (name.toLower() == RKString(aluminosilicateDisplayName).toLower())
+    return aluminosilicate();
+  if (name.toLower() == RKString(zeoliteAtlasDisplayName).toLower())
+    return zeoliteAtlas();
+  if (name.toLower() == RKString(aluminosilicateZeoPlusPlusDisplayName).toLower())
+    return aluminosilicateZeoPlusPlus();
+  return ForceFieldSet();
+}
+
+std::vector<ForceFieldType> ForceFieldSet::makeAluminosilicateForceField()
 {
   // Framework + extra-framework types for the Calero/Auerbach charge scheme.
   // WINUI3 ForceFieldType has no charge field yet; LJ parameters and identifiers match Cocoa.
@@ -57,15 +87,12 @@ ForceFieldSet ForceFieldSet::aluminosilicate()
     return ForceFieldType(RKString(symbol), atomicNumber, double2(22.0, 2.30), mass, radius, false);
   };
   auto cation = [](const char *symbol) -> ForceFieldType {
-    ForceFieldSet defaults;
-    if (ForceFieldType *base = defaults[RKString(symbol)])
+    if (ForceFieldType *base = defaultType(RKString(symbol)))
       return ForceFieldType(*base);
     return ForceFieldType(RKString(symbol), 0, double2(0.0, 0.0), 0.0, 0.0, false);
   };
 
-  ForceFieldSet defaults;
-  ForceFieldSet set(RKString(aluminosilicateDisplayName), defaults, false);
-  set._atomTypeList = {
+  return {
     ForceFieldType(RKString("O"), 8, double2(53.0, 3.30), 15.9994, 0.66, false),
     ForceFieldType(RKString("Oa"), 8, double2(53.0, 3.30), 15.9994, 0.66, false),
     tAtom("Si", 14, 1.11, 28.0855),
@@ -79,6 +106,87 @@ ForceFieldSet ForceFieldSet::aluminosilicate()
     cation("Mn"), cation("Fe"), cation("Co"), cation("Ni"), cation("Cu"), cation("Zn"), cation("Cd"),
     cation("Y"), cation("La"), cation("Ce")
   };
+}
+
+std::vector<ForceFieldType> ForceFieldSet::makeAluminosilicateDerivedForceField(
+    const std::function<double2(const RKString&, int)>& parameters)
+{
+  std::vector<ForceFieldType> result;
+  for (const ForceFieldType& type : makeAluminosilicateForceField())
+  {
+    result.emplace_back(type.forceFieldStringIdentifier(),
+                        type.atomicNumber(),
+                        parameters(type.forceFieldStringIdentifier(), static_cast<int>(type.atomicNumber())),
+                        type.mass(),
+                        type.userDefinedRadius(),
+                        false);
+  }
+  return result;
+}
+
+double ForceFieldSet::zeoPlusPlusRadius(const RKString& symbol, int atomicNumber)
+{
+  static const std::unordered_map<std::string, double> radii = {
+    {"H", 1.09}, {"He", 1.40}, {"Li", 1.82}, {"Be", 2.00}, {"B", 2.00}, {"C", 1.70}, {"N", 1.55}, {"O", 1.52},
+    {"F", 1.47}, {"Ne", 1.54}, {"Na", 2.27}, {"Mg", 1.73}, {"Al", 2.00}, {"Si", 2.10}, {"P", 1.80}, {"S", 1.80},
+    {"Cl", 1.75}, {"Ar", 1.88}, {"K", 2.75}, {"Ca", 2.00}, {"Sc", 2.00}, {"Ti", 2.00}, {"V", 2.00}, {"Cr", 2.00},
+    {"Mn", 2.00}, {"Fe", 2.00}, {"Co", 2.00}, {"Ni", 1.63}, {"Cu", 1.40}, {"Zn", 1.39}, {"Ga", 1.87}, {"Ge", 2.00},
+    {"As", 1.85}, {"Se", 1.90}, {"Br", 1.85}, {"Kr", 2.02}, {"Rb", 2.00}, {"Sr", 2.00}, {"Y", 2.00}, {"Zr", 2.00},
+    {"Nb", 2.00}, {"Mo", 2.00}, {"Tc", 2.00}, {"Ru", 2.00}, {"Rh", 2.00}, {"Pd", 1.63}, {"Ag", 1.72}, {"Cd", 1.58},
+    {"In", 1.93}, {"Sn", 2.17}, {"Sb", 2.00}, {"Te", 2.06}, {"I", 1.98}, {"Xe", 2.16}, {"Cs", 2.00}, {"Ba", 2.00},
+    {"La", 2.00}, {"Ce", 2.00}, {"Pr", 2.00}, {"Nd", 2.00}, {"Pm", 2.00}, {"Sm", 2.00}, {"Eu", 2.00}, {"Gd", 2.00},
+    {"Tb", 2.00}, {"Dy", 2.00}, {"Ho", 2.00}, {"Er", 2.00}, {"Tm", 2.00}, {"Yb", 2.00}, {"Lu", 2.00}, {"Hf", 2.00},
+    {"Ta", 2.00}, {"W", 2.00}, {"Re", 2.00}, {"Os", 2.00}, {"Ir", 2.00}, {"Pt", 1.72}, {"Au", 1.66}, {"Hg", 1.55},
+    {"Tl", 1.96}, {"Pb", 2.02}, {"Bi", 2.00}, {"Po", 2.00}, {"At", 2.00}, {"Rn", 2.00}, {"Fr", 2.00}, {"Ra", 2.00},
+    {"Ac", 2.00}, {"Th", 2.00}, {"Pa", 2.00}, {"U", 1.86}, {"Np", 2.00}, {"Pu", 2.00}, {"Am", 2.00}, {"Cm", 2.00},
+    {"Bk", 2.00}, {"Cf", 2.00}, {"Es", 2.00}, {"Fm", 2.00}, {"Md", 2.00}, {"No", 2.00}, {"Lr", 2.00}, {"Rf", 2.00},
+    {"Db", 2.00}, {"Sg", 2.00}, {"Bh", 2.00}, {"Hs", 2.00}, {"Mt", 2.00}, {"Ds", 2.00}
+  };
+
+  const auto it = radii.find(symbol.toStdString());
+  if (it != radii.end())
+    return it->second;
+
+  if (atomicNumber >= 0 && atomicNumber < static_cast<int>(PredefinedElements::predefinedElements.size()))
+  {
+    const RKString element = PredefinedElements::predefinedElements[atomicNumber]._chemicalSymbol;
+    const auto elementIt = radii.find(element.toStdString());
+    if (elementIt != radii.end())
+      return elementIt->second;
+  }
+  return 2.0;
+}
+
+ForceFieldSet ForceFieldSet::aluminosilicate()
+{
+  ForceFieldSet defaults;
+  ForceFieldSet set(RKString(aluminosilicateDisplayName), defaults, false);
+  set._atomTypeList = makeAluminosilicateForceField();
+  return set;
+}
+
+ForceFieldSet ForceFieldSet::zeoliteAtlas()
+{
+  ForceFieldSet defaults;
+  ForceFieldSet set(RKString(zeoliteAtlasDisplayName), defaults, false);
+  set._atomTypeList = makeAluminosilicateDerivedForceField([](const RKString& identifier, int) {
+    const bool isOxygen = identifier.toLower() == RKString("O").toLower()
+        || identifier.toLower() == RKString(bridgingAluminumOxygenIdentifier).toLower();
+    return double2(0.0, isOxygen ? zeoliteAtlasOxygenSigma : 0.0);
+  });
+  return set;
+}
+
+ForceFieldSet ForceFieldSet::aluminosilicateZeoPlusPlus()
+{
+  ForceFieldSet defaults;
+  ForceFieldSet set(RKString(aluminosilicateZeoPlusPlusDisplayName), defaults, false);
+  set._atomTypeList = makeAluminosilicateDerivedForceField([](const RKString& identifier, int atomicNumber) {
+    const RKString symbol = identifier.toLower() == RKString(bridgingAluminumOxygenIdentifier).toLower()
+        ? RKString("O") : identifier;
+    const double radius = zeoPlusPlusRadius(symbol, atomicNumber);
+    return double2(0.0, 2.0 * radius);
+  });
   return set;
 }
 
@@ -183,13 +291,13 @@ std::vector<ForceFieldType> ForceFieldSet::_defaultForceField  =
   {ForceFieldType(RKString("B")   ,  5,  double2(47.8058,3.58141),  10.881,  0.84, false)}, // DREIDING
   {ForceFieldType(RKString("C")   ,  6,  double2(47.8562, 3.47299),  12.0107,  0.76, false)}, // DREIDING
   {ForceFieldType(RKString("N")   ,  7,  double2(38.9492,3.26256),  14.0067,  0.71, false)}, // DREIDING
-  {ForceFieldType(RKString("O")   ,  8,  double2(53.0, 3.30),  15.9994,  0.66, false)}, // TraPPE-ZEO
+  {ForceFieldType(RKString("O")   ,  8,  double2(48.1581,3.03315),  15.9994,  0.66, false)}, // DREIDING
   {ForceFieldType(RKString("F")   ,  9,  double2(36.4834,3.0932),  18.9984032,  0.57, false)}, // DREIDING
   {ForceFieldType(RKString("Ne")  ,  10, double2(21.1350972,2.889184543),  20.1797,  0.58, false)}, // UFF
   {ForceFieldType(RKString("Na")  ,  11, double2(15.096498,2.657550876),  22.98976928,  1.66, false)}, // UFF
   {ForceFieldType(RKString("Mg")  ,  12, double2(55.8570426,2.691405028),  24.305,  1.41, false)}, // UFF
-  {ForceFieldType(RKString("Al")  ,  13, double2(22.6183,2.30),  26.9815386,  1.21, false)}, // chosen same as Si from TraPPE-ZEO but with epsilon ratio from DREIDING (4.39/4.27)*22.0 = 22.6183
-  {ForceFieldType(RKString("Si")  ,  14, double2(22.0,2.30),  28.0855,  1.11, false)}, // TraPPE-ZEO
+  {ForceFieldType(RKString("Al")  ,  13, double2(155.998,3.91105),  26.9815386,  1.21, false)}, // DREIDING
+  {ForceFieldType(RKString("Si")  ,  14, double2(155.998,3.80414),  28.0855,  1.11, false)}, // DREIDING
   {ForceFieldType(RKString("P")   ,  15, double2(161.03, 3.69723),  30.973762,  1.07, false)}, // DREIDING
   {ForceFieldType(RKString("S")   ,  16, double2(173.107,3.59032),  32.065,  1.05, false)}, // DREIDING
   {ForceFieldType(RKString("Cl")  ,  17, double2(142.562, 3.51932),  35.453,  1.02, false)}, // DREIDING

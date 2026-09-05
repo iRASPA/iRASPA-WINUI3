@@ -88,19 +88,26 @@ void DocumentController::ReapplyForceFieldAndColors() const
 
 namespace
 {
-// Cocoa String.capitalizeFirst, which a name typed into one of the Elements
-// combos goes through before it is looked up or used: lower-cased throughout,
-// then the first character upper-cased.
-std::wstring CapitalizeFirst(std::wstring text)
+// Trim whitespace; keep the typed casing so multi-word names like "VMD CPK"
+// still match built-in sets (Cocoa forceFieldSetIndex / colorSetIndex).
+std::wstring TrimName(std::wstring text)
 {
     const size_t first = text.find_first_not_of(L" \t\r\n");
     if (first == std::wstring::npos)
         return {};
-    text = text.substr(first, text.find_last_not_of(L" \t\r\n") - first + 1);
-    std::transform(text.begin(), text.end(), text.begin(),
-                   [](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
-    text[0] = static_cast<wchar_t>(std::towupper(text[0]));
-    return text;
+    return text.substr(first, text.find_last_not_of(L" \t\r\n") - first + 1);
+}
+
+bool NamesEqualIgnoreCase(std::wstring const& a, std::wstring const& b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (size_t i = 0; i < a.size(); ++i)
+    {
+        if (std::towlower(a[i]) != std::towlower(b[i]))
+            return false;
+    }
+    return true;
 }
 }
 
@@ -108,7 +115,7 @@ int DocumentController::AddForceFieldSet(std::wstring const& name, int forkFrom)
 {
     if (!m_document)
         return -1;
-    const std::wstring wanted = CapitalizeFirst(name);
+    const std::wstring wanted = TrimName(name);
     if (wanted.empty())
         return -1;
 
@@ -116,7 +123,7 @@ int DocumentController::AddForceFieldSet(std::wstring const& name, int forkFrom)
     std::vector<ForceFieldSet>& list = sets.forceFieldSets();
     for (size_t i = 0; i < list.size(); ++i)
     {
-        if (list[i].displayName().toStdWString() == wanted)
+        if (NamesEqualIgnoreCase(list[i].displayName().toStdWString(), wanted))
             return static_cast<int>(i);
     }
     if (forkFrom < 0 || forkFrom >= static_cast<int>(list.size()))
@@ -132,7 +139,7 @@ int DocumentController::AddColorSet(std::wstring const& name, int forkFrom)
 {
     if (!m_document)
         return -1;
-    const std::wstring wanted = CapitalizeFirst(name);
+    const std::wstring wanted = TrimName(name);
     if (wanted.empty())
         return -1;
 
@@ -140,7 +147,7 @@ int DocumentController::AddColorSet(std::wstring const& name, int forkFrom)
     std::vector<SKColorSet>& list = sets.colorSets();
     for (size_t i = 0; i < list.size(); ++i)
     {
-        if (list[i].displayName().toStdWString() == wanted)
+        if (NamesEqualIgnoreCase(list[i].displayName().toStdWString(), wanted))
             return static_cast<int>(i);
     }
     if (forkFrom < 0 || forkFrom >= static_cast<int>(list.size()))

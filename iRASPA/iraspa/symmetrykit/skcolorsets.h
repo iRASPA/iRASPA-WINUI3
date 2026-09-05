@@ -33,18 +33,22 @@ class SKColorSets
 public:
   SKColorSets();
 public:
-  std::vector<SKColorSet>& colorSets() {return _colorSets;}
-  SKColorSet& operator[] (size_t index) {return _colorSets[index];}
+  std::vector<SKColorSet>& colorSets();
+  SKColorSet& operator[] (size_t index);
   SKColorSet* operator[] (RKString);
   const SKColorSet* operator[] (RKString) const;
-  void append(SKColorSet colorSet) { _colorSets.push_back(colorSet);}
+  void append(SKColorSet colorSet);
+  size_t count() const;
   /** Give a force-field type a color in every set, starting from the color of
       its element (Cocoa SKColorSets.insert(key:element:)). */
   void insert(const RKString& key, int atomicNumber);
   void remove(const RKString& key);
 private:
   int64_t _versionNumber{1};
-  std::vector<SKColorSet> _colorSets;
+  mutable std::vector<SKColorSet> _colorSets;
+
+  std::optional<size_t> firstIndex(const RKString& name) const;
+  void ensurePredefinedSets() const;
 
   friend BinaryArchive &operator<<(BinaryArchive & stream, const std::vector<SKColorSet>& val);
   friend BinaryArchive &operator>>(BinaryArchive & stream, std::vector<SKColorSet>& val);
@@ -53,4 +57,3 @@ private:
   friend BinaryArchive &operator>>(BinaryArchive &, SKColorSets &);
 
 };
-

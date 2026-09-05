@@ -34,18 +34,18 @@ public:
   ForceFieldType(RKString forceFieldStringIdentifier, int64_t atomicNumber, double2 potentialParameters, double mass, double userDefinedRadius, bool editable);
   RKString forceFieldStringIdentifier() const {return _forceFieldStringIdentifier;}
   void setForceFieldStringIdentifier(RKString forceFieldStringIdentifier) {_forceFieldStringIdentifier = forceFieldStringIdentifier;}
-  double2 potentialParameters() {return _potentialParameters;}
-  int64_t atomicNumber() {return _atomicNumber;}
+  double2 potentialParameters() const {return _potentialParameters;}
+  int64_t atomicNumber() const {return _atomicNumber;}
   void setAtomicNumber(int atomicNumber) {_atomicNumber = atomicNumber;}
-  double userDefinedRadius() {return _userDefinedRadius;}
-  double mass() {return _mass;}
+  double userDefinedRadius() const {return _userDefinedRadius;}
+  double mass() const {return _mass;}
   void setEpsilonPotentialParameter(double epsilon)  {_potentialParameters = double2(epsilon,_potentialParameters.y);}
   void setSigmaPotentialParameter(double sigma)  {_potentialParameters = double2(_potentialParameters.x, sigma);}
   void setMass(double mass) {_mass = mass;}
   void setUserDefinedRadius(double radius) {_userDefinedRadius = radius;}
-  bool editable() {return _editable;}
+  bool editable() const {return _editable;}
   void setEditable(bool value) {_editable = value;}
-  bool isVisible() {return _isVisible;}
+  bool isVisible() const {return _isVisible;}
   void setIsVisible(bool value) {_isVisible = value;}
 private:
   int64_t _versionNumber{2};

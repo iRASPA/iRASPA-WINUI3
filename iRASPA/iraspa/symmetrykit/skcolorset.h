@@ -35,7 +35,9 @@ public:
 
   enum class ColorScheme: int64_t
   {
-    jmol = 0, rasmol_modern = 1, rasmol = 2, vesta = 3, multiple_values = 4
+    jmol = 0, rasmol_modern = 1, rasmol = 2, vesta = 3,
+    crystalMaker = 4, mercury = 5, pubChem = 6, pymol = 7, vmdCpk = 8,
+    multiple_values = 9
   };
 
   enum class ColorSchemeOrder: int64_t
@@ -61,6 +63,11 @@ private:
   static std::map<RKString, RKColor> rasmol;
   static std::map<RKString, RKColor> rasmolModern;
   static std::map<RKString, RKColor> vesta;
+  static std::map<RKString, RKColor> crystalMaker;
+  static std::map<RKString, RKColor> mercury;
+  static std::map<RKString, RKColor> pubChem;
+  static std::map<RKString, RKColor> pymol;
+  static std::map<RKString, RKColor> vmdCpk;
 
   friend BinaryArchive &operator<<(BinaryArchive & stream, const std::map<RKString, RKColor>& table);
   friend BinaryArchive &operator>>(BinaryArchive & stream, std::map<RKString, RKColor>& table);

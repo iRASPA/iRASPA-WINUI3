@@ -2371,7 +2371,8 @@ namespace winrt::iRASPA_WinUI::implementation
         FillCombo(RibbonStyle(), { L"Default", L"Fancy", L"Illustrative", L"Custom" },
                   ItemOf(agreed([](auto const& r) { return r->ribbonRepresentationStyle(); })));
         FillCombo(RibbonColorSet(),
-                  { L"Standard Academic", L"Modern UI", L"Biophysical Properties", L"Infographic" },
+                  { L"Standard Academic", L"Modern UI", L"Biophysical Properties", L"Infographic",
+                    L"RasMol", L"PyMOL", L"VMD", L"Jmol Shapely", L"Chimera" },
                   ItemOf(agreed([](auto const& r) { return r->ribbonColorSet(); })));
         FillCombo(RibbonEdgeCueing(), EdgeCueings(),
                   ItemOf(agreed([](auto const& r) { return r->ribbonEdgeCueing(); })));

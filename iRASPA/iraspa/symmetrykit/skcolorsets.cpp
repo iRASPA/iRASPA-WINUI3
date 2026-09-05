@@ -22,42 +22,77 @@
 #include "skcolorsets.h"
 #include "rkstring.h"
 #include "skelement.h"
+#include <algorithm>
 #include <iostream>
 
-SKColorSets::SKColorSets(): _colorSets{SKColorSet(SKColorSet::ColorScheme::jmol), SKColorSet(SKColorSet::ColorScheme::rasmol_modern),
-                                       SKColorSet(SKColorSet::ColorScheme::rasmol),SKColorSet(SKColorSet::ColorScheme::vesta)}
-{
+namespace {
+constexpr SKColorSet::ColorScheme kPredefinedSchemes[] = {
+  SKColorSet::ColorScheme::jmol,
+  SKColorSet::ColorScheme::rasmol_modern,
+  SKColorSet::ColorScheme::rasmol,
+  SKColorSet::ColorScheme::vesta,
+  SKColorSet::ColorScheme::crystalMaker,
+  SKColorSet::ColorScheme::mercury,
+  SKColorSet::ColorScheme::pubChem,
+  SKColorSet::ColorScheme::pymol,
+  SKColorSet::ColorScheme::vmdCpk
+};
 
+RKString schemeDisplayName(SKColorSet::ColorScheme scheme)
+{
+  return SKColorSet(scheme).displayName();
+}
+}
+
+SKColorSets::SKColorSets()
+{
+  for (SKColorSet::ColorScheme scheme : kPredefinedSchemes)
+    _colorSets.emplace_back(scheme);
+}
+
+std::vector<SKColorSet>& SKColorSets::colorSets()
+{
+  ensurePredefinedSets();
+  return _colorSets;
+}
+
+SKColorSet& SKColorSets::operator[] (size_t index)
+{
+  ensurePredefinedSets();
+  return _colorSets[index % _colorSets.size()];
+}
+
+size_t SKColorSets::count() const
+{
+  ensurePredefinedSets();
+  return _colorSets.size();
+}
+
+void SKColorSets::append(SKColorSet colorSet)
+{
+  ensurePredefinedSets();
+  _colorSets.push_back(std::move(colorSet));
 }
 
 SKColorSet* SKColorSets::operator[] (RKString name)
 {
-  for(SKColorSet& colorSet: _colorSets)
-  {
-    if(colorSet.displayName().toLower() == name.toLower())
-    {
-      return &colorSet;
-    }
-  }
-
+  ensurePredefinedSets();
+  if (auto index = firstIndex(name))
+    return &_colorSets[*index];
   return nullptr;
 }
 
 const SKColorSet* SKColorSets::operator[] (RKString name) const
 {
-  for(const SKColorSet& colorSet: _colorSets)
-  {
-    if(colorSet.displayName().toLower() == name.toLower())
-    {
-      return &colorSet;
-    }
-  }
-
+  ensurePredefinedSets();
+  if (auto index = firstIndex(name))
+    return &_colorSets[*index];
   return nullptr;
 }
 
 void SKColorSets::insert(const RKString& key, int atomicNumber)
 {
+  ensurePredefinedSets();
   if(atomicNumber < 0 || atomicNumber >= static_cast<int>(PredefinedElements::predefinedElements.size()))
   {
     return;
@@ -76,9 +111,43 @@ void SKColorSets::insert(const RKString& key, int atomicNumber)
 
 void SKColorSets::remove(const RKString& key)
 {
+  ensurePredefinedSets();
   for(SKColorSet& colorSet: _colorSets)
   {
     colorSet.remove(key);
+  }
+}
+
+std::optional<size_t> SKColorSets::firstIndex(const RKString& name) const
+{
+  const RKString lower = name.toLower();
+  for (size_t i = 0; i < _colorSets.size(); ++i)
+  {
+    if (_colorSets[i].displayName().toLower() == lower)
+      return i;
+  }
+  return std::nullopt;
+}
+
+void SKColorSets::ensurePredefinedSets() const
+{
+  for (size_t schemeIndex = 0; schemeIndex < std::size(kPredefinedSchemes); ++schemeIndex)
+  {
+    const SKColorSet::ColorScheme scheme = kPredefinedSchemes[schemeIndex];
+    const RKString name = schemeDisplayName(scheme);
+    if (firstIndex(name))
+      continue;
+
+    std::optional<size_t> afterPrevious;
+    for (size_t previous = 0; previous < schemeIndex; ++previous)
+    {
+      if (auto index = firstIndex(schemeDisplayName(kPredefinedSchemes[previous])))
+        afterPrevious = *index + 1;
+    }
+    size_t insertIndex = afterPrevious.value_or(_colorSets.size());
+    insertIndex = std::min(insertIndex, _colorSets.size());
+    _colorSets.insert(_colorSets.begin() + static_cast<std::ptrdiff_t>(insertIndex),
+                      SKColorSet(scheme));
   }
 }
 
@@ -107,6 +176,7 @@ BinaryArchive &operator>>(BinaryArchive & stream, std::vector<SKColorSet>& val)
 
 BinaryArchive &operator<<(BinaryArchive &stream, const SKColorSets &colorSets)
 {
+  colorSets.ensurePredefinedSets();
   stream << colorSets._versionNumber;
   stream << colorSets._colorSets;
   return stream;
@@ -122,7 +192,7 @@ BinaryArchive &operator>>(BinaryArchive &stream, SKColorSets &colorSets)
   }
 
   stream >> colorSets._colorSets;
+  colorSets.ensurePredefinedSets();
 
   return stream;
 }
-

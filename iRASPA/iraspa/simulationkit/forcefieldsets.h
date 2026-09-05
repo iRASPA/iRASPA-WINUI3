@@ -25,32 +25,40 @@
 #include <vector>
 #include "rkstring.h"
 #include "forcefieldset.h"
+#include <optional>
 
 class ForceFieldSets
 {
 public:
   ForceFieldSets();
-  ForceFieldSet& operator[] (const int index) {return _forceFieldSets[index];}
+  ForceFieldSet& operator[] (const int index);
   ForceFieldSet* operator[] (const RKString name);
   ForceFieldSet* operator[] (const RKString name) const;
-  std::vector<ForceFieldSet>& forceFieldSets() {return _forceFieldSets;}
-  void append(ForceFieldSet forceField) {_forceFieldSets.push_back(forceField);}
+  std::vector<ForceFieldSet>& forceFieldSets();
+  void append(ForceFieldSet forceField);
   /** Whether any set still has a type of this name, which decides whether the
       color sets may drop its color (Cocoa SKForceFieldSets.contains). */
   bool contains(const RKString& uniqueIdentifier);
+  size_t count() const;
 
   static constexpr const char* defaultDisplayName = ForceFieldSet::defaultDisplayName;
   static constexpr const char* aluminosilicateDisplayName = ForceFieldSet::aluminosilicateDisplayName;
+  static constexpr const char* zeoliteAtlasDisplayName = ForceFieldSet::zeoliteAtlasDisplayName;
+  static constexpr const char* aluminosilicateZeoPlusPlusDisplayName = ForceFieldSet::aluminosilicateZeoPlusPlusDisplayName;
 
   /// Cocoa SKForceFieldSets.suggestedDisplayName(forMaterialTypeName:).
   static RKString suggestedDisplayName(const RKString& materialTypeName);
 
-  /// Built-in non-editable tables (Aluminosilicate) always come from code.
+  /// Built-in non-editable tables always come from code.
   ForceFieldSet resolvedSet(const RKString& displayName) const;
 private:
   int64_t _versionNumber{1};
-  int64_t _numberOfPredefinedSets = 2;
-  std::vector<ForceFieldSet> _forceFieldSets;
+  int64_t _numberOfPredefinedSets = 4;
+  mutable std::vector<ForceFieldSet> _forceFieldSets;
+
+  std::optional<size_t> firstIndex(const RKString& name) const;
+  void ensurePredefinedSets() const;
+  void restoreDefaultFrameworkTypesIfTraPPE() const;
 
   friend BinaryArchive &operator<<(BinaryArchive & stream, const std::vector<ForceFieldSet>& val);
   friend BinaryArchive &operator>>(BinaryArchive & stream, std::vector<ForceFieldSet>& val);
