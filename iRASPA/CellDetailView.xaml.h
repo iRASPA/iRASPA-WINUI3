@@ -52,16 +52,24 @@ namespace winrt::iRASPA_WinUI::implementation
                                         winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
         void OnMaterialTextSubmitted(winrt::Microsoft::UI::Xaml::Controls::ComboBox const& sender,
                                      winrt::Microsoft::UI::Xaml::Controls::ComboBoxTextSubmittedEventArgs const& e);
+        void OnForceFieldChanged(winrt::Windows::Foundation::IInspectable const& sender,
+                                 winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
         void OnStructuralChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender,
                                  winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& e);
         void OnProbeMoleculeChanged(winrt::Windows::Foundation::IInspectable const& sender,
                                     winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
+        void OnProbeParameterChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender,
+                                     winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& e);
         void OnComputeVoidFraction(winrt::Windows::Foundation::IInspectable const& sender,
                                    winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnComputeSurfaceArea(winrt::Windows::Foundation::IInspectable const& sender,
                                   winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnComputeWellSurfaceArea(winrt::Windows::Foundation::IInspectable const& sender,
                                       winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnComputeGeometricSurfaceArea(winrt::Windows::Foundation::IInspectable const& sender,
+                                           winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnComputeVanDerWaalsGeometricSurfaceArea(winrt::Windows::Foundation::IInspectable const& sender,
+                                                      winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnLoadBlockingPockets(winrt::Windows::Foundation::IInspectable const& sender,
                                    winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnSpaceGroupNumberChanged(winrt::Windows::Foundation::IInspectable const& sender,
@@ -98,6 +106,8 @@ namespace winrt::iRASPA_WinUI::implementation
         void ReloadStructural();
         void ReloadSymmetry();
         void ReloadBlockingPockets();
+        // Cocoa applyStructureForceField(named:): LJ set for voids / areas / PES.
+        void ApplyStructureForceField(RKString const& name);
         // Flip checkboxes live in a collapsed Expander; re-push visuals after
         // Reload and when a section opens (same WinUI Indeterminate stickiness
         // as Appearance).

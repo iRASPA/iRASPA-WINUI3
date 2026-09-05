@@ -38,9 +38,18 @@ public:
   /** Whether any set still has a type of this name, which decides whether the
       color sets may drop its color (Cocoa SKForceFieldSets.contains). */
   bool contains(const RKString& uniqueIdentifier);
+
+  static constexpr const char* defaultDisplayName = ForceFieldSet::defaultDisplayName;
+  static constexpr const char* aluminosilicateDisplayName = ForceFieldSet::aluminosilicateDisplayName;
+
+  /// Cocoa SKForceFieldSets.suggestedDisplayName(forMaterialTypeName:).
+  static RKString suggestedDisplayName(const RKString& materialTypeName);
+
+  /// Built-in non-editable tables (Aluminosilicate) always come from code.
+  ForceFieldSet resolvedSet(const RKString& displayName) const;
 private:
   int64_t _versionNumber{1};
-  int64_t _numberOfPredefinedSets = 1;
+  int64_t _numberOfPredefinedSets = 2;
   std::vector<ForceFieldSet> _forceFieldSets;
 
   friend BinaryArchive &operator<<(BinaryArchive & stream, const std::vector<ForceFieldSet>& val);

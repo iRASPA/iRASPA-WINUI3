@@ -23,6 +23,7 @@ SOURCES += \
     $$PWD/directxglobalaxesshader.cpp \
     $$PWD/directxblockingpocketsshader.cpp \
     $$PWD/directxenergysurface.cpp \
+    $$PWD/directxgeometricsurface.cpp \
     $$PWD/directxenergyvolumerenderedsurface.cpp \
     $$PWD/directxenergyvolumetransferfunctions.cpp \
     $$PWD/directxpickingshader.cpp \
@@ -54,6 +55,7 @@ HEADERS += \
     $$PWD/directxglobalaxesshader.h \
     $$PWD/directxblockingpocketsshader.h \
     $$PWD/directxenergysurface.h \
+    $$PWD/directxgeometricsurface.h \
     $$PWD/directxenergyvolumerenderedsurface.h \
     $$PWD/directxpickingshader.h \
     $$PWD/directxatomselectionworleynoise3dshader.h \

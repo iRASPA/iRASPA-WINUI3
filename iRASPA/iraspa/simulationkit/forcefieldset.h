@@ -40,6 +40,10 @@ public:
 
   ForceFieldSet();
   ForceFieldSet(RKString name, ForceFieldSet& forcefieldset, bool editable=false);
+  /// Calero / García-Pérez / Auerbach aluminosilicate zeolite force field (Cocoa SKForceFieldSet.aluminosilicate).
+  static ForceFieldSet aluminosilicate();
+  static constexpr const char* defaultDisplayName = "Default";
+  static constexpr const char* aluminosilicateDisplayName = "Aluminosilicate";
   RKString displayName() const {return _displayName;}
 
   ForceFieldType* operator[] (const RKString name);

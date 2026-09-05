@@ -48,6 +48,8 @@ public:
   //   var structureType: Structure.StructureType {get}
   virtual RKString structureMaterialType() const = 0;
   virtual ProbeMolecule frameworkProbeMolecule() const = 0;
+  virtual double frameworkProbeEpsilon() const = 0;
+  virtual double frameworkProbeSigma() const = 0;
   virtual double structureMass() const = 0;
   virtual double structureDensity() const = 0;
   virtual double structureHeliumVoidFraction() const = 0;
@@ -57,6 +59,10 @@ public:
   virtual double structureGravimetricNitrogenSurfaceArea() const = 0;
   virtual double structureVolumetricWellSurfaceArea() const = 0;
   virtual double structureGravimetricWellSurfaceArea() const = 0;
+  virtual double structureVolumetricGeometricSurfaceArea() const = 0;
+  virtual double structureGravimetricGeometricSurfaceArea() const = 0;
+  virtual double structureVolumetricVanDerWaalsGeometricSurfaceArea() const = 0;
+  virtual double structureGravimetricVanDerWaalsGeometricSurfaceArea() const = 0;
   virtual int structureNumberOfChannelSystems() const = 0;
   virtual int structureNumberOfInaccessiblePockets() const = 0;
   virtual int structureDimensionalityOfPoreSystem() const = 0;
@@ -73,6 +79,10 @@ public:
   //   var structureType: Structure.StructureType {get}
   virtual void setStructureMaterialType(RKString value) = 0;
   virtual void setFrameworkProbeMolecule(ProbeMolecule molecule) = 0;
+  /// Sets the probe and copies named ε/σ when available (Cocoa applyFrameworkProbeMolecule).
+  virtual void applyFrameworkProbeMolecule(ProbeMolecule molecule) = 0;
+  virtual void setFrameworkProbeEpsilon(double value) = 0;
+  virtual void setFrameworkProbeSigma(double value) = 0;
   virtual void setStructureMass(double value) = 0;
   virtual void setStructureDensity(double value) = 0;
   virtual void setStructureHeliumVoidFraction(double value) = 0;
@@ -82,6 +92,10 @@ public:
   virtual void setStructureGravimetricNitrogenSurfaceArea(double value) = 0;
   virtual void setStructureVolumetricWellSurfaceArea(double value) = 0;
   virtual void setStructureGravimetricWellSurfaceArea(double value) = 0;
+  virtual void setStructureVolumetricGeometricSurfaceArea(double value) = 0;
+  virtual void setStructureGravimetricGeometricSurfaceArea(double value) = 0;
+  virtual void setStructureVolumetricVanDerWaalsGeometricSurfaceArea(double value) = 0;
+  virtual void setStructureGravimetricVanDerWaalsGeometricSurfaceArea(double value) = 0;
   virtual void setStructureNumberOfChannelSystems(int value) = 0;
   virtual void setStructureNumberOfInaccessiblePockets(int value) = 0;
   virtual void setStructureDimensionalityOfPoreSystem(int value) = 0;
@@ -89,4 +103,3 @@ public:
   virtual void setStructureRestrictingPoreLimitingDiameter(double value) = 0;
   virtual void setStructureLargestCavityDiameterAlongAViablePath(double value) = 0;
 };
-

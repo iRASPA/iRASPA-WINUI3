@@ -156,6 +156,7 @@ void DirectXRenderer::pushStructuresToShaders()
   m_selectionShader.setRenderStructures(m_structures);
   m_textShader.setRenderStructures(m_structures);
   m_energySurfaceShader.setRenderStructures(m_structures);
+  m_geometricSurfaceShader.setRenderStructures(m_structures);
   m_energyVolumeShader.setRenderStructures(m_structures);
   m_blockingPocketsShader.setRenderStructures(m_structures);
 }
@@ -322,6 +323,7 @@ void DirectXRenderer::resetSceneResources()
   recreate(m_ribbonAmbientOcclusionShader);
   recreate(m_boundingBoxShader);
   recreate(m_energySurfaceShader);
+  recreate(m_geometricSurfaceShader);
   recreate(m_energyVolumeShader);
   recreate(m_blockingPocketsShader);
   recreate(m_pickingShader);
@@ -377,6 +379,7 @@ bool DirectXRenderer::initializeScene()
   m_atomShader.setRibbonAmbientOcclusionShader(&m_ribbonAmbientOcclusionShader);
   m_boundingBoxShader.initialize(dev, m_rootSignature.Get(), rtvFormat, dsvFormat);
   m_energySurfaceShader.initialize(dev, m_rootSignature.Get(), rtvFormat, dsvFormat);
+  m_geometricSurfaceShader.initialize(dev, m_rootSignature.Get(), rtvFormat, dsvFormat);
   m_energyVolumeShader.initialize(dev, rtvFormat, dsvFormat);
   m_blockingPocketsShader.initialize(dev, m_rootSignature.Get(), rtvFormat, dsvFormat);
   m_pickingShader.initialize(dev, m_rootSignature.Get(), m_device.commandQueue());
@@ -440,6 +443,7 @@ bool DirectXRenderer::initializeScene()
     m_selectionShader.reloadSelectionData(dev);
     m_textShader.reloadData(dev);
     m_energySurfaceShader.reloadData(dev);
+    m_geometricSurfaceShader.reloadData(dev);
     m_energyVolumeShader.reloadData(dev, m_device.commandQueue());
     m_blockingPocketsShader.reloadData(dev);
     // After the ribbon meshes are on the GPU, since the one bake draws atoms and ribbons together.
@@ -928,6 +932,7 @@ void DirectXRenderer::reloadData()
   m_textShader.reloadData(dev);
   m_globalAxesShader.reloadData(dev);
   m_energySurfaceShader.reloadData(dev);
+  m_geometricSurfaceShader.reloadData(dev);
   m_energyVolumeShader.reloadData(dev, m_device.commandQueue());
   m_blockingPocketsShader.reloadData(dev);
 
@@ -1928,6 +1933,10 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
     m_energySurfaceShader.paintOpaque(m_commandList.Get(),
                                       structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
                                       isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride);
+    m_geometricSurfaceShader.paintOpaque(m_commandList.Get(),
+                                         structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
+                                         isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                         m_camera);
 
     auto copySceneDepthForVolume = [&]() {
       if (!m_energyVolumeShader.needsSceneDepth())
@@ -2000,6 +2009,11 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
                                              structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
                                              isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
                                              item.sceneIndex, item.movieIndex, item.structureIndex);
+      m_geometricSurfaceShader.paintTransparent(m_commandList.Get(),
+                                                structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
+                                                isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                                m_camera,
+                                                item.sceneIndex, item.movieIndex, item.structureIndex);
       m_blockingPocketsShader.paintTransparent(m_commandList.Get(),
                                                structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
                                                blockingPocketCB()->GetGPUVirtualAddress(),

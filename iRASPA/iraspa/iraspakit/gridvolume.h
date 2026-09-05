@@ -57,8 +57,31 @@ public:
   void setAdsorptionSurfaceOpacity(double value) override final {_adsorptionSurfaceOpacity = value;}
   void setAdsorptionTransparencyThreshold(double value) override final {_adsorptionTransparencyThreshold = value;}
   void setAdsorptionSurfaceIsoValue(double value) override final {_adsorptionSurfaceIsoValue = value;}
-  ProbeMolecule adsorptionSurfaceProbeMolecule() const override final {return ProbeMolecule::helium;} // TODO: change to 'none'
+  ProbeMolecule adsorptionSurfaceProbeMolecule() const override final {return _adsorptionSurfaceProbeMolecule;}
   void setAdsorptionSurfaceProbeMolecule(ProbeMolecule value) override final {_adsorptionSurfaceProbeMolecule = value;}
+  double adsorptionSurfaceProbeEpsilon() const override final {return _adsorptionSurfaceProbeEpsilon;}
+  void setAdsorptionSurfaceProbeEpsilon(double value) override final
+  {
+    _adsorptionSurfaceProbeEpsilon = value;
+    _adsorptionSurfaceProbeMolecule =
+        probeMoleculeMatching(double2(_adsorptionSurfaceProbeEpsilon, _adsorptionSurfaceProbeSigma));
+  }
+  double adsorptionSurfaceProbeSigma() const override final {return _adsorptionSurfaceProbeSigma;}
+  void setAdsorptionSurfaceProbeSigma(double value) override final
+  {
+    _adsorptionSurfaceProbeSigma = value;
+    _adsorptionSurfaceProbeMolecule =
+        probeMoleculeMatching(double2(_adsorptionSurfaceProbeEpsilon, _adsorptionSurfaceProbeSigma));
+  }
+  void applyAdsorptionSurfaceProbeMolecule(ProbeMolecule value) override final
+  {
+    _adsorptionSurfaceProbeMolecule = value;
+    if (auto parameters = probeMoleculeNamedParameters(value))
+    {
+      _adsorptionSurfaceProbeEpsilon = parameters->x;
+      _adsorptionSurfaceProbeSigma = parameters->y;
+    }
+  }
 
   void setAdsorptionSurfaceRenderingMethod(RKEnergySurfaceType type) override final {_adsorptionSurfaceRenderingMethod = type;}
   void setAdsorptionVolumeTransferFunction(RKPredefinedVolumeRenderingTransferFunction function) override final {_adsorptionVolumeTransferFunction = function;}
@@ -160,6 +183,8 @@ protected:
   int64_t _encompassingPowerOfTwoCubicGridSize= 7;
 
   ProbeMolecule _adsorptionSurfaceProbeMolecule = ProbeMolecule::helium;
+  double _adsorptionSurfaceProbeEpsilon = 10.9;
+  double _adsorptionSurfaceProbeSigma = 2.64;
 
   int _adsorptionSurfaceNumberOfTriangles = 0;
 

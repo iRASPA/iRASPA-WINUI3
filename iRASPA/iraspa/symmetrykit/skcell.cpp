@@ -700,7 +700,7 @@ double3 SKCell::applyUnitCellBoundaryCondition(double3 dr)
   return _unitCell * s;
 }
 
-int3 SKCell::numberOfReplicas(double cutoff)
+int3 SKCell::numberOfReplicas(double cutoff) const
 {
   double3 column1 = _unitCell[0];
   double3 column2 = _unitCell[1];

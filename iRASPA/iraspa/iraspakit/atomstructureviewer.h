@@ -32,7 +32,13 @@ class AtomStructureViewer
 public:
   enum class RepresentationType: int64_t
   {
-    sticks_and_balls = 0, vdw = 1, unity = 2, multiple_values = 3
+    sticks_and_balls = 0,
+    vdw = 1,
+    unity = 2,
+    /// Atoms at half the force-field Lennard-Jones sigma (Cocoa forcefield = 3).
+    forcefield = 3,
+    /// Mixed-selection sentinel; moved from 3 so forcefield archives keep their meaning.
+    multiple_values = 4
   };
 
   /// quteMol is Fancy plus edge cueing, and takes the raw value after Objects because that is what

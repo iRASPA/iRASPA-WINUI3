@@ -132,6 +132,11 @@ public:
   void setAdsorptionSurfaceIsoValue(double value) override final {_adsorptionSurfaceIsoValue = value;}
   ProbeMolecule adsorptionSurfaceProbeMolecule() const override final {return Structure::adsorptionSurfaceProbeMolecule();}
   void setAdsorptionSurfaceProbeMolecule(ProbeMolecule value) override final {_adsorptionSurfaceProbeMolecule = value;}
+  double adsorptionSurfaceProbeEpsilon() const override final {return Structure::adsorptionSurfaceProbeEpsilon();}
+  void setAdsorptionSurfaceProbeEpsilon(double value) override final {Structure::setAdsorptionSurfaceProbeEpsilon(value);}
+  double adsorptionSurfaceProbeSigma() const override final {return Structure::adsorptionSurfaceProbeSigma();}
+  void setAdsorptionSurfaceProbeSigma(double value) override final {Structure::setAdsorptionSurfaceProbeSigma(value);}
+  void applyAdsorptionSurfaceProbeMolecule(ProbeMolecule value) override final {Structure::applyAdsorptionSurfaceProbeMolecule(value);}
 
   void setAdsorptionSurfaceRenderingMethod(RKEnergySurfaceType type) override final {_adsorptionSurfaceRenderingMethod = type;}
   void setAdsorptionVolumeTransferFunction(RKPredefinedVolumeRenderingTransferFunction function) override final {_adsorptionVolumeTransferFunction = function;}

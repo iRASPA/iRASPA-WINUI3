@@ -50,15 +50,75 @@ enum class RKEnergySurfaceType: int64_t
   // so it can be superimposed on a copy of the structure showing the well surface, each with its
   // own material.
   wellSurfaceOverlay = 3,
-  multiple_values = 4
+  /// Union of probe-inflated force-field collision spheres (Cocoa geometricSurface = 4).
+  geometricSurface = 4,
+  /// Union of probe-inflated Bondi van der Waals spheres (Cocoa vdwGeometricSurface = 5).
+  vdwGeometricSurface = 5,
+  /// Mixed-selection sentinel; kept after the Cocoa raw values.
+  multiple_values = 6
 };
 
 /// Whether the surface is a triangle mesh drawn by the isosurface pipeline, the well surface being
 /// the iso-surface mapped onto the locus of energy minima rather than a separate construction.
 inline bool isTriangulated(RKEnergySurfaceType type)
 {
-  return type != RKEnergySurfaceType::volumeRendering && type != RKEnergySurfaceType::multiple_values;
+  switch (type)
+  {
+    case RKEnergySurfaceType::isoSurface:
+    case RKEnergySurfaceType::wellSurface:
+    case RKEnergySurfaceType::wellSurfaceOverlay:
+      return true;
+    case RKEnergySurfaceType::volumeRendering:
+    case RKEnergySurfaceType::geometricSurface:
+    case RKEnergySurfaceType::vdwGeometricSurface:
+    case RKEnergySurfaceType::multiple_values:
+      return false;
+  }
+  return false;
 }
+
+/// Spherical-patch geometric constructions (not a grid iso-surface).
+inline bool isGeometricSurface(RKEnergySurfaceType type)
+{
+  return type == RKEnergySurfaceType::geometricSurface ||
+         type == RKEnergySurfaceType::vdwGeometricSurface;
+}
+
+/// GPU instance of one geometric-surface patch. Layout matches Cocoa RKGeometricSurfacePatchInstance.
+struct RKGeometricSurfacePatchInstance
+{
+  float4 position = float4();
+  float4 scale = float4();
+  float4 cellOrigin = float4();
+  uint32_t firstClip = 0;
+  uint32_t clipCount = 0;
+  uint32_t clipToCell = 0;
+  uint32_t pad1 = 0;
+
+  RKGeometricSurfacePatchInstance() = default;
+  RKGeometricSurfacePatchInstance(float3 positionValue, float radius, float3 cellOriginValue,
+                                  uint32_t firstClipValue, uint32_t clipCountValue, bool clipToCellValue)
+      : position(float4(positionValue.x, positionValue.y, positionValue.z, 1.0f)),
+        scale(float4(radius, radius, radius, radius)),
+        cellOrigin(float4(cellOriginValue.x, cellOriginValue.y, cellOriginValue.z, 0.0f)),
+        firstClip(firstClipValue),
+        clipCount(clipCountValue),
+        clipToCell(clipToCellValue ? 1u : 0u)
+  {
+  }
+};
+
+/// GPU clip sphere. Layout matches Cocoa RKGeometricSurfaceClip.
+struct RKGeometricSurfaceClip
+{
+  float4 sphere = float4();
+
+  RKGeometricSurfaceClip() = default;
+  RKGeometricSurfaceClip(float3 center, float radius)
+      : sphere(float4(center.x, center.y, center.z, radius))
+  {
+  }
+};
 
 /// Whether the surface is a level set of the analytic well field rather than of the energy grid.
 inline bool isWellSurface(RKEnergySurfaceType type)

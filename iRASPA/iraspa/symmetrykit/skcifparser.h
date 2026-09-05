@@ -83,6 +83,9 @@ private:
 
   std::optional<RKString> _creationDate;
   std::optional<RKString> _creationMethod;
+  std::optional<RKString> _chemicalNameCommon;
+  std::optional<RKString> _chemicalNameSystematic;
+  std::optional<RKString> _chemicalNameStructureType;
   std::optional<RKString> _chemicalFormulaStructural;
   std::optional<RKString> _chemicalFormulaSum;
   std::optional<int> _numberOfChannels;

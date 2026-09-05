@@ -306,6 +306,58 @@ void DocumentController::ComputeWellSurfaceArea()
     RegisterCellUndo(L"Compute Well Surface Area", before);
 }
 
+void DocumentController::ComputeGeometricSurfaceArea()
+{
+    auto before = SnapshotCellStates();
+    std::vector<SKFrameworkSnapshot> snapshots;
+    std::vector<std::shared_ptr<Structure>> structures;
+    for (auto const& target : TargetStructures())
+    {
+        auto structure = target ? std::dynamic_pointer_cast<Structure>(target->object()) : nullptr;
+        if (!structure)
+            continue;
+        structures.push_back(structure);
+        snapshots.push_back(structure->frameworkSnapshot(/*applyingBlockingPockets=*/true));
+    }
+    try
+    {
+        const auto results = SKGeometricSurface::surfaceAreas(snapshots);
+        for (size_t i = 0; i < results.size() && i < structures.size(); ++i)
+            structures[i]->setStructureGeometricSurfaceArea(results[i].area);
+    }
+    catch (...)
+    {
+        Log(L"Geometric-surface-area computation failed");
+    }
+    RegisterCellUndo(L"Compute Geometric Surface Area", before);
+}
+
+void DocumentController::ComputeVanDerWaalsGeometricSurfaceArea()
+{
+    auto before = SnapshotCellStates();
+    std::vector<SKFrameworkSnapshot> snapshots;
+    std::vector<std::shared_ptr<Structure>> structures;
+    for (auto const& target : TargetStructures())
+    {
+        auto structure = target ? std::dynamic_pointer_cast<Structure>(target->object()) : nullptr;
+        if (!structure)
+            continue;
+        structures.push_back(structure);
+        snapshots.push_back(structure->frameworkSnapshot(/*applyingBlockingPockets=*/true));
+    }
+    try
+    {
+        const auto results = SKGeometricSurface::vanDerWaalsSurfaceAreas(snapshots);
+        for (size_t i = 0; i < results.size() && i < structures.size(); ++i)
+            structures[i]->setStructureVanDerWaalsGeometricSurfaceArea(results[i].area);
+    }
+    catch (...)
+    {
+        Log(L"Van-der-Waals geometric-surface-area computation failed");
+    }
+    RegisterCellUndo(L"Compute Van der Waals Geometric Surface Area", before);
+}
+
 std::vector<double4> DocumentController::BlockingPockets() const
 {
     for (auto const& target : TargetStructures())

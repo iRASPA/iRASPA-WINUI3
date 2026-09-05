@@ -94,7 +94,7 @@ public:
   inline double3 convertToFractional(double3 r) {return _inverseUnitCell * r;}
   inline double3 convertToNormalizedFractional(double3 r) {return (_inverseFullCell * r).fract();}
 
-  int3 numberOfReplicas(double cutoff);
+  int3 numberOfReplicas(double cutoff) const;
   int3 numberOfReplicas();
 
   SKBoundingBox boundingBox() const {return _boundingBox;}

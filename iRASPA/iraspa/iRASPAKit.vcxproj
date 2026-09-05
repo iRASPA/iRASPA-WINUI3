@@ -369,6 +369,10 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
+    <ClCompile Include="symmetrykit\skmaterialtype.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
     <ClCompile Include="symmetrykit\skcifsymmetryoperationparser.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -499,6 +503,14 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <ClCompile Include="simulationkit\skwellsurface.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="simulationkit\skspheresweep.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="simulationkit\skgeometricsurface.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -717,6 +729,10 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <ClCompile Include="renderkit\directx12\directxenergysurface.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="renderkit\directx12\directxgeometricsurface.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -1139,6 +1155,7 @@
     <ClInclude Include="renderkit\directx12\directxshadowmaskshader.h" />
     <ClInclude Include="renderkit\directx12\directxblockingpocketsshader.h" />
     <ClInclude Include="renderkit\directx12\directxenergysurface.h" />
+    <ClInclude Include="renderkit\directx12\directxgeometricsurface.h" />
     <ClInclude Include="renderkit\directx12\directxenergyvolumerenderedsurface.h" />
     <ClInclude Include="renderkit\directx12\directxglobalaxesshader.h" />
     <ClInclude Include="renderkit\directx12\directxlocalaxesshader.h" />
@@ -1193,6 +1210,8 @@
     <ClInclude Include="simulationkit\directx12\skcomputevoidfraction.h" />
     <ClInclude Include="simulationkit\directx12\skcomputewellfield.h" />
     <ClInclude Include="simulationkit\skwellsurface.h" />
+    <ClInclude Include="simulationkit\skspheresweep.h" />
+    <ClInclude Include="simulationkit\skgeometricsurface.h" />
     <ClInclude Include="simulationkit\directx12\skdx12.h" />
     <ClInclude Include="simulationkit\forcefieldset.h" />
     <ClInclude Include="simulationkit\forcefieldsets.h" />
@@ -1256,6 +1275,7 @@
     <ClInclude Include="symmetrykit\skstrideramachandranmaps.h" />
     <ClInclude Include="symmetrykit\skstridesecondarystructureassigner.h" />
     <ClInclude Include="symmetrykit\skstructure.h" />
+    <ClInclude Include="symmetrykit\skmaterialtype.h" />
     <ClInclude Include="symmetrykit\sksymmetrycell.h" />
     <ClInclude Include="symmetrykit\sksymmetryoperationset.h" />
     <ClInclude Include="symmetrykit\sktransformationmatrix.h" />

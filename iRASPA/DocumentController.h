@@ -551,10 +551,13 @@ public:
     void SetSpaceGroupHallNumber(int hall);
     // The recompute buttons in the structural group. The nitrogen area is the one
     // over the probe-accessible energy iso-surface; the well area is the one over
-    // the locus of energy minima the well surface is drawn on.
+    // the locus of energy minima the well surface is drawn on. Geometric areas use
+    // SKGeometricSurface (force-field or Bondi VDW spheres) with blocking pockets applied.
     void ComputeHeliumVoidFraction();
     void ComputeNitrogenSurfaceArea();
     void ComputeWellSurfaceArea();
+    void ComputeGeometricSurfaceArea();
+    void ComputeVanDerWaalsGeometricSurfaceArea();
 
     // ---- Blocking pockets -------------------------------------------------
     // The pockets of the first structure of the selection, which is what the cell

@@ -174,12 +174,14 @@ void SKCIFParser::startParsing() noexcept(false)
   switch (kind)
   {
   case SKStructure::Kind::protein:
+  case SKStructure::Kind::dna:
     structure->drawUnitCell = false;
     structure->spaceGroupHallNumber = 1;
     structure->periodic = false;
     break;
   case SKStructure::Kind::proteinCrystal:
   case SKStructure::Kind::proteinCrystalSolvent:
+  case SKStructure::Kind::dnaCrystal:
     structure->drawUnitCell = !_proteinOnlyAsymmetricUnitCell;
     structure->spaceGroupHallNumber = _proteinOnlyAsymmetricUnitCell ? 1 : _spaceGroupHallNumber;
     structure->periodic = true;
@@ -194,6 +196,14 @@ void SKCIFParser::startParsing() noexcept(false)
     structure->spaceGroupHallNumber = _spaceGroupHallNumber;
     structure->periodic = true;
     break;
+  }
+
+  {
+    std::vector<RKString> extraNames;
+    if (_chemicalNameCommon) extraNames.push_back(*_chemicalNameCommon);
+    if (_chemicalNameSystematic) extraNames.push_back(*_chemicalNameSystematic);
+    if (_chemicalNameStructureType) extraNames.push_back(*_chemicalNameStructureType);
+    structure->applyInferredMaterialType(extraNames);
   }
 
   movieFrames.push_back(structure);
@@ -236,6 +246,18 @@ void SKCIFParser::parseChemical(const RKString& string)
   else if (string == "_chemical_formula_sum")
   {
     if (auto value = parseValue()) { _chemicalFormulaSum = *value; }
+  }
+  else if (string == "_chemical_name_common")
+  {
+    if (auto value = parseValue()) { _chemicalNameCommon = *value; }
+  }
+  else if (string == "_chemical_name_systematic")
+  {
+    if (auto value = parseValue()) { _chemicalNameSystematic = *value; }
+  }
+  else if (string == "_chemical_name_structure_type")
+  {
+    if (auto value = parseValue()) { _chemicalNameStructureType = *value; }
   }
   else
   {
@@ -818,12 +840,11 @@ SKStructure::Kind SKCIFParser::kindOfCurrentPart()
     return (periodic && !_asProtein) ? SKStructure::Kind::proteinCrystal : SKStructure::Kind::protein;
   }
 
-  // WinUI has no DNA structure kinds; map nucleic acids onto protein / proteinCrystal.
   const bool isDNA = nucleicResidues >= 2 && nucleicResidues > otherResidues && nucleicResidues >= peptideResidues;
   if (isDNA)
   {
     _dnaDetected = true;
-    return (periodic && !_asMolecule) ? SKStructure::Kind::proteinCrystal : SKStructure::Kind::protein;
+    return (periodic && !_asMolecule) ? SKStructure::Kind::dnaCrystal : SKStructure::Kind::dna;
   }
 
   if (_numberOfAtoms > 0)
@@ -836,7 +857,7 @@ SKStructure::Kind SKCIFParser::kindOfCurrentPart()
     if (static_cast<double>(_numberOfNucleicAcidAtoms) / static_cast<double>(_numberOfAtoms) > 0.5)
     {
       _dnaDetected = true;
-      return (periodic && !_asMolecule) ? SKStructure::Kind::proteinCrystal : SKStructure::Kind::protein;
+      return (periodic && !_asMolecule) ? SKStructure::Kind::dnaCrystal : SKStructure::Kind::dna;
     }
   }
 

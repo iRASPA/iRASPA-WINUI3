@@ -31,5 +31,7 @@
 #include <skcomputevoidfraction.h>
 #include <skcomputewellfield.h>
 #include <skwellsurface.h>
+#include <skspheresweep.h>
+#include <skgeometricsurface.h>
 
 

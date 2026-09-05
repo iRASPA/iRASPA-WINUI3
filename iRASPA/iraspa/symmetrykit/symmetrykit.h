@@ -30,6 +30,7 @@
 #include <skatomtreecontroller.h>
 #include <skbondsetcontroller.h>
 #include <skcell.h>
+#include <skmaterialtype.h>
 #include <skcolorset.h>
 #include <skcolorsets.h>
 #include <skspacegroup.h>

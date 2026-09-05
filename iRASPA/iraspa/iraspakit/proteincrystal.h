@@ -123,6 +123,24 @@ public:
   void setAtomSymmetryData(double3x3 unitCell, std::vector<std::tuple<double3, int, double>> atomData) override final;
 
   std::vector<double2> potentialParameters() const override final;
+  std::vector<double3> atomUnitCellPositions() const override final;
+  std::vector<int> atomUnitCellElementIdentifiers() const override final
+  {
+    return Structure::atomUnitCellElementIdentifiers();
+  }
+  std::vector<double4> appliedBlockingPockets() const override final
+  {
+    return Structure::appliedBlockingPockets();
+  }
+  double2 adsorptionSurfaceProbeParameters() const override final
+  {
+    return Structure::adsorptionSurfaceProbeParameters();
+  }
+  bool isPeriodic() const override final { return true; }
+  void setAdsorptionSurfaceNumberOfTriangles(int64_t count) override final
+  {
+    _adsorptionSurfaceNumberOfTriangles = count;
+  }
   std::vector<double3> atomPositions() const override final;
 
   std::optional<std::pair<std::shared_ptr<SKCell>, double3>> cellForFractionalPositions() override final;
@@ -219,6 +237,11 @@ public:
   void setAdsorptionSurfaceIsoValue(double value) override final {_adsorptionSurfaceIsoValue = value;}
   ProbeMolecule adsorptionSurfaceProbeMolecule() const override final {return Structure::adsorptionSurfaceProbeMolecule();}
   void setAdsorptionSurfaceProbeMolecule(ProbeMolecule value) override final {_adsorptionSurfaceProbeMolecule = value;}
+  double adsorptionSurfaceProbeEpsilon() const override final {return Structure::adsorptionSurfaceProbeEpsilon();}
+  void setAdsorptionSurfaceProbeEpsilon(double value) override final {Structure::setAdsorptionSurfaceProbeEpsilon(value);}
+  double adsorptionSurfaceProbeSigma() const override final {return Structure::adsorptionSurfaceProbeSigma();}
+  void setAdsorptionSurfaceProbeSigma(double value) override final {Structure::setAdsorptionSurfaceProbeSigma(value);}
+  void applyAdsorptionSurfaceProbeMolecule(ProbeMolecule value) override final {Structure::applyAdsorptionSurfaceProbeMolecule(value);}
 
   void setAdsorptionSurfaceRenderingMethod(RKEnergySurfaceType type) override final {_adsorptionSurfaceRenderingMethod = type;}
   void setAdsorptionVolumeTransferFunction(RKPredefinedVolumeRenderingTransferFunction function) override final {_adsorptionVolumeTransferFunction = function;}
@@ -266,6 +289,8 @@ public:
   //   var structureType: Structure.StructureType {get}
   RKString structureMaterialType() const override final {return _structureMaterialType;}
   ProbeMolecule frameworkProbeMolecule() const override final {return _frameworkProbeMolecule;}
+  double frameworkProbeEpsilon() const override final {return Structure::frameworkProbeEpsilon();}
+  double frameworkProbeSigma() const override final {return Structure::frameworkProbeSigma();}
   double structureMass() const override final {return _structureMass;}
   double structureDensity() const override final {return _structureDensity;}
   double structureHeliumVoidFraction() const override final {return _structureHeliumVoidFraction;}
@@ -275,6 +300,10 @@ public:
   double structureGravimetricNitrogenSurfaceArea() const override final {return _structureGravimetricNitrogenSurfaceArea;}
   double structureVolumetricWellSurfaceArea() const override final {return _structureVolumetricWellSurfaceArea;}
   double structureGravimetricWellSurfaceArea() const override final {return _structureGravimetricWellSurfaceArea;}
+  double structureVolumetricGeometricSurfaceArea() const override final {return _structureVolumetricGeometricSurfaceArea;}
+  double structureGravimetricGeometricSurfaceArea() const override final {return _structureGravimetricGeometricSurfaceArea;}
+  double structureVolumetricVanDerWaalsGeometricSurfaceArea() const override final {return _structureVolumetricVanDerWaalsGeometricSurfaceArea;}
+  double structureGravimetricVanDerWaalsGeometricSurfaceArea() const override final {return _structureGravimetricVanDerWaalsGeometricSurfaceArea;}
   int structureNumberOfChannelSystems() const override final {return _structureNumberOfChannelSystems;}
   int structureNumberOfInaccessiblePockets() const override final {return _structureNumberOfInaccessiblePockets;}
   int structureDimensionalityOfPoreSystem() const override final {return _structureDimensionalityOfPoreSystem;}
@@ -286,7 +315,10 @@ public:
   // ===============================================================================================
 
   void setStructureMaterialType(RKString value) override final {_structureMaterialType = value;}
-  void setFrameworkProbeMolecule(ProbeMolecule molecule) override final {_frameworkProbeMolecule = molecule;}
+  void setFrameworkProbeMolecule(ProbeMolecule molecule) override final {applyFrameworkProbeMolecule(molecule);}
+  void applyFrameworkProbeMolecule(ProbeMolecule molecule) override final {Structure::applyFrameworkProbeMolecule(molecule);}
+  void setFrameworkProbeEpsilon(double value) override final {Structure::setFrameworkProbeEpsilon(value);}
+  void setFrameworkProbeSigma(double value) override final {Structure::setFrameworkProbeSigma(value);}
   void setStructureMass(double value) override final {_structureMass = value;}
   void setStructureDensity(double value) override final {_structureDensity = value;}
   void setStructureHeliumVoidFraction(double value) override final {_structureHeliumVoidFraction = value;}
@@ -296,6 +328,10 @@ public:
   void setStructureGravimetricNitrogenSurfaceArea(double value) override final;
   void setStructureVolumetricWellSurfaceArea(double value) override final {_structureVolumetricWellSurfaceArea = value;}
   void setStructureGravimetricWellSurfaceArea(double value) override final {_structureGravimetricWellSurfaceArea = value;}
+  void setStructureVolumetricGeometricSurfaceArea(double value) override final {_structureVolumetricGeometricSurfaceArea = value;}
+  void setStructureGravimetricGeometricSurfaceArea(double value) override final {_structureGravimetricGeometricSurfaceArea = value;}
+  void setStructureVolumetricVanDerWaalsGeometricSurfaceArea(double value) override final {_structureVolumetricVanDerWaalsGeometricSurfaceArea = value;}
+  void setStructureGravimetricVanDerWaalsGeometricSurfaceArea(double value) override final {_structureGravimetricVanDerWaalsGeometricSurfaceArea = value;}
   void setStructureNumberOfChannelSystems(int value) override final {_structureNumberOfChannelSystems = value;}
   void setStructureNumberOfInaccessiblePockets(int value) override final {_structureNumberOfInaccessiblePockets = value;}
   void setStructureDimensionalityOfPoreSystem(int value) override final {_structureDimensionalityOfPoreSystem = value;}
@@ -321,8 +357,6 @@ private:
   RKByteArray _data = RKByteArray{};
   double _average = 0.0;
   double _variance = 0.0;
-
-  std::vector<double3> atomUnitCellPositions() const;
 
   friend BinaryArchive &operator<<(BinaryArchive &, const std::shared_ptr<ProteinCrystal> &);
   friend BinaryArchive &operator>>(BinaryArchive &, std::shared_ptr<ProteinCrystal> &);

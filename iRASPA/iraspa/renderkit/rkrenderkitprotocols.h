@@ -345,6 +345,15 @@ public:
   virtual double adsorptionSurfaceBackSideAmbientIntensity() const = 0;
   virtual double adsorptionSurfaceBackSideSpecularIntensity() const = 0;
   virtual double adsorptionSurfaceBackSideShininess() const = 0;
+
+  /// Framework data for geometric accessible surface imposters. Empty for imported volumes.
+  virtual std::vector<double3> atomUnitCellPositions() const { return {}; }
+  virtual std::vector<double2> potentialParameters() const { return {}; }
+  virtual std::vector<int> atomUnitCellElementIdentifiers() const { return {}; }
+  virtual std::vector<double4> appliedBlockingPockets() const { return {}; }
+  virtual double2 adsorptionSurfaceProbeParameters() const { return double2(); }
+  virtual bool isPeriodic() const { return false; }
+  virtual void setAdsorptionSurfaceNumberOfTriangles(int64_t count) { (void)count; }
 };
 
 class RKRenderPrimitiveObjectsSource

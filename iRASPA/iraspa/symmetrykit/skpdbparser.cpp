@@ -241,6 +241,7 @@ void SKPDBParser::addFrameToStructure(size_t currentMovie, size_t currentFrame)
       break;
     }
 
+    _frame->applyInferredMaterialType();
     _movies[currentMovie].push_back(_frame);
 
     _frame = std::make_shared<SKStructure>();

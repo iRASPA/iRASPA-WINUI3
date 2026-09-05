@@ -77,6 +77,8 @@ public:
   // ===============================================================================================
   Structure(const std::shared_ptr<Object> object);
   ObjectType structureType() override {return ObjectType::structure;}
+  RKString importedStructureMaterialType() const { return _structureMaterialType; }
+  void setImportedStructureMaterialType(RKString value) { _structureMaterialType = value; }
   std::shared_ptr<Object> shallowClone() override;
   SKBoundingBox boundingBox() const override;
   void reComputeBoundingBox() override;
@@ -367,6 +369,9 @@ public:
   virtual std::vector<double3> bondPositions() const {return std::vector<double3>();}
 
   virtual std::vector<double2> potentialParameters() const {return std::vector<double2>();}
+  virtual std::vector<double3> atomUnitCellPositions() const {return std::vector<double3>();}
+  /// Element ids of unit-cell atom copies, parallel to atomUnitCellPositions (Cocoa).
+  virtual std::vector<int> atomUnitCellElementIdentifiers() const;
 
   virtual std::vector<RKInPerInstanceAttributesAtoms> renderUnitCellSpheres() const override;
   virtual std::vector<RKInPerInstanceAttributesBonds> renderUnitCellCylinders() const override;
@@ -390,11 +395,28 @@ public:
 
   double2 adsorptionSurfaceProbeParameters() const;
   ProbeMolecule adsorptionSurfaceProbeMolecule() const {return _adsorptionSurfaceProbeMolecule;}
+  void setAdsorptionSurfaceProbeMolecule(ProbeMolecule value) {_adsorptionSurfaceProbeMolecule = value;}
+  double adsorptionSurfaceProbeEpsilon() const {return _adsorptionSurfaceProbeEpsilon;}
+  double adsorptionSurfaceProbeSigma() const {return _adsorptionSurfaceProbeSigma;}
+  void applyAdsorptionSurfaceProbeMolecule(ProbeMolecule value);
+  void setAdsorptionSurfaceProbeEpsilon(double value);
+  void setAdsorptionSurfaceProbeSigma(double value);
 
   void recomputeDensityProperties();
   double2 frameworkProbeParameters() const;
+  double frameworkProbeEpsilon() const {return _frameworkProbeEpsilon;}
+  double frameworkProbeSigma() const {return _frameworkProbeSigma;}
+  void applyFrameworkProbeMolecule(ProbeMolecule molecule);
+  void setFrameworkProbeEpsilon(double value);
+  void setFrameworkProbeSigma(double value);
   void setStructureNitrogenSurfaceArea(double value);
   void setStructureWellSurfaceArea(double value);
+  void setStructureGeometricSurfaceArea(double value);
+  void setStructureVanDerWaalsGeometricSurfaceArea(double value);
+
+  /// Snapshot for SKGeometricSurface / void-fraction helpers. Blocking pockets are always applied
+  /// when used for geometric surface-area compute (Cocoa SKFrameworkSnapshot.applyingBlockingPockets).
+  SKFrameworkSnapshot frameworkSnapshot(bool applyingBlockingPockets = false) const;
 
   // Blocking pockets
   // ===============================================================================================
@@ -643,7 +665,8 @@ public:
   friend BinaryArchive &operator<<(BinaryArchive &, const std::shared_ptr<Structure> &);
   friend BinaryArchive &operator>>(BinaryArchive &, std::shared_ptr<Structure> &);
 protected:
-  int64_t _versionNumber{13};
+  // Cocoa Structure.classVersionNumber = 17 (geometric areas 14, probe ε/σ 15–16, VDW geometric 17).
+  int64_t _versionNumber{17};
 
   std::shared_ptr<SKAtomTreeController> _atomsTreeController;
   std::shared_ptr<SKBondSetController> _bondSetController;
@@ -795,6 +818,8 @@ protected:
   int64_t _adsorptionSurfaceNumberOfTriangles = 0;
 
   ProbeMolecule _adsorptionSurfaceProbeMolecule = ProbeMolecule::helium;
+  double _adsorptionSurfaceProbeEpsilon = 10.9;
+  double _adsorptionSurfaceProbeSigma = 2.64;
 
   double _adsorptionSurfaceHue = 1.0;
   double _adsorptionSurfaceSaturation = 1.0;
@@ -827,6 +852,8 @@ protected:
 
   StructureType _structureType = StructureType::framework;
   ProbeMolecule _frameworkProbeMolecule = ProbeMolecule::nitrogen;
+  double _frameworkProbeEpsilon = 36.0;
+  double _frameworkProbeSigma = 3.31;
   RKString _structureMaterialType = RKString("Unspecified");
   double _structureMass = 0.0;
   double _structureDensity = 0.0;
@@ -837,6 +864,10 @@ protected:
   double _structureGravimetricNitrogenSurfaceArea = 0.0;
   double _structureVolumetricWellSurfaceArea = 0.0;
   double _structureGravimetricWellSurfaceArea = 0.0;
+  double _structureVolumetricGeometricSurfaceArea = 0.0;
+  double _structureGravimetricGeometricSurfaceArea = 0.0;
+  double _structureVolumetricVanDerWaalsGeometricSurfaceArea = 0.0;
+  double _structureGravimetricVanDerWaalsGeometricSurfaceArea = 0.0;
   int64_t _structureNumberOfChannelSystems = 0;
   int64_t _structureNumberOfInaccessiblePockets = 0;
   int64_t _structureDimensionalityOfPoreSystem = 0;

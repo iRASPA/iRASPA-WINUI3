@@ -23,6 +23,8 @@
 #include <filesystem>
 #include <cctype>
 #include "skxyzparser.h"
+#include "skstructure.h"
+#include <optional>
 
 SKXYZParser::SKXYZParser(const std::filesystem::path &path, bool proteinOnlyAsymmetricUnitCell, bool asMolecule, CharacterSet charactersToBeSkipped): SKParser(),
     _scanner(path, charactersToBeSkipped), _proteinOnlyAsymmetricUnitCell(proteinOnlyAsymmetricUnitCell), _asMolecule(asMolecule), _frame(std::make_shared<SKStructure>())
@@ -144,5 +146,7 @@ void SKXYZParser::startParsing() noexcept(false)
       _frame->atoms.push_back(atom);
     }
   }
+  const bool periodic = _frame->kind == SKStructure::Kind::molecularCrystal;
+  _frame->applyInferredMaterialType({}, periodic ? std::optional<SKStructure::Kind>(SKStructure::Kind::crystal) : std::nullopt);
   _movies.push_back({_frame});
 }

@@ -21,8 +21,9 @@
 
 #include "forcefieldsets.h"
 #include "rkstring.h"
+#include <skmaterialtype.h>
 
-ForceFieldSets::ForceFieldSets(): _forceFieldSets{ForceFieldSet()}
+ForceFieldSets::ForceFieldSets(): _forceFieldSets{ForceFieldSet(), ForceFieldSet::aluminosilicate()}
 {
 
 }
@@ -38,6 +39,35 @@ ForceFieldSet* ForceFieldSets::operator[] (const RKString name)
   }
 
   return nullptr;
+}
+
+ForceFieldSet* ForceFieldSets::operator[] (const RKString name) const
+{
+  for(ForceFieldSet& forceFieldSet: const_cast<std::vector<ForceFieldSet>&>(_forceFieldSets))
+  {
+    if(forceFieldSet.displayName().toLower() == name.toLower())
+    {
+      return &forceFieldSet;
+    }
+  }
+  return nullptr;
+}
+
+RKString ForceFieldSets::suggestedDisplayName(const RKString& materialTypeName)
+{
+  const auto materialType = SKMaterialTypeAPI::fromDisplayName(materialTypeName);
+  if (materialType && SKMaterialTypeAPI::usesAluminosilicateForceField(*materialType))
+    return RKString(aluminosilicateDisplayName);
+  return RKString(defaultDisplayName);
+}
+
+ForceFieldSet ForceFieldSets::resolvedSet(const RKString& displayName) const
+{
+  if (displayName.toLower() == RKString(aluminosilicateDisplayName).toLower())
+    return ForceFieldSet::aluminosilicate();
+  if (ForceFieldSet* set = (*this)[displayName])
+    return *set;
+  return ForceFieldSet();
 }
 
 bool ForceFieldSets::contains(const RKString& uniqueIdentifier)

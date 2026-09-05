@@ -455,15 +455,12 @@
                             <ComboBox x:Name="AtomColorScheme" Grid.Column="1" HorizontalAlignment="Stretch"/>
                         </Grid>
                         <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
-                            <TextBlock Text="Order" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Text="Color Order" Style="{StaticResource RowLabel}"/>
                             <ComboBox x:Name="AtomColorOrder" Grid.Column="1" HorizontalAlignment="Stretch"/>
                         </Grid>
+                        <!-- Force Field set is chosen in Cell → Structural Properties. -->
                         <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
-                            <TextBlock Text="Force Field" Style="{StaticResource RowLabel}"/>
-                            <ComboBox x:Name="AtomFF" Grid.Column="1" HorizontalAlignment="Stretch"/>
-                        </Grid>
-                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
-                            <TextBlock Text="Order" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Text="Force Field Order" Style="{StaticResource RowLabel}"/>
                             <ComboBox x:Name="AtomFFOrder" Grid.Column="1" HorizontalAlignment="Stretch"/>
                         </Grid>
                         <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
@@ -745,6 +742,16 @@
                         <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
                             <TextBlock Text="Probe Particle" Style="{StaticResource RowLabel}"/>
                             <ComboBox x:Name="VolProbe" Grid.Column="1" HorizontalAlignment="Stretch"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="Probe Epsilon" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="VolProbeEpsilon" Grid.Column="1" Style="{StaticResource Num}"/>
+                            <TextBlock Text="[K]" Grid.Column="2" Style="{StaticResource RowLabel}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*,Auto">
+                            <TextBlock Text="Probe Sigma" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="VolProbeSigma" Grid.Column="1" Style="{StaticResource Num}"/>
+                            <TextBlock Text="[&#xC5;]" Grid.Column="2" Style="{StaticResource RowLabel}"/>
                         </Grid>
                         <Grid Style="{StaticResource Row}" ColumnDefinitions="150,*">
                             <TextBlock Text="Transfer Function" Style="{StaticResource RowLabel}"/>

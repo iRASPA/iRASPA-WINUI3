@@ -93,6 +93,8 @@ Crystal::Crystal(const std::shared_ptr<Object> object): Structure(object)
   {
     _structureMaterialType = structuralPropertyViewer->structureMaterialType();
     _frameworkProbeMolecule = structuralPropertyViewer->frameworkProbeMolecule();
+    _frameworkProbeEpsilon = structuralPropertyViewer->frameworkProbeEpsilon();
+    _frameworkProbeSigma = structuralPropertyViewer->frameworkProbeSigma();
     _structureMass = structuralPropertyViewer->structureMass();
     _structureDensity = structuralPropertyViewer->structureDensity();
     _structureHeliumVoidFraction = structuralPropertyViewer->structureHeliumVoidFraction();
@@ -102,6 +104,10 @@ Crystal::Crystal(const std::shared_ptr<Object> object): Structure(object)
     _structureGravimetricNitrogenSurfaceArea = structuralPropertyViewer->structureGravimetricNitrogenSurfaceArea();
     _structureVolumetricWellSurfaceArea = structuralPropertyViewer->structureVolumetricWellSurfaceArea();
     _structureGravimetricWellSurfaceArea = structuralPropertyViewer->structureGravimetricWellSurfaceArea();
+    _structureVolumetricGeometricSurfaceArea = structuralPropertyViewer->structureVolumetricGeometricSurfaceArea();
+    _structureGravimetricGeometricSurfaceArea = structuralPropertyViewer->structureGravimetricGeometricSurfaceArea();
+    _structureVolumetricVanDerWaalsGeometricSurfaceArea = structuralPropertyViewer->structureVolumetricVanDerWaalsGeometricSurfaceArea();
+    _structureGravimetricVanDerWaalsGeometricSurfaceArea = structuralPropertyViewer->structureGravimetricVanDerWaalsGeometricSurfaceArea();
     _structureNumberOfChannelSystems = structuralPropertyViewer->structureNumberOfChannelSystems();
     _structureNumberOfInaccessiblePockets = structuralPropertyViewer->structureNumberOfInaccessiblePockets();
     _structureDimensionalityOfPoreSystem = structuralPropertyViewer->structureDimensionalityOfPoreSystem();

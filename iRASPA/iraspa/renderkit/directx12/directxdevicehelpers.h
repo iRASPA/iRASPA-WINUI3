@@ -145,6 +145,10 @@ namespace DirectXDeviceHelpers
   /// blocking-pocket shader reads.
   inline constexpr UINT kBlockingPocketRootParameter = 7;
 
+  /// Where createSceneRootSignature puts the geometric-surface clip spheres (register t2). Bound as
+  /// a root SRV so it survives descriptor-heap swaps the same way the shadow mask does.
+  inline constexpr UINT kGeometricSurfaceClipRootParameter = 8;
+
   /// Writes over part of a buffer, leaving the rest of it as it was. For a field that is only known
   /// after the rest of its block has been written, which the size of the ray-traced shadow mask is:
   /// what it will be is not settled until the trace has been recorded.
@@ -209,7 +213,7 @@ namespace DirectXDeviceHelpers
   }
 
   // Root signature: b0 frame, b1 structure, b3 lights, t0 SRV, b2 isosurface, b5 globalAxes,
-  // t1 shadow mask, b4 blocking pockets.
+  // t1 shadow mask, b4 blocking pockets, t2 geometric-surface clips.
   // Root indices 0–4 keep existing SetGraphicsRoot* call sites; globalAxes is Root5 = register b5.
   inline ComPtr<ID3D12RootSignature> createSceneRootSignature(ID3D12Device *device)
   {
@@ -220,7 +224,7 @@ namespace DirectXDeviceHelpers
     srvRange.RegisterSpace = 0;
     srvRange.OffsetInDescriptorsFromTableStart = 0;
 
-    D3D12_ROOT_PARAMETER params[8] = {};
+    D3D12_ROOT_PARAMETER params[9] = {};
     params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
     params[0].Descriptor.ShaderRegister = 0;
     params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
@@ -258,6 +262,11 @@ namespace DirectXDeviceHelpers
     params[7].Descriptor.ShaderRegister = 4;
     params[7].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
+    // Geometric-surface neighbouring clip spheres. Root SRV at t2; only that shader declares it.
+    params[8].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+    params[8].Descriptor.ShaderRegister = 2;
+    params[8].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
@@ -268,7 +277,7 @@ namespace DirectXDeviceHelpers
     sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
-    rootDesc.NumParameters = 8;
+    rootDesc.NumParameters = 9;
     rootDesc.pParameters = params;
     rootDesc.NumStaticSamplers = 1;
     rootDesc.pStaticSamplers = &sampler;

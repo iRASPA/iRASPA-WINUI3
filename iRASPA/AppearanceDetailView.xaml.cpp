@@ -921,6 +921,20 @@ namespace winrt::iRASPA_WinUI::implementation
             {
                 editor->setRepresentationType(static_cast<AtomStructureEditor::RepresentationType>(index));
             });
+            // Cocoa refreshes atom/bond scale rows after a type change: bond thickness
+            // updates with the type; atom scale is left alone so the text box stays
+            // what is drawn (setRepresentationType no longer overwrites it).
+            const bool wasSuppressed = m_suppress;
+            m_suppress = true;
+            SetSlider(AtomScaleSlider(), AtomScaleBox(),
+                      AgreedAs<AtomStructureViewer>(m_controller, [](auto const& a)
+                                                    { return a->atomScaleFactor(); }));
+            SetSlider(BondScaleSlider(), BondScaleBox(),
+                      AgreedAs<BondStructureViewer>(m_controller, [](auto const& b)
+                                                    { return b->bondScaleFactor(); }));
+            m_suppress = wasSuppressed;
+            if (m_controller)
+                m_controller->ReloadRenderer();
         });
         // A style writes most of the atom and bond settings, so the whole form is
         // reloaded afterwards, as Cocoa reloads the rows the style touched. The
@@ -966,20 +980,7 @@ namespace winrt::iRASPA_WinUI::implementation
                 editor->setColorSchemeOrder(static_cast<SKColorSet::ColorSchemeOrder>(index));
             });
         });
-        BindCombo(AtomFF(), [this](int index, hstring const&)
-        {
-            if (!m_controller || !m_controller->Document())
-                return;
-            auto& forceFieldSets = m_controller->Document()->forceFieldSets();
-            auto const& sets = forceFieldSets.forceFieldSets();
-            if (index < 0 || index >= static_cast<int>(sets.size()))
-                return;
-            const RKString name = sets[static_cast<size_t>(index)].displayName();
-            ForEachAs<AtomStructureEditor>(m_controller, [&name, &forceFieldSets](auto editor)
-            {
-                editor->setAtomForceFieldIdentifier(name, forceFieldSets);
-            });
-        });
+        // Force Field set is chosen in Cell → Structural Properties.
         BindCombo(AtomFFOrder(), [this](int index, hstring const&)
         {
             ForEachAs<AtomStructureEditor>(m_controller, [index](auto editor)
@@ -1593,21 +1594,52 @@ namespace winrt::iRASPA_WinUI::implementation
             case RKEnergySurfaceType::wellSurfaceOverlay:
                 m_controller->Log(L"Well-surface overlay selected (reloading grid…)");
                 break;
+            case RKEnergySurfaceType::geometricSurface:
+                m_controller->Log(L"Geometric surface selected (building patches…)");
+                break;
+            case RKEnergySurfaceType::vdwGeometricSurface:
+                m_controller->Log(L"VDW geometric surface selected (building patches…)");
+                break;
             default:
                 m_controller->Log(L"Isosurface rendering selected");
                 break;
             }
+            m_controller->ReloadRendererInvalidatingIsosurfaces();
         });
         BindCombo(VolProbe(), [this](int index, hstring const&)
         {
-            ForEachAs<VolumetricDataViewer>(m_controller, [index](auto viewer)
+            if (index < 0 || index >= static_cast<int>(kSelectableProbeMoleculeCount))
+                return;
+            const auto probe = kSelectableProbeMolecules[index];
+            ForEachAs<VolumetricDataViewer>(m_controller, [probe](auto viewer)
             {
-                viewer->setAdsorptionSurfaceProbeMolecule(static_cast<ProbeMolecule>(index));
+                viewer->applyAdsorptionSurfaceProbeMolecule(probe);
             });
             // The grid was computed for the previous probe, so it no longer describes
             // what the surface is a level set of.
             if (m_controller)
                 m_controller->ReloadRendererInvalidatingIsosurfaces();
+            Reload();
+        });
+        BindNumber(VolProbeEpsilon(), 0.0, 1.0e6, 0.1, [this](double value)
+        {
+            ForEachAs<VolumetricDataViewer>(m_controller, [value](auto viewer)
+            {
+                viewer->setAdsorptionSurfaceProbeEpsilon(value);
+            });
+            if (m_controller)
+                m_controller->ReloadRendererInvalidatingIsosurfaces();
+            Reload();
+        });
+        BindNumber(VolProbeSigma(), 0.0, 100.0, 0.01, [this](double value)
+        {
+            ForEachAs<VolumetricDataViewer>(m_controller, [value](auto viewer)
+            {
+                viewer->setAdsorptionSurfaceProbeSigma(value);
+            });
+            if (m_controller)
+                m_controller->ReloadRendererInvalidatingIsosurfaces();
+            Reload();
         });
         BindCombo(VolTF(), [this](int index, hstring const&)
         {
@@ -2178,19 +2210,16 @@ namespace winrt::iRASPA_WinUI::implementation
         SetSlider(AtomScaleSlider(), AtomScaleBox(),
                   agreed([](auto const& a) { return a->atomScaleFactor(); }));
 
-        FillCombo(AtomType(), { L"Ball and Stick", L"Van der Waals", L"Unity" },
+        FillCombo(AtomType(), { L"Ball and Stick", L"Van der Waals", L"Unity", L"Force Field" },
                   ItemOf(agreed([](auto const& a) { return a->atomRepresentationType(); })));
         FillCombo(AtomStyle(), RepresentationStyles(),
                   StyleItemOf(agreed([](auto const& a) { return a->atomRepresentationStyle(); })));
 
-        // The color sets and force fields are the document's, so both popups are
-        // filled from it and matched by name.
+        // The color sets are the document's, so the popup is filled from it and
+        // matched by name. Force Field set is chosen in Cell → Structural Properties.
         std::vector<hstring> colorSets;
         std::optional<int> colorIndex;
-        std::vector<hstring> forceFields;
-        std::optional<int> forceFieldIndex;
         const auto scheme = agreed([](auto const& a) { return a->atomColorSchemeIdentifier(); });
-        const auto field = agreed([](auto const& a) { return a->atomForceFieldIdentifier(); });
         if (m_controller && m_controller->Document())
         {
             auto const& sets = m_controller->Document()->colorSets().colorSets();
@@ -2201,24 +2230,12 @@ namespace winrt::iRASPA_WinUI::implementation
                 if (scheme && name.toLower() == scheme->toLower())
                     colorIndex = static_cast<int>(i);
             }
-
-            auto const& fields = m_controller->Document()->forceFieldSets().forceFieldSets();
-            for (size_t i = 0; i < fields.size(); ++i)
-            {
-                const RKString name = fields[i].displayName();
-                forceFields.push_back(hstring(name.toStdWString()));
-                if (field && name.toLower() == field->toLower())
-                    forceFieldIndex = static_cast<int>(i);
-            }
         }
         if (colorSets.empty())
             colorSets.push_back(L"Jmol");
-        if (forceFields.empty())
-            forceFields.push_back(L"Default");
         // A name the selection agrees on that is not one of the sets still lands
         // on the first item, as it did before.
         FillCombo(AtomColorScheme(), colorSets, scheme ? colorIndex.value_or(0) : colorIndex);
-        FillCombo(AtomFF(), forceFields, field ? forceFieldIndex.value_or(0) : forceFieldIndex);
         FillCombo(AtomColorOrder(), SchemeOrders(),
                   ItemOf(agreed([](auto const& a) { return a->colorSchemeOrder(); })));
         FillCombo(AtomFFOrder(), SchemeOrders(),
@@ -2466,16 +2483,28 @@ namespace winrt::iRASPA_WinUI::implementation
         SetCheck(VolDraw(), agreed([](auto const& v) { return v->drawAdsorptionSurface(); }));
         SetCheck(BlockApply(), AgreedAs<Structure>(m_controller, [](auto const& s)
                                                    { return s->applyBlockingPockets(); }));
-        // Order is RKEnergySurfaceType's.
+        // Order matches RKEnergySurfaceType (geometric modes use impostor patches).
         FillCombo(VolMethod(),
-                  { L"Isosurface", L"Volume Rendering", L"Well Surface", L"Well-Surface Overlay" },
+                  { L"Isosurface", L"Volume Rendering", L"Well Surface", L"Well-Surface Overlay",
+                    L"Forcefield Geometric Surface", L"VDW Geometric Surface" },
                   ItemOf(agreed([](auto const& v)
                                 { return v->adsorptionSurfaceRenderingMethod(); })));
-        FillCombo(VolProbe(),
-                  { L"Helium", L"Methane", L"Nitrogen", L"Hydrogen", L"Water", L"CO\u2082",
-                    L"Xenon", L"Krypton", L"Argon" },
-                  ItemOf(agreed([](auto const& v)
-                                { return v->adsorptionSurfaceProbeMolecule(); })));
+        {
+            auto probe = agreed([](auto const& v) { return v->adsorptionSurfaceProbeMolecule(); });
+            std::optional<int> item;
+            if (probe)
+            {
+                const int index = selectableProbeMoleculeIndex(*probe);
+                if (index >= 0)
+                    item = index;
+            }
+            FillCombo(VolProbe(),
+                      { L"Helium", L"Methane", L"Nitrogen", L"Hydrogen", L"Water", L"CO\u2082",
+                        L"Xenon", L"Krypton", L"Argon", L"Connolly", L"Custom" },
+                      item);
+        }
+        SetNumber(VolProbeEpsilon(), agreed([](auto const& v) { return v->adsorptionSurfaceProbeEpsilon(); }));
+        SetNumber(VolProbeSigma(), agreed([](auto const& v) { return v->adsorptionSurfaceProbeSigma(); }));
         FillCombo(VolTF(),
                   { L"RASPA PES", L"Cool/Warm", L"XRay", L"Gray", L"Rainbow", L"Turbo",
                     L"Gnuplot2", L"Spectral", L"Cool", L"Viridis", L"Plasma", L"Inferno",

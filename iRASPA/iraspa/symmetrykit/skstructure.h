@@ -31,6 +31,7 @@
 #include <optional>
 #include "skasymmetricatom.h"
 #include "skcell.h"
+#include "skmaterialtype.h"
 
 class SKStructure
 {
@@ -46,11 +47,21 @@ public:
     proteinCrystalSolvent = 7, crystalSolvent = 8, molecularCrystalSolvent = 9,
     crystalEllipsoidPrimitive = 10, crystalCylinderPrimitive = 11, crystalPolygonalPrismPrimitive = 12,
     ellipsoidPrimitive = 13, cylinderPrimitive = 14, polygonalPrismPrimitive = 15,
-    gridVolume = 16, RASPADensityVolume = 17, VTKDensityVolume = 18, VASPDensityVolume = 19, GaussianCubeVolume = 20
+    gridVolume = 16, RASPADensityVolume = 17, VTKDensityVolume = 18, VASPDensityVolume = 19, GaussianCubeVolume = 20,
+    dna = 21, dnaCrystal = 22
   };
 
   Kind kind = Kind::crystal;
+  SKMaterialType materialType = SKMaterialType::unspecified;
   std::vector<std::shared_ptr<SKAsymmetricAtom>> atoms;
+
+  /// Sets `materialType` from `kind`, `atoms`, and `displayName`.
+  /// Call after a parser has finished filling a frame.
+  /// `extraNames` is for CIF `_chemical_name_*` (and similar) hints.
+  /// `kindOverride` overrides `kind` for classification only (XYZ lattices use
+  /// molecularCrystal as object type but still infer composition as a crystal).
+  void applyInferredMaterialType(const std::vector<RKString> &extraNames = {},
+                                 std::optional<Kind> kindOverride = std::nullopt);
   std::set<RKString> unknownAtoms;
 
   std::optional<RKString> displayName;

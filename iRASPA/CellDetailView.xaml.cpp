@@ -7,7 +7,10 @@
 #include "StructureTypeTable.h"
 
 #include "atomviewer.h"
+#include "atomstructureviewer.h"
 #include "bondviewer.h"
+#include "documentdata.h"
+#include "forcefieldsets.h"
 #include "iraspaobject.h"
 #include "primitive.h"
 #include "spacegroupviewer.h"
@@ -44,14 +47,18 @@ namespace winrt::iRASPA_WinUI::implementation
     {
         // Cocoa's editable material-name combo box in the structural group.
         constexpr wchar_t const* kMaterialTypes[] = {
-            L"Unspecified", L"Silica", L"Aluminosilicate", L"Aluminophosphate",
-            L"Metallophosphate", L"Silicialuminophosphate", L"Zeolite", L"MOF",
-            L"COF", L"ZIF",
+            L"Unspecified", L"Molecule", L"Protein", L"DNA/RNA", L"Molecular crystal",
+            L"Silica", L"Aluminosilicate", L"Aluminophosphate",
+            L"Metallophosphate", L"Silicoaluminophosphate", L"Zeolite",
+            L"MOF", L"ZIF", L"COF",
+            L"Carbon", L"Oxide",
+            L"HOF", L"PAF", L"PIM", L"Polymer", L"Ionic liquid",
+            L"Clay", L"Perovskite", L"Alloy", L"Glass",
         };
 
         constexpr wchar_t const* kProbeMolecules[] = {
             L"Helium", L"Methane", L"Nitrogen", L"Hydrogen", L"Water",
-            L"CO\u2082", L"Xenon", L"Krypton", L"Argon",
+            L"CO\u2082", L"Xenon", L"Krypton", L"Argon", L"Connolly", L"Custom",
         };
 
         hstring FormatDouble(double v, int decimals = 5)
@@ -246,6 +253,18 @@ namespace winrt::iRASPA_WinUI::implementation
             &StructuralPropertyEditor::setStructureVolumetricWellSurfaceArea);
         add(GravimetricWellAreaBox(), &StructuralPropertyViewer::structureGravimetricWellSurfaceArea,
             &StructuralPropertyEditor::setStructureGravimetricWellSurfaceArea);
+        add(VolumetricGeometricAreaBox(), &StructuralPropertyViewer::structureVolumetricGeometricSurfaceArea,
+            &StructuralPropertyEditor::setStructureVolumetricGeometricSurfaceArea);
+        add(GravimetricGeometricAreaBox(), &StructuralPropertyViewer::structureGravimetricGeometricSurfaceArea,
+            &StructuralPropertyEditor::setStructureGravimetricGeometricSurfaceArea);
+        add(VolumetricVDWGeometricAreaBox(), &StructuralPropertyViewer::structureVolumetricVanDerWaalsGeometricSurfaceArea,
+            &StructuralPropertyEditor::setStructureVolumetricVanDerWaalsGeometricSurfaceArea);
+        add(GravimetricVDWGeometricAreaBox(), &StructuralPropertyViewer::structureGravimetricVanDerWaalsGeometricSurfaceArea,
+            &StructuralPropertyEditor::setStructureGravimetricVanDerWaalsGeometricSurfaceArea);
+        add(ProbeEpsilonBox(), &StructuralPropertyViewer::frameworkProbeEpsilon,
+            &StructuralPropertyEditor::setFrameworkProbeEpsilon);
+        add(ProbeSigmaBox(), &StructuralPropertyViewer::frameworkProbeSigma,
+            &StructuralPropertyEditor::setFrameworkProbeSigma);
         addInt(ChannelSystemsBox(), &StructuralPropertyViewer::structureNumberOfChannelSystems,
                &StructuralPropertyEditor::setStructureNumberOfChannelSystems);
         addInt(PocketsBox(), &StructuralPropertyViewer::structureNumberOfInaccessiblePockets,
@@ -270,6 +289,12 @@ namespace winrt::iRASPA_WinUI::implementation
         ConfigureNumber(GravimetricAreaBox(), 0.0, 1.0e12, 1.0, 6);
         ConfigureNumber(VolumetricWellAreaBox(), 0.0, 1.0e12, 1.0, 6);
         ConfigureNumber(GravimetricWellAreaBox(), 0.0, 1.0e12, 1.0, 6);
+        ConfigureNumber(VolumetricGeometricAreaBox(), 0.0, 1.0e12, 1.0, 6);
+        ConfigureNumber(GravimetricGeometricAreaBox(), 0.0, 1.0e12, 1.0, 6);
+        ConfigureNumber(VolumetricVDWGeometricAreaBox(), 0.0, 1.0e12, 1.0, 6);
+        ConfigureNumber(GravimetricVDWGeometricAreaBox(), 0.0, 1.0e12, 1.0, 6);
+        ConfigureNumber(ProbeEpsilonBox(), 0.0, 1.0e12, 0.1, 6);
+        ConfigureNumber(ProbeSigmaBox(), 0.0, 1.0e12, 0.01, 6);
         ConfigureNumber(ChannelSystemsBox(), 0.0, 1.0e12, 1.0, 0);
         ConfigureNumber(PocketsBox(), 0.0, 1.0e12, 1.0, 0);
         ConfigureNumber(DimensionalityBox(), 0.0, 1.0e12, 1.0, 0);
@@ -583,9 +608,41 @@ namespace winrt::iRASPA_WinUI::implementation
             MaterialCombo().Text(DetailControls::MultipleValuesText());
         }
 
-        DetailControls::SelectOrMultiple(
-            ProbeCombo(),
-            ItemOf(agreed([](auto const& v) { return v->frameworkProbeMolecule(); })));
+        {
+            auto probe = agreed([](auto const& v) { return v->frameworkProbeMolecule(); });
+            std::optional<int> item;
+            if (probe)
+            {
+                const int index = selectableProbeMoleculeIndex(*probe);
+                if (index >= 0)
+                    item = index;
+            }
+            DetailControls::SelectOrMultiple(ProbeCombo(), item);
+        }
+
+        // Document force-field sets, matched by name like Cocoa's Cell popup.
+        std::vector<hstring> forceFields;
+        std::optional<int> forceFieldIndex;
+        const auto field = m_controller->AgreedValue<AtomStructureViewer>(
+            [](std::shared_ptr<AtomStructureViewer> const& a) { return a->atomForceFieldIdentifier(); });
+        if (m_controller->Document())
+        {
+            auto const& fields = m_controller->Document()->forceFieldSets().forceFieldSets();
+            for (size_t i = 0; i < fields.size(); ++i)
+            {
+                const RKString name = fields[i].displayName();
+                forceFields.push_back(hstring(name.toStdWString()));
+                if (field && name.toLower() == field->toLower())
+                    forceFieldIndex = static_cast<int>(i);
+            }
+        }
+        if (forceFields.empty())
+            forceFields.push_back(L"Default");
+        ForceFieldCombo().Items().Clear();
+        for (auto const& item : forceFields)
+            ForceFieldCombo().Items().Append(box_value(item));
+        DetailControls::SelectOrMultiple(ForceFieldCombo(),
+                                         field ? forceFieldIndex.value_or(0) : forceFieldIndex);
     }
 
     // Cocoa lists the pockets of the first selected structure, read-only: they are
@@ -1054,6 +1111,9 @@ namespace winrt::iRASPA_WinUI::implementation
             if (auto editor = dynamic_cast<StructuralPropertyEditor*>(&object))
                 editor->setStructureMaterialType(value);
         }, DocumentController::CellReload::None);
+        // Cocoa applies the force field suggested by the material type.
+        ApplyStructureForceField(ForceFieldSets::suggestedDisplayName(value));
+        Reload();
     }
 
     void CellDetailView::OnMaterialTextSubmitted(ComboBox const& sender,
@@ -1070,6 +1130,44 @@ namespace winrt::iRASPA_WinUI::implementation
             if (auto editor = dynamic_cast<StructuralPropertyEditor*>(&object))
                 editor->setStructureMaterialType(value);
         }, DocumentController::CellReload::None);
+        ApplyStructureForceField(ForceFieldSets::suggestedDisplayName(value));
+        Reload();
+    }
+
+    void CellDetailView::OnForceFieldChanged(IInspectable const& sender,
+                                             SelectionChangedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_controller)
+            return;
+        auto combo = sender.try_as<ComboBox>();
+        if (!combo || combo.SelectedIndex() < 0)
+            return;
+        if (DetailControls::IsMultipleValuesSelected(combo))
+            return;
+        if (!m_controller->Document())
+            return;
+        auto const& sets = m_controller->Document()->forceFieldSets().forceFieldSets();
+        const int index = combo.SelectedIndex();
+        if (index < 0 || index >= static_cast<int>(sets.size()))
+            return;
+        ApplyStructureForceField(sets[static_cast<size_t>(index)].displayName());
+    }
+
+    void CellDetailView::ApplyStructureForceField(RKString const& name)
+    {
+        if (!m_controller || !m_controller->Document())
+            return;
+        auto& forceFieldSets = m_controller->Document()->forceFieldSets();
+        for (auto const& target : m_controller->TargetStructures())
+        {
+            auto editor = target ? std::dynamic_pointer_cast<AtomStructureEditor>(target->object()) : nullptr;
+            if (!editor)
+                continue;
+            editor->setAtomForceFieldIdentifier(name, forceFieldSets);
+            editor->recheckRepresentationStyle();
+        }
+        // Cocoa invalidates the energy surface: Lennard-Jones parameters drive the grid.
+        m_controller->ReloadRendererInvalidatingIsosurfaces();
     }
 
     void CellDetailView::OnStructuralChanged(NumberBox const& sender,
@@ -1102,12 +1200,23 @@ namespace winrt::iRASPA_WinUI::implementation
             return;
         if (DetailControls::IsMultipleValuesSelected(combo))
             return;
-        const auto probe = static_cast<ProbeMolecule>(combo.SelectedIndex());
+        const int index = combo.SelectedIndex();
+        if (index < 0 || index >= static_cast<int>(kSelectableProbeMoleculeCount))
+            return;
+        const auto probe = kSelectableProbeMolecules[index];
         m_controller->EditCells(L"Change Probe Molecule", [probe](Object& object)
         {
             if (auto editor = dynamic_cast<StructuralPropertyEditor*>(&object))
-                editor->setFrameworkProbeMolecule(probe);
+                editor->applyFrameworkProbeMolecule(probe);
         }, DocumentController::CellReload::None);
+        Reload();
+    }
+
+    void CellDetailView::OnProbeParameterChanged(NumberBox const& sender,
+                                                 NumberBoxValueChangedEventArgs const& e)
+    {
+        // Same path as the other structural NumberBoxes; regenerates the probe enum from ε/σ.
+        OnStructuralChanged(sender, e);
     }
 
     void CellDetailView::OnComputeVoidFraction(IInspectable const&, RoutedEventArgs const&)
@@ -1131,6 +1240,22 @@ namespace winrt::iRASPA_WinUI::implementation
         if (!m_controller)
             return;
         m_controller->ComputeWellSurfaceArea();
+        Reload();
+    }
+
+    void CellDetailView::OnComputeGeometricSurfaceArea(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_controller)
+            return;
+        m_controller->ComputeGeometricSurfaceArea();
+        Reload();
+    }
+
+    void CellDetailView::OnComputeVanDerWaalsGeometricSurfaceArea(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_controller)
+            return;
+        m_controller->ComputeVanDerWaalsGeometricSurfaceArea();
         Reload();
     }
 

@@ -262,6 +262,10 @@ Structure::Structure(const Structure &structure): Object(structure),  _atomsTree
   _structureLargestCavityDiameterAlongAViablePath = structure._structureLargestCavityDiameterAlongAViablePath;
   _structureVolumetricWellSurfaceArea = structure._structureVolumetricWellSurfaceArea;
   _structureGravimetricWellSurfaceArea = structure._structureGravimetricWellSurfaceArea;
+  _structureVolumetricGeometricSurfaceArea = structure._structureVolumetricGeometricSurfaceArea;
+  _structureGravimetricGeometricSurfaceArea = structure._structureGravimetricGeometricSurfaceArea;
+  _structureVolumetricVanDerWaalsGeometricSurfaceArea = structure._structureVolumetricVanDerWaalsGeometricSurfaceArea;
+  _structureGravimetricVanDerWaalsGeometricSurfaceArea = structure._structureGravimetricVanDerWaalsGeometricSurfaceArea;
 
   _blockingPockets = structure._blockingPockets;
   _drawBlockingPockets = structure._drawBlockingPockets;
@@ -397,6 +401,8 @@ Structure::Structure(const Structure &structure): Object(structure),  _atomsTree
 
   // adsorption surface
   _frameworkProbeMolecule = structure._frameworkProbeMolecule;
+  _frameworkProbeEpsilon = structure._frameworkProbeEpsilon;
+  _frameworkProbeSigma = structure._frameworkProbeSigma;
 
   _drawAdsorptionSurface = structure._drawAdsorptionSurface;
   _adsorptionSurfaceOpacity = structure._adsorptionSurfaceOpacity;
@@ -410,6 +416,8 @@ Structure::Structure(const Structure &structure): Object(structure),  _atomsTree
   _adsorptionSurfaceNumberOfTriangles = structure._adsorptionSurfaceNumberOfTriangles;
 
   _adsorptionSurfaceProbeMolecule = structure._adsorptionSurfaceProbeMolecule;
+  _adsorptionSurfaceProbeEpsilon = structure._adsorptionSurfaceProbeEpsilon;
+  _adsorptionSurfaceProbeSigma = structure._adsorptionSurfaceProbeSigma;
 
   _adsorptionSurfaceHue = structure._adsorptionSurfaceHue;
   _adsorptionSurfaceSaturation = structure._adsorptionSurfaceSaturation;
@@ -791,64 +799,60 @@ void Structure::setBondScaleFactor(double value)
 
 double2 Structure::adsorptionSurfaceProbeParameters() const
 {
-  switch(_adsorptionSurfaceProbeMolecule)
+  return double2(_adsorptionSurfaceProbeEpsilon, _adsorptionSurfaceProbeSigma);
+}
+
+void Structure::applyAdsorptionSurfaceProbeMolecule(ProbeMolecule value)
+{
+  _adsorptionSurfaceProbeMolecule = value;
+  if (auto parameters = probeMoleculeNamedParameters(value))
   {
-    case ProbeMolecule::helium:
-      return double2(10.9, 2.64);
-    case ProbeMolecule::nitrogen:
-      return double2(36.0,3.31);
-    case ProbeMolecule::methane:
-      return double2(158.5,3.72);
-    case ProbeMolecule::hydrogen:
-      return double2(36.7,2.958);
-    case ProbeMolecule::water:
-      return double2(89.633,3.097);
-    case ProbeMolecule::co2:
-      // Y. Iwai, H. Higashi, H. Uchida, Y. Arai, Fluid Phase Equilibria 127 (1997) 251-261.
-      return double2(236.1,3.72);
-    case ProbeMolecule::xenon:
-      // Gábor Rutkai, Monika Thol, Roland Span & Jadran Vrabec (2017), Molecular Physics, 115:9-12, 1104-1121
-      return double2(226.14,3.949);
-    case ProbeMolecule::krypton:
-      // Gábor Rutkai, Monika Thol, Roland Span & Jadran Vrabec (2017), Molecular Physics, 115:9-12, 1104-1121
-      return double2(162.58,3.6274);
-    case ProbeMolecule::argon:
-      return double2(119.8, 3.34);
-    case ProbeMolecule::multiple_values:
-      return double2();
+    _adsorptionSurfaceProbeEpsilon = parameters->x;
+    _adsorptionSurfaceProbeSigma = parameters->y;
   }
-  return double2();
+}
+
+void Structure::setAdsorptionSurfaceProbeEpsilon(double value)
+{
+  _adsorptionSurfaceProbeEpsilon = value;
+  _adsorptionSurfaceProbeMolecule =
+      probeMoleculeMatching(double2(_adsorptionSurfaceProbeEpsilon, _adsorptionSurfaceProbeSigma));
+}
+
+void Structure::setAdsorptionSurfaceProbeSigma(double value)
+{
+  _adsorptionSurfaceProbeSigma = value;
+  _adsorptionSurfaceProbeMolecule =
+      probeMoleculeMatching(double2(_adsorptionSurfaceProbeEpsilon, _adsorptionSurfaceProbeSigma));
 }
 
 double2 Structure::frameworkProbeParameters() const
 {
-  switch(_frameworkProbeMolecule)
+  return double2(_frameworkProbeEpsilon, _frameworkProbeSigma);
+}
+
+void Structure::applyFrameworkProbeMolecule(ProbeMolecule molecule)
+{
+  _frameworkProbeMolecule = molecule;
+  if (auto parameters = probeMoleculeNamedParameters(molecule))
   {
-    case ProbeMolecule::helium:
-      return double2(10.9, 2.64);
-    case ProbeMolecule::nitrogen:
-      return double2(36.0,3.31);
-    case ProbeMolecule::methane:
-      return double2(158.5,3.72);
-    case ProbeMolecule::hydrogen:
-      return double2(36.7,2.958);
-    case ProbeMolecule::water:
-      return double2(89.633,3.097);
-    case ProbeMolecule::co2:
-      // Y. Iwai, H. Higashi, H. Uchida, Y. Arai, Fluid Phase Equilibria 127 (1997) 251-261.
-      return double2(236.1,3.72);
-    case ProbeMolecule::xenon:
-      // Gábor Rutkai, Monika Thol, Roland Span & Jadran Vrabec (2017), Molecular Physics, 115:9-12, 1104-1121
-      return double2(226.14,3.949);
-    case ProbeMolecule::krypton:
-      // Gábor Rutkai, Monika Thol, Roland Span & Jadran Vrabec (2017), Molecular Physics, 115:9-12, 1104-1121
-      return double2(162.58,3.6274);
-    case ProbeMolecule::argon:
-      return double2(119.8, 3.34);
-    case ProbeMolecule::multiple_values:
-      return double2();
+    _frameworkProbeEpsilon = parameters->x;
+    _frameworkProbeSigma = parameters->y;
   }
-  return double2();
+}
+
+void Structure::setFrameworkProbeEpsilon(double value)
+{
+  _frameworkProbeEpsilon = value;
+  _frameworkProbeMolecule =
+      probeMoleculeMatching(double2(_frameworkProbeEpsilon, _frameworkProbeSigma));
+}
+
+void Structure::setFrameworkProbeSigma(double value)
+{
+  _frameworkProbeSigma = value;
+  _frameworkProbeMolecule =
+      probeMoleculeMatching(double2(_frameworkProbeEpsilon, _frameworkProbeSigma));
 }
 
 void Structure::setRepresentationStyle(RepresentationStyle style)
@@ -1051,7 +1055,16 @@ double Structure::drawRadius(int elementIdentifier) const
 		return PredefinedElements::predefinedElements[elementIdentifier]._VDWRadius;
 	case RepresentationType::unity:
 		return _bondScaleFactor;
+	case RepresentationType::forcefield:
+	{
+		const RKString symbol = PredefinedElements::predefinedElements[elementIdentifier]._chemicalSymbol;
+		ForceFieldSet defaults;
+		if (ForceFieldType *ff = defaults[symbol])
+			return SKGeometricSurface::inflatedRadius(ff->potentialParameters().y, 0.0);
+		return PredefinedElements::predefinedElements[elementIdentifier]._covalentRadius;
+	}
 	case RepresentationType::sticks_and_balls:
+	case RepresentationType::multiple_values:
 	default:
 		return PredefinedElements::predefinedElements[elementIdentifier]._covalentRadius;
 	}
@@ -1235,33 +1248,32 @@ void Structure::setRepresentationType(RepresentationType type)
     _atomRepresentationType = type;
     std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
 
+    switch(type)
+    {
+      case RepresentationType::sticks_and_balls:
+      case RepresentationType::vdw:
+      case RepresentationType::forcefield:
+        _bondScaleFactor = 0.15;
+        break;
+      case RepresentationType::unity:
+        _bondScaleFactor = 0.25;
+        break;
+      case RepresentationType::multiple_values:
+        break;
+    }
+
+    // Do not overwrite atomScaleFactor here (Cocoa ebfe4781): the Atom Size Scaling
+    // control stays authoritative. Only draw radii and bond thickness follow the type.
     for(const std::shared_ptr<SKAtomTreeNode> &node: asymmetricAtomNodes)
     {
       if(std::shared_ptr<SKAsymmetricAtom> atom = node->representedObject())
       {
-        double radius = 0.0;
-        switch(type)
-        {
-          case RepresentationType::sticks_and_balls:
-            radius = PredefinedElements::predefinedElements[atom->elementIdentifier()]._covalentRadius;
-            atom->setDrawRadius(radius);
-            _atomScaleFactor = 0.7;
-            _bondScaleFactor = 0.15;
-            break;
-          case RepresentationType::vdw:
-            radius = PredefinedElements::predefinedElements[atom->elementIdentifier()]._VDWRadius;
-            atom->setDrawRadius(radius);
-            _atomScaleFactor = 1.0;
-            _bondScaleFactor = 0.15;
-            break;
-          case RepresentationType::unity:
-            _atomScaleFactor = 1.0;
-            _bondScaleFactor = 0.25;
-            atom->setDrawRadius(_bondScaleFactor);
-            break;
-          default:
-            break;
-        }
+        if(type == RepresentationType::forcefield)
+          atom->setDrawRadius(SKGeometricSurface::inflatedRadius(atom->potentialParameters().y, 0.0));
+        else if(type == RepresentationType::unity)
+          atom->setDrawRadius(_bondScaleFactor);
+        else
+          atom->setDrawRadius(drawRadius(atom->elementIdentifier()));
       }
     }
   }
@@ -1666,6 +1678,55 @@ void Structure::setStructureWellSurfaceArea(double value)
   _structureGravimetricWellSurfaceArea = _structureMass > 0.0 ?
       value * Constants::AvogadroConstantPerAngstromSquared / _structureMass : 0.0;
   _structureVolumetricWellSurfaceArea = cell()->volume() > 0.0 ? value * 1e4 / cell()->volume() : 0.0;
+}
+
+void Structure::setStructureGeometricSurfaceArea(double value)
+{
+  _structureGravimetricGeometricSurfaceArea = _structureMass > 0.0 ?
+      value * Constants::AvogadroConstantPerAngstromSquared / _structureMass : 0.0;
+  _structureVolumetricGeometricSurfaceArea = cell()->volume() > 0.0 ? value * 1e4 / cell()->volume() : 0.0;
+}
+
+void Structure::setStructureVanDerWaalsGeometricSurfaceArea(double value)
+{
+  _structureGravimetricVanDerWaalsGeometricSurfaceArea = _structureMass > 0.0 ?
+      value * Constants::AvogadroConstantPerAngstromSquared / _structureMass : 0.0;
+  _structureVolumetricVanDerWaalsGeometricSurfaceArea = cell()->volume() > 0.0 ? value * 1e4 / cell()->volume() : 0.0;
+}
+
+std::vector<int> Structure::atomUnitCellElementIdentifiers() const
+{
+  std::vector<int> identifiers;
+  if (!_atomsTreeController)
+    return identifiers;
+  for (const std::shared_ptr<SKAtomTreeNode> &node : _atomsTreeController->flattenedLeafNodes())
+  {
+    if (std::shared_ptr<SKAsymmetricAtom> atom = node->representedObject())
+    {
+      for (const std::shared_ptr<SKAtomCopy> &copy : atom->copies())
+      {
+        if (copy->type() == SKAtomCopy::AtomCopyType::copy)
+          identifiers.push_back(atom->elementIdentifier());
+      }
+    }
+  }
+  return identifiers;
+}
+
+SKFrameworkSnapshot Structure::frameworkSnapshot(bool applyingBlockingPocketsFlag) const
+{
+  SKFrameworkSnapshot snapshot;
+  if (_cell)
+    snapshot.cell = *_cell;
+  snapshot.positions = atomUnitCellPositions();
+  snapshot.potentialParameters = potentialParameters();
+  snapshot.probeParameters = frameworkProbeParameters();
+  // Cocoa applyingBlockingPockets always hands the pocket list through; the regular
+  // snapshot respects the Apply Blocking Pockets flag.
+  snapshot.blockingPockets = applyingBlockingPocketsFlag ? _blockingPockets : appliedBlockingPockets();
+  snapshot.mass = _structureMass;
+  snapshot.elementIdentifiers = atomUnitCellElementIdentifiers();
+  return snapshot;
 }
 
 // MARK: Blocking pockets
@@ -2087,6 +2148,18 @@ BinaryArchive &operator<<(BinaryArchive &stream, const std::shared_ptr<Structure
 
   stream << structure->_structureVolumetricWellSurfaceArea;
   stream << structure->_structureGravimetricWellSurfaceArea;
+
+  stream << structure->_structureVolumetricGeometricSurfaceArea;
+  stream << structure->_structureGravimetricGeometricSurfaceArea;
+
+  stream << structure->_frameworkProbeEpsilon;
+  stream << structure->_frameworkProbeSigma;
+
+  stream << structure->_adsorptionSurfaceProbeEpsilon;
+  stream << structure->_adsorptionSurfaceProbeSigma;
+
+  stream << structure->_structureVolumetricVanDerWaalsGeometricSurfaceArea;
+  stream << structure->_structureGravimetricVanDerWaalsGeometricSurfaceArea;
 
   // handle super class
   stream << std::static_pointer_cast<Object>(structure);
@@ -2547,6 +2620,48 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<Structure> &str
     {
       stream >> structure->_structureVolumetricWellSurfaceArea;
       stream >> structure->_structureGravimetricWellSurfaceArea;
+    }
+
+    if(versionNumber >= 14) // introduced in version 14
+    {
+      stream >> structure->_structureVolumetricGeometricSurfaceArea;
+      stream >> structure->_structureGravimetricGeometricSurfaceArea;
+    }
+
+    if(versionNumber >= 15) // introduced in version 15
+    {
+      stream >> structure->_frameworkProbeEpsilon;
+      stream >> structure->_frameworkProbeSigma;
+    }
+
+    if(versionNumber >= 16) // introduced in version 16
+    {
+      stream >> structure->_adsorptionSurfaceProbeEpsilon;
+      stream >> structure->_adsorptionSurfaceProbeSigma;
+    }
+
+    if(versionNumber >= 17) // introduced in version 17
+    {
+      stream >> structure->_structureVolumetricVanDerWaalsGeometricSurfaceArea;
+      stream >> structure->_structureGravimetricVanDerWaalsGeometricSurfaceArea;
+    }
+
+    // Older documents only stored the probe enum; seed ε/σ from the named molecule.
+    if(versionNumber < 15)
+    {
+      if (auto parameters = probeMoleculeNamedParameters(structure->_frameworkProbeMolecule))
+      {
+        structure->_frameworkProbeEpsilon = parameters->x;
+        structure->_frameworkProbeSigma = parameters->y;
+      }
+    }
+    if(versionNumber < 16)
+    {
+      if (auto parameters = probeMoleculeNamedParameters(structure->_adsorptionSurfaceProbeMolecule))
+      {
+        structure->_adsorptionSurfaceProbeEpsilon = parameters->x;
+        structure->_adsorptionSurfaceProbeSigma = parameters->y;
+      }
     }
 
     std::shared_ptr<Object> object = std::static_pointer_cast<Object>(structure);

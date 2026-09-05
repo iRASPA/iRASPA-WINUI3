@@ -31,6 +31,8 @@
 #include "proteinribbonmixin.h"
 #include "skcifparser.h"
 #include "skxyzparser.h"
+#include "skmaterialtype.h"
+#include "structuralpropertyviewer.h"
 
 namespace {
 
@@ -256,15 +258,31 @@ Scene::Scene(const std::filesystem::path &path, const SKColorSets& colorSets, Fo
       case SKStructure::Kind::GaussianCubeVolume:
         iraspastructure = std::make_shared<iRASPAObject>(std::make_shared<GaussianCubeVolume>(frame));
         break;
+      case SKStructure::Kind::dna:
+        iraspastructure = std::make_shared<iRASPAObject>(std::make_shared<Protein>(frame));
+        break;
+      case SKStructure::Kind::dnaCrystal:
+        iraspastructure = std::make_shared<iRASPAObject>(std::make_shared<ProteinCrystal>(frame));
+        break;
       default:
         throw std::runtime_error("Unknown structure format");
       }
 
       if(std::shared_ptr<Structure> structure = std::dynamic_pointer_cast<Structure>(iraspastructure->object()))
       {
+        if (frame->materialType == SKMaterialType::unspecified)
+          frame->applyInferredMaterialType();
+        const RKString materialName = SKMaterialTypeAPI::displayName(frame->materialType);
+        if (auto editor = std::dynamic_pointer_cast<StructuralPropertyEditor>(structure))
+          editor->setStructureMaterialType(materialName);
+        else
+          structure->setImportedStructureMaterialType(materialName);
+
         structure->setRepresentationStyle(Structure::RepresentationStyle::defaultStyle, colorSets);
-        structure->setAtomForceFieldIdentifier("Default", forcefieldSets);
-        structure->updateForceField(forcefieldSets);
+
+        // Cocoa: suggested force field from inferred material (Aluminosilicate for zeolites).
+        structure->setAtomForceFieldIdentifier(ForceFieldSets::suggestedDisplayName(materialName),
+                                              forcefieldSets);
 
         structure->computeBonds();
 

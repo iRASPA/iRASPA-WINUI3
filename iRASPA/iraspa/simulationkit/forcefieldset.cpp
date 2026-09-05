@@ -49,6 +49,39 @@ ForceFieldSet::ForceFieldSet(RKString name, ForceFieldSet& forcefieldset, bool e
   }
 }
 
+ForceFieldSet ForceFieldSet::aluminosilicate()
+{
+  // Framework + extra-framework types for the Calero/Auerbach charge scheme.
+  // WINUI3 ForceFieldType has no charge field yet; LJ parameters and identifiers match Cocoa.
+  auto tAtom = [](const char *symbol, int atomicNumber, double radius, double mass) {
+    return ForceFieldType(RKString(symbol), atomicNumber, double2(22.0, 2.30), mass, radius, false);
+  };
+  auto cation = [](const char *symbol) -> ForceFieldType {
+    ForceFieldSet defaults;
+    if (ForceFieldType *base = defaults[RKString(symbol)])
+      return ForceFieldType(*base);
+    return ForceFieldType(RKString(symbol), 0, double2(0.0, 0.0), 0.0, 0.0, false);
+  };
+
+  ForceFieldSet defaults;
+  ForceFieldSet set(RKString(aluminosilicateDisplayName), defaults, false);
+  set._atomTypeList = {
+    ForceFieldType(RKString("O"), 8, double2(53.0, 3.30), 15.9994, 0.66, false),
+    ForceFieldType(RKString("Oa"), 8, double2(53.0, 3.30), 15.9994, 0.66, false),
+    tAtom("Si", 14, 1.11, 28.0855),
+    tAtom("Al", 13, 1.21, 26.9815386),
+    tAtom("P", 15, 1.07, 30.973762),
+    tAtom("B", 5, 0.84, 10.881),
+    tAtom("Ga", 31, 1.22, 69.723),
+    tAtom("Ge", 32, 1.20, 72.64),
+    cation("Li"), cation("Na"), cation("K"), cation("Rb"), cation("Cs"), cation("Ag"),
+    cation("Mg"), cation("Ca"), cation("Sr"), cation("Ba"),
+    cation("Mn"), cation("Fe"), cation("Co"), cation("Ni"), cation("Cu"), cation("Zn"), cation("Cd"),
+    cation("Y"), cation("La"), cation("Ce")
+  };
+  return set;
+}
+
 void ForceFieldSet::duplicate(size_t index)
 {
   _atomTypeList.insert(_atomTypeList.begin() + index + 1, _atomTypeList[index]);

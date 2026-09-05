@@ -55,6 +55,13 @@
             <Setter Property="Margin" Value="0,4,0,4"/>
         </Style>
 
+        <Style x:Key="Separator" TargetType="Border">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="#3C808080"/>
+            <Setter Property="Margin" Value="0,4,0,4"/>
+        </Style>
+
         <!-- Cocoa shows read-only values in bezeled (non-editable) text fields. -->
         <Style x:Key="Readout" TargetType="TextBox">
             <Setter Property="IsReadOnly" Value="True"/>
@@ -402,6 +409,18 @@
                                       TextSubmitted="OnMaterialTextSubmitted"/>
                         </Grid>
 
+                        <!-- Cocoa: force-field set lives here (not Appearance → Atoms),
+                             used for void fraction, surface areas, and energy surfaces. -->
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*">
+                            <TextBlock Text="Force field:" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="ForceFieldCombo" Grid.Column="1"
+                                      HorizontalAlignment="Stretch"
+                                      FontSize="{StaticResource RowLabelFontSize}"
+                                      ToolTipService.ToolTip="Force field used to compute helium void fraction, surface areas, and adsorption energy surfaces"
+                                      SelectionChanged="OnForceFieldChanged"/>
+                        </Grid>
+
                         <Grid Style="{StaticResource Row}"
                               ColumnDefinitions="375,*,Auto">
                             <TextBlock Text="Mass:" Style="{StaticResource RowLabel}"/>
@@ -443,17 +462,69 @@
                             <TextBlock Text="[cm&#x00B3;/g]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
                         </Grid>
 
+                        <Border Style="{StaticResource Separator}"/>
                         <Grid Style="{StaticResource Row}"
                               ColumnDefinitions="375,*">
-                            <TextBlock Text="Probe molecule:" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Text="Probe sphere:" Style="{StaticResource RowLabel}"/>
                             <ComboBox x:Name="ProbeCombo" Grid.Column="1" HorizontalAlignment="Stretch"
                                       FontSize="{StaticResource RowLabelFontSize}"
                                       SelectionChanged="OnProbeMoleculeChanged"/>
                         </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Probe epsilon:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="ProbeEpsilonBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnProbeParameterChanged"/>
+                            <TextBlock Text="[K]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Probe sigma:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="ProbeSigmaBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnProbeParameterChanged"/>
+                            <TextBlock Text="[&#xC5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+
+                        <!-- Cocoa: one label + recompute on the volumetric line; gravimetric
+                             is the second value only (no label, no button). Order matches
+                             StructureCellDetail: VDW geometric, FF geometric, Umin, well. -->
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto,Auto">
+                            <TextBlock Text="VDW Geometric Surface Area:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="VolumetricVDWGeometricAreaBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[m&#x00B2;/cm&#x00B3;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeVanDerWaalsGeometricSurfaceArea">
+                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto,Auto">
+                            <NumberBox x:Name="GravimetricVDWGeometricAreaBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[m&#x00B2;/g]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
 
                         <Grid Style="{StaticResource Row}"
                               ColumnDefinitions="375,*,Auto,Auto">
-                            <TextBlock Text="Volumetric surface area:" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Text="FF Geometric Surface Area:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="VolumetricGeometricAreaBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[m&#x00B2;/cm&#x00B3;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeGeometricSurfaceArea">
+                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto,Auto">
+                            <NumberBox x:Name="GravimetricGeometricAreaBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[m&#x00B2;/g]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto,Auto">
+                            <TextBlock Text="Umin Surface Area:" Style="{StaticResource RowLabel}"/>
                             <NumberBox x:Name="VolumetricAreaBox" Grid.Column="1" Style="{StaticResource Num}"
                                        ValueChanged="OnStructuralChanged"/>
                             <TextBlock Text="[m&#x00B2;/cm&#x00B3;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
@@ -463,20 +534,14 @@
                         </Grid>
                         <Grid Style="{StaticResource Row}"
                               ColumnDefinitions="375,*,Auto,Auto">
-                            <TextBlock Text="Gravimetric surface area:" Style="{StaticResource RowLabel}"/>
                             <NumberBox x:Name="GravimetricAreaBox" Grid.Column="1" Style="{StaticResource Num}"
                                        ValueChanged="OnStructuralChanged"/>
                             <TextBlock Text="[m&#x00B2;/g]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
-                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeSurfaceArea">
-                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
-                            </Button>
                         </Grid>
 
-                        <!-- The area of the surface through the energy minima rather
-                             than of the probe-accessible iso-surface. -->
                         <Grid Style="{StaticResource Row}"
                               ColumnDefinitions="375,*,Auto,Auto">
-                            <TextBlock Text="Volumetric well-surface area:" Style="{StaticResource RowLabel}"/>
+                            <TextBlock Text="Well-Surface Area:" Style="{StaticResource RowLabel}"/>
                             <NumberBox x:Name="VolumetricWellAreaBox" Grid.Column="1" Style="{StaticResource Num}"
                                        ValueChanged="OnStructuralChanged"/>
                             <TextBlock Text="[m&#x00B2;/cm&#x00B3;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
@@ -486,15 +551,12 @@
                         </Grid>
                         <Grid Style="{StaticResource Row}"
                               ColumnDefinitions="375,*,Auto,Auto">
-                            <TextBlock Text="Gravimetric well-surface area:" Style="{StaticResource RowLabel}"/>
                             <NumberBox x:Name="GravimetricWellAreaBox" Grid.Column="1" Style="{StaticResource Num}"
                                        ValueChanged="OnStructuralChanged"/>
                             <TextBlock Text="[m&#x00B2;/g]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
-                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeWellSurfaceArea">
-                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
-                            </Button>
                         </Grid>
 
+                        <Border Style="{StaticResource Separator}"/>
                         <Grid Style="{StaticResource Row}"
                               ColumnDefinitions="375,*,Auto">
                             <TextBlock Text="Number of channel systems:" Style="{StaticResource RowLabel}"/>

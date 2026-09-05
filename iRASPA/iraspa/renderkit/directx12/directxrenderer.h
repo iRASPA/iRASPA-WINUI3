@@ -20,6 +20,7 @@
 #include "directxglobalaxesshader.h"
 #include "directxblockingpocketsshader.h"
 #include "directxenergysurface.h"
+#include "directxgeometricsurface.h"
 #include "directxenergyvolumerenderedsurface.h"
 #include "directxpickingshader.h"
 #include "directxselectionshader.h"
@@ -305,6 +306,7 @@ private:
   DirectXRibbonAmbientOcclusionShader m_ribbonAmbientOcclusionShader;
   DirectXBoundingBoxShader m_boundingBoxShader;
   DirectXEnergySurface m_energySurfaceShader;
+  DirectXGeometricSurface m_geometricSurfaceShader;
   DirectXEnergyVolumeRenderedSurface m_energyVolumeShader;
   DirectXBlockingPocketsShader m_blockingPocketsShader;
   DirectXPickingShader m_pickingShader;

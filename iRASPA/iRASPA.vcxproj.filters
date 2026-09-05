@@ -341,6 +341,9 @@
     <ClCompile Include="iraspa\symmetrykit\skcifparser.cpp">
       <Filter>Kits\symmetrykit</Filter>
     </ClCompile>
+    <ClCompile Include="iraspa\symmetrykit\skmaterialtype.cpp">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClCompile>
     <ClCompile Include="iraspa\symmetrykit\skcifsymmetryoperationparser.cpp">
       <Filter>Kits\symmetrykit</Filter>
     </ClCompile>
@@ -1544,6 +1547,9 @@
       <Filter>Kits\symmetrykit</Filter>
     </ClInclude>
     <ClInclude Include="iraspa\symmetrykit\skstructure.h">
+      <Filter>Kits\symmetrykit</Filter>
+    </ClInclude>
+    <ClInclude Include="iraspa\symmetrykit\skmaterialtype.h">
       <Filter>Kits\symmetrykit</Filter>
     </ClInclude>
     <ClInclude Include="iraspa\symmetrykit\sksymmetrycell.h">
