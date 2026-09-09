@@ -10,7 +10,7 @@
   <Identity
     Name="39140DavidDubbeldam.432414C5FF922"
     Publisher="CN=7A07FC1F-D8C3-492E-A048-10ACFB7E62DA"
-    Version="2.3.8.0" />
+    Version="2.3.9.0" />
   <Properties>
     <DisplayName>iRASPA</DisplayName>
     <PublisherDisplayName>David Dubbeldam</PublisherDisplayName>
@@ -21,7 +21,11 @@
     <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0" />
   </Dependencies>
   <Resources>
-    <Resource Language="x-generate" />
+    <!-- Must be explicit, not x-generate: WinUI ships .mui folders for many locales,
+         and MakePri then expands this list differently for x64 vs ARM64, so the
+         architecture packages disagree and MakeAppx refuses the bundle (0x80080204).
+         The app itself is English-only. -->
+    <Resource Language="en-US" />
   </Resources>
   <Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="Windows.FullTrustApplication">

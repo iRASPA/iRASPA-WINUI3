@@ -1704,7 +1704,7 @@ double ProteinCrystal::computeVoidFractionAccelerated() const noexcept(false)
   double3x3 unitCell = cell()->unitCell();
   int3 numberOfReplicas = cell()->numberOfReplicas(12.0);
 
-  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGrid(size, probeParameter, positions, parameters, unitCell, numberOfReplicas, appliedBlockingPockets());
+  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGrid(size, probeParameter, positions, parameters, unitCell, numberOfReplicas, blockingPockets());
   double sumBoltzmannWeight = 0.0;
   for(const float &value: gridData)
   {
@@ -1798,7 +1798,7 @@ double ProteinCrystal::computeVoidFraction() const noexcept
   double3x3 unitCell = cell()->unitCell();
   int3 numberOfReplicas = cell()->numberOfReplicas(12.0);
 
-  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGridCPUImplementation(size, probeParameter, positions, parameters, unitCell, numberOfReplicas, appliedBlockingPockets());
+  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGridCPUImplementation(size, probeParameter, positions, parameters, unitCell, numberOfReplicas, blockingPockets());
   double sumBoltzmannWeight = 0.0;
   for(const float &value: gridData)
   {

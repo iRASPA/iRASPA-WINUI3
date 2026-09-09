@@ -114,6 +114,14 @@ Crystal::Crystal(const std::shared_ptr<Object> object): Structure(object)
     _structureLargestCavityDiameter = structuralPropertyViewer->structureLargestCavityDiameter();
     _structureRestrictingPoreLimitingDiameter = structuralPropertyViewer->structureRestrictingPoreLimitingDiameter();
     _structureLargestCavityDiameterAlongAViablePath = structuralPropertyViewer->structureLargestCavityDiameterAlongAViablePath();
+    _structureRestrictingPoreLimitingDiameter2 = structuralPropertyViewer->structureRestrictingPoreLimitingDiameter2();
+    _structureLargestCavityDiameterAlongAViablePath2 = structuralPropertyViewer->structureLargestCavityDiameterAlongAViablePath2();
+    _structureWindow1Size = structuralPropertyViewer->structureWindow1Size();
+    _structureWindow2Size = structuralPropertyViewer->structureWindow2Size();
+    _structureWindow3Size = structuralPropertyViewer->structureWindow3Size();
+    _structureWindow1RingAtoms = structuralPropertyViewer->structureWindow1RingAtoms();
+    _structureWindow2RingAtoms = structuralPropertyViewer->structureWindow2RingAtoms();
+    _structureWindow3RingAtoms = structuralPropertyViewer->structureWindow3RingAtoms();
   }
 }
 
@@ -1893,9 +1901,11 @@ double Crystal::computeVoidFractionAccelerated() const noexcept(false)
   double3x3 unitCell = cell()->unitCell();
   int3 numberOfReplicas = cell()->numberOfReplicas(12.0);
 
+  // Helium void fraction always applies blocking pockets (Cocoa SKFrameworkSnapshot.applyingBlockingPockets),
+  // even when "Apply blocking pockets" is off for drawing / energy isosurfaces.
   std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGrid(size, probeParameter, positions,
                                                                        parameters, unitCell, numberOfReplicas,
-                                                                       appliedBlockingPockets());
+                                                                       blockingPockets());
   double sumBoltzmannWeight = 0.0;
   for(const float &value: gridData)
   {
@@ -1985,7 +1995,7 @@ double Crystal::computeVoidFraction() const noexcept
   double3x3 unitCell = cell()->unitCell();
   int3 numberOfReplicas = cell()->numberOfReplicas(12.0);
 
-  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGridCPUImplementation(size, probeParameter, positions, parameters, unitCell, numberOfReplicas, appliedBlockingPockets());
+  std::vector<float> gridData = SKComputeEnergyGrid::computeEnergyGridCPUImplementation(size, probeParameter, positions, parameters, unitCell, numberOfReplicas, blockingPockets());
   double sumBoltzmannWeight = 0.0;
   for(const float &value: gridData)
   {

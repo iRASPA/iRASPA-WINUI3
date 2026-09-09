@@ -33,5 +33,8 @@
 #include <skwellsurface.h>
 #include <skspheresweep.h>
 #include <skgeometricsurface.h>
-
+// Voronoi / Apollonius pore analysis are intentionally not in this umbrella:
+// Structure and almost every iraspakit TU include simulationkit.h, and pulling those
+// headers into Release /O2+/GL codegen exhausts the compiler heap (C1060 pass 2,
+// often reported at double3.h). Include skvoronoi.h / skapollonius*.h at the call site.
 

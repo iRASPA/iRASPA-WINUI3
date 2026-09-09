@@ -183,6 +183,8 @@ struct VSOutput
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
   float3 V : TEXCOORD0;
+  // Object space, which is the space the unit-cell clip planes are written in.
+  float4 modelPosition : TEXCOORD1;
 };
 
 // A blocking pocket is a sphere of a given radius in Angstrom around a position in the cell, so the unit
@@ -192,6 +194,7 @@ VSOutput VSMain(VSInput input)
 {
   VSOutput output;
   float4 pos = float4((input.instanceScale * input.vertexPosition + input.instancePosition).xyz, 1.0);
+  output.modelPosition = pos;
 
   output.N = mul(frameUniforms.normalMatrix, mul(structureUniforms.modelMatrix, input.vertexNormal)).xyz;
 
@@ -217,13 +220,25 @@ struct PSInput
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
   float3 V : TEXCOORD0;
+  float4 modelPosition : TEXCOORD1;
 };
 
 // Both faces of the sphere are drawn, so the normal is flipped on the inside to keep the far wall of a
 // pocket shaded rather than black. The opacity travels in the alpha of the diffuse colour and the result
 // is premultiplied by it, which is what the blend state of the transparent pass expects.
+//
+// Fragments outside the unit cell (the replica box) are discarded. A pocket that sat on a face is
+// wrapped to the opposite side as a second instance, so the two clipped pieces reconstruct the sphere
+// inside the cell rather than leaving a cap sticking out.
 float4 PSMain(PSInput input, bool isFrontFace : SV_IsFrontFace) : SV_TARGET
 {
+  if (dot(structureUniforms.clipPlaneLeft, input.modelPosition) < 0.0) discard;
+  if (dot(structureUniforms.clipPlaneRight, input.modelPosition) < 0.0) discard;
+  if (dot(structureUniforms.clipPlaneTop, input.modelPosition) < 0.0) discard;
+  if (dot(structureUniforms.clipPlaneBottom, input.modelPosition) < 0.0) discard;
+  if (dot(structureUniforms.clipPlaneFront, input.modelPosition) < 0.0) discard;
+  if (dot(structureUniforms.clipPlaneBack, input.modelPosition) < 0.0) discard;
+
   float3 N = normalize(input.N);
   float3 V = normalize(input.V);
 

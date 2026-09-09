@@ -70,6 +70,18 @@ namespace winrt::iRASPA_WinUI::implementation
                                            winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnComputeVanDerWaalsGeometricSurfaceArea(winrt::Windows::Foundation::IInspectable const& sender,
                                                       winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnComputeApolloniusChannels(winrt::Windows::Foundation::IInspectable const& sender,
+                                         winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnComputeApolloniusDiameters(winrt::Windows::Foundation::IInspectable const& sender,
+                                          winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnComputeApolloniusWindows(winrt::Windows::Foundation::IInspectable const& sender,
+                                        winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
+        void OnBlockingPocketProbeMoleculeChanged(winrt::Windows::Foundation::IInspectable const& sender,
+                                                   winrt::Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const& e);
+        void OnBlockingPocketProbeParameterChanged(winrt::Microsoft::UI::Xaml::Controls::NumberBox const& sender,
+                                                    winrt::Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const& e);
+        void OnComputeBlockingPockets(winrt::Windows::Foundation::IInspectable const& sender,
+                                      winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnLoadBlockingPockets(winrt::Windows::Foundation::IInspectable const& sender,
                                    winrt::Microsoft::UI::Xaml::RoutedEventArgs const& e);
         void OnSpaceGroupNumberChanged(winrt::Windows::Foundation::IInspectable const& sender,
@@ -83,8 +95,8 @@ namespace winrt::iRASPA_WinUI::implementation
 
     private:
         // One structural-property row: which value of the StructuralPropertyEditor
-        // interface the box shows, and how to write it back. Keeps the thirteen
-        // rows to one handler and one reload loop.
+        // interface the box shows, and how to write it back. Keeps the pore /
+        // area / window rows to one handler and one reload loop.
         struct StructuralField
         {
             winrt::Microsoft::UI::Xaml::Controls::NumberBox box{ nullptr };

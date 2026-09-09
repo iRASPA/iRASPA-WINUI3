@@ -196,6 +196,8 @@ namespace winrt::iRASPA_WinUI::implementation
             MaterialCombo().Items().Append(box_value(hstring(name)));
         for (auto const* name : kProbeMolecules)
             ProbeCombo().Items().Append(box_value(hstring(name)));
+        for (auto const* name : kProbeMolecules)
+            BlockingPocketProbeCombo().Items().Append(box_value(hstring(name)));
 
         // The space-group popups are the whole database, so they are filled once
         // and only their selection moves afterwards.
@@ -277,6 +279,81 @@ namespace winrt::iRASPA_WinUI::implementation
             &StructuralPropertyEditor::setStructureRestrictingPoreLimitingDiameter);
         add(ViablePathDiameterBox(), &StructuralPropertyViewer::structureLargestCavityDiameterAlongAViablePath,
             &StructuralPropertyEditor::setStructureLargestCavityDiameterAlongAViablePath);
+        add(PoreDiameter2Box(), &StructuralPropertyViewer::structureRestrictingPoreLimitingDiameter2,
+            &StructuralPropertyEditor::setStructureRestrictingPoreLimitingDiameter2);
+        add(ViablePathDiameter2Box(), &StructuralPropertyViewer::structureLargestCavityDiameterAlongAViablePath2,
+            &StructuralPropertyEditor::setStructureLargestCavityDiameterAlongAViablePath2);
+
+        // Window sizes are double2 (smallest / largest opposite-oxygen diameters).
+        auto addWindowComponent = [this](NumberBox const& box, int index, bool largest)
+        {
+            m_structuralFields.push_back({
+                box,
+                [index, largest](StructuralPropertyViewer& v)
+                {
+                    double2 size{};
+                    switch (index)
+                    {
+                    case 0: size = v.structureWindow1Size(); break;
+                    case 1: size = v.structureWindow2Size(); break;
+                    default: size = v.structureWindow3Size(); break;
+                    }
+                    return largest ? size.y : size.x;
+                },
+                [index, largest](StructuralPropertyEditor& e, double value)
+                {
+                    double2 size{};
+                    switch (index)
+                    {
+                    case 0: size = e.structureWindow1Size(); break;
+                    case 1: size = e.structureWindow2Size(); break;
+                    default: size = e.structureWindow3Size(); break;
+                    }
+                    if (largest)
+                        size.y = value;
+                    else
+                        size.x = value;
+                    switch (index)
+                    {
+                    case 0: e.setStructureWindow1Size(size); break;
+                    case 1: e.setStructureWindow2Size(size); break;
+                    default: e.setStructureWindow3Size(size); break;
+                    }
+                } });
+        };
+        auto addRingAtoms = [this](NumberBox const& box, int index)
+        {
+            m_structuralFields.push_back({
+                box,
+                [index](StructuralPropertyViewer& v) -> double
+                {
+                    switch (index)
+                    {
+                    case 0: return static_cast<double>(v.structureWindow1RingAtoms());
+                    case 1: return static_cast<double>(v.structureWindow2RingAtoms());
+                    default: return static_cast<double>(v.structureWindow3RingAtoms());
+                    }
+                },
+                [index](StructuralPropertyEditor& e, double value)
+                {
+                    const auto atoms = static_cast<int64_t>(std::llround(value));
+                    switch (index)
+                    {
+                    case 0: e.setStructureWindow1RingAtoms(atoms); break;
+                    case 1: e.setStructureWindow2RingAtoms(atoms); break;
+                    default: e.setStructureWindow3RingAtoms(atoms); break;
+                    }
+                } });
+        };
+        addWindowComponent(Window1MinBox(), 0, false);
+        addWindowComponent(Window1MaxBox(), 0, true);
+        addRingAtoms(Window1RingBox(), 0);
+        addWindowComponent(Window2MinBox(), 1, false);
+        addWindowComponent(Window2MaxBox(), 1, true);
+        addRingAtoms(Window2RingBox(), 1);
+        addWindowComponent(Window3MinBox(), 2, false);
+        addWindowComponent(Window3MaxBox(), 2, true);
+        addRingAtoms(Window3RingBox(), 2);
 
         // Cocoa's steps: masses and areas by one, the volumes and fractions
         // finer, the counts by one and whole.
@@ -301,6 +378,15 @@ namespace winrt::iRASPA_WinUI::implementation
         ConfigureNumber(CavityDiameterBox(), 0.0, 1.0e12, 0.1, 6);
         ConfigureNumber(PoreDiameterBox(), 0.0, 1.0e12, 0.1, 6);
         ConfigureNumber(ViablePathDiameterBox(), 0.0, 1.0e12, 0.1, 6);
+        ConfigureNumber(PoreDiameter2Box(), 0.0, 1.0e12, 0.1, 6);
+        ConfigureNumber(ViablePathDiameter2Box(), 0.0, 1.0e12, 0.1, 6);
+        for (auto const& box : { Window1MinBox(), Window1MaxBox(), Window2MinBox(), Window2MaxBox(),
+                                 Window3MinBox(), Window3MaxBox() })
+            ConfigureNumber(box, 0.0, 1.0e12, 0.1, 6);
+        for (auto const& box : { Window1RingBox(), Window2RingBox(), Window3RingBox() })
+            ConfigureNumber(box, 0.0, 1.0e12, 1.0, 0);
+        ConfigureNumber(BlockingPocketEpsilonBox(), 0.0, 1.0e12, 0.1, 6);
+        ConfigureNumber(BlockingPocketSigmaBox(), 0.0, 1.0e12, 0.01, 6);
     }
 
     std::shared_ptr<Object> CellDetailView::FirstObject() const
@@ -665,6 +751,29 @@ namespace winrt::iRASPA_WinUI::implementation
         BlockingBody().Visibility(structure ? Visibility::Visible : Visibility::Collapsed);
         if (!structure)
             return;
+
+        auto agreed = [this](auto const& read)
+        {
+            return m_controller->AgreedValue<Structure>(read);
+        };
+
+        {
+            auto probe = agreed([](auto const& s) { return s->blockingPocketProbeMolecule(); });
+            std::optional<int> item;
+            if (probe)
+            {
+                const int index = selectableProbeMoleculeIndex(*probe);
+                if (index >= 0)
+                    item = index;
+            }
+            DetailControls::SelectOrMultiple(BlockingPocketProbeCombo(), item);
+        }
+        DetailControls::SetNumberOrMultiple(
+            BlockingPocketEpsilonBox(),
+            agreed([](auto const& s) { return s->blockingPocketProbeEpsilon(); }));
+        DetailControls::SetNumberOrMultiple(
+            BlockingPocketSigmaBox(),
+            agreed([](auto const& s) { return s->blockingPocketProbeSigma(); }));
 
         auto const pockets = m_controller->BlockingPockets();
         BlockingCountLabel().Text(hstring(std::to_wstring(pockets.size()) + L" blocking pockets"));
@@ -1256,6 +1365,86 @@ namespace winrt::iRASPA_WinUI::implementation
         if (!m_controller)
             return;
         m_controller->ComputeVanDerWaalsGeometricSurfaceArea();
+        Reload();
+    }
+
+    void CellDetailView::OnComputeApolloniusChannels(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_controller)
+            return;
+        m_controller->ComputeApolloniusChannels();
+        Reload();
+    }
+
+    void CellDetailView::OnComputeApolloniusDiameters(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_controller)
+            return;
+        m_controller->ComputeApolloniusDiameters();
+        Reload();
+    }
+
+    void CellDetailView::OnComputeApolloniusWindows(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_controller)
+            return;
+        m_controller->ComputeApolloniusWindows();
+        Reload();
+    }
+
+    void CellDetailView::OnBlockingPocketProbeMoleculeChanged(IInspectable const& sender,
+                                                              SelectionChangedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_controller)
+            return;
+        auto combo = sender.try_as<ComboBox>();
+        if (!combo || combo.SelectedIndex() < 0)
+            return;
+        if (DetailControls::IsMultipleValuesSelected(combo))
+            return;
+        const int index = combo.SelectedIndex();
+        if (index < 0 || index >= static_cast<int>(kSelectableProbeMoleculeCount))
+            return;
+        const auto probe = kSelectableProbeMolecules[index];
+        m_controller->EditCells(L"Change Blocking Pocket Probe Molecule", [probe](Object& object)
+        {
+            if (auto structure = dynamic_cast<Structure*>(&object))
+                structure->applyBlockingPocketProbeMolecule(probe);
+        }, DocumentController::CellReload::None);
+        Reload();
+    }
+
+    void CellDetailView::OnBlockingPocketProbeParameterChanged(NumberBox const& sender,
+                                                               NumberBoxValueChangedEventArgs const&)
+    {
+        if (m_suppressEvents || !m_controller || !sender)
+            return;
+        const double value = sender.Value();
+        if (!std::isfinite(value))
+            return;
+        const bool isEpsilon = sender == BlockingPocketEpsilonBox();
+        const bool isSigma = sender == BlockingPocketSigmaBox();
+        if (!isEpsilon && !isSigma)
+            return;
+        m_controller->EditCells(L"Change Blocking Pocket Probe Parameter",
+                                [isEpsilon, value](Object& object)
+        {
+            if (auto structure = dynamic_cast<Structure*>(&object))
+            {
+                if (isEpsilon)
+                    structure->setBlockingPocketProbeEpsilon(value);
+                else
+                    structure->setBlockingPocketProbeSigma(value);
+            }
+        }, DocumentController::CellReload::None);
+        ReloadBlockingPockets();
+    }
+
+    void CellDetailView::OnComputeBlockingPockets(IInspectable const&, RoutedEventArgs const&)
+    {
+        if (!m_controller)
+            return;
+        m_controller->ComputeBlockingPockets();
         Reload();
     }
 

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!-- Must be set before Microsoft.Cpp.props resolves ClCompilerPath.
+       Without this, ARM64 targets (and any 32-bit MSBuild, e.g. some VS
+       packaging passes) default to HostX86\...\cl.exe, whose ~2 GB address
+       space is what triggers C1060 "out of heap space in pass 2" under /GL.
+       x64-on-x64 already picked HostX64; this makes every configuration do so. -->
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+</Project>

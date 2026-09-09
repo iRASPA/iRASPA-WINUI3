@@ -497,6 +497,19 @@ public:
         double largestCavityDiameter = 0.0;
         double restrictingPoreLimitingDiameter = 0.0;
         double largestCavityDiameterAlongAViablePath = 0.0;
+        double restrictingPoreLimitingDiameter2 = 0.0;
+        double largestCavityDiameterAlongAViablePath2 = 0.0;
+        double2 window1Size{};
+        double2 window2Size{};
+        double2 window3Size{};
+        int64_t window1RingAtoms = 0;
+        int64_t window2RingAtoms = 0;
+        int64_t window3RingAtoms = 0;
+        // Blocking-pocket probe (Structure, not StructuralPropertyEditor).
+        ProbeMolecule blockingPocketProbeMolecule = ProbeMolecule::helium;
+        double blockingPocketProbeEpsilon = 0.0;
+        double blockingPocketProbeSigma = 0.0;
+        bool hasBlockingPocketProbe = false;
     };
     struct CellUndoState
     {
@@ -553,11 +566,17 @@ public:
     // over the probe-accessible energy iso-surface; the well area is the one over
     // the locus of energy minima the well surface is drawn on. Geometric areas use
     // SKGeometricSurface (force-field or Bondi VDW spheres) with blocking pockets applied.
+    // Apollonius pore properties share one diagram build per structure (Cocoa
+    // recomputeApolloniusPoreProperties) and selectively fill channels, diameters,
+    // or windows.
     void ComputeHeliumVoidFraction();
     void ComputeNitrogenSurfaceArea();
     void ComputeWellSurfaceArea();
     void ComputeGeometricSurfaceArea();
     void ComputeVanDerWaalsGeometricSurfaceArea();
+    void ComputeApolloniusChannels();
+    void ComputeApolloniusDiameters();
+    void ComputeApolloniusWindows();
 
     // ---- Blocking pockets -------------------------------------------------
     // The pockets of the first structure of the selection, which is what the cell
@@ -573,6 +592,9 @@ public:
                               std::wstring const& actionName);
     // Asks the window for a .block file and applies what it holds.
     void LoadBlockingPocketsFile();
+    // Cocoa recomputeBlockingPockets: Apollonius pockets with the blocking-pocket
+    // probe and an empty pocket list on the snapshot.
+    void ComputeBlockingPockets();
 
     // ---- Atoms ------------------------------------------------------------
     // Where an atom node sat, so a move or a delete can be undone by putting it

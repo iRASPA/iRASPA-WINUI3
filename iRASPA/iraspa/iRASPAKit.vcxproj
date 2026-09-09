@@ -514,6 +514,18 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
+    <ClCompile Include="simulationkit\skvoronoi.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="simulationkit\skapolloniusdiagram.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="simulationkit\skapolloniusporeanalysis.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup Label="RenderKit">
     <ClCompile Include="renderkit\rkcamera.cpp">
@@ -1212,6 +1224,9 @@
     <ClInclude Include="simulationkit\skwellsurface.h" />
     <ClInclude Include="simulationkit\skspheresweep.h" />
     <ClInclude Include="simulationkit\skgeometricsurface.h" />
+    <ClInclude Include="simulationkit\skvoronoi.h" />
+    <ClInclude Include="simulationkit\skapolloniusdiagram.h" />
+    <ClInclude Include="simulationkit\skapolloniusporeanalysis.h" />
     <ClInclude Include="simulationkit\directx12\skdx12.h" />
     <ClInclude Include="simulationkit\forcefieldset.h" />
     <ClInclude Include="simulationkit\forcefieldsets.h" />

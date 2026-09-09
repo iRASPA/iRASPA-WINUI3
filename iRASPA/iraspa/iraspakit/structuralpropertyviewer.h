@@ -69,6 +69,14 @@ public:
   virtual double structureLargestCavityDiameter() const = 0;
   virtual double structureRestrictingPoreLimitingDiameter() const = 0;
   virtual double structureLargestCavityDiameterAlongAViablePath() const = 0;
+  virtual double structureRestrictingPoreLimitingDiameter2() const = 0;
+  virtual double structureLargestCavityDiameterAlongAViablePath2() const = 0;
+  virtual double2 structureWindow1Size() const = 0;
+  virtual double2 structureWindow2Size() const = 0;
+  virtual double2 structureWindow3Size() const = 0;
+  virtual int64_t structureWindow1RingAtoms() const = 0;
+  virtual int64_t structureWindow2RingAtoms() const = 0;
+  virtual int64_t structureWindow3RingAtoms() const = 0;
 };
 
 class StructuralPropertyEditor: public StructuralPropertyViewer
@@ -102,4 +110,12 @@ public:
   virtual void setStructureLargestCavityDiameter(double value) = 0;
   virtual void setStructureRestrictingPoreLimitingDiameter(double value) = 0;
   virtual void setStructureLargestCavityDiameterAlongAViablePath(double value) = 0;
+  virtual void setStructureRestrictingPoreLimitingDiameter2(double value) = 0;
+  virtual void setStructureLargestCavityDiameterAlongAViablePath2(double value) = 0;
+  virtual void setStructureWindow1Size(double2 value) = 0;
+  virtual void setStructureWindow2Size(double2 value) = 0;
+  virtual void setStructureWindow3Size(double2 value) = 0;
+  virtual void setStructureWindow1RingAtoms(int64_t value) = 0;
+  virtual void setStructureWindow2RingAtoms(int64_t value) = 0;
+  virtual void setStructureWindow3RingAtoms(int64_t value) = 0;
 };

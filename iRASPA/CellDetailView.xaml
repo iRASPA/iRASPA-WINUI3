@@ -15,7 +15,7 @@
          Row labels run smaller than body text so the common ones stay on one
          line even when Windows text scaling is above 100%. The label columns are
          195 and 375 wide: like Cocoa's, wide enough for the longest label in the
-         group ("Largest diameter along a viable path (Dif):"). -->
+         group ("Largest diameter along a viable path (Dif2):"). -->
     <UserControl.Resources>
         <x:Double x:Key="RowLabelFontSize">11</x:Double>
 
@@ -558,53 +558,192 @@
 
                         <Border Style="{StaticResource Separator}"/>
                         <Grid Style="{StaticResource Row}"
-                              ColumnDefinitions="375,*,Auto">
+                              ColumnDefinitions="375,*,Auto,Auto">
                             <TextBlock Text="Number of channel systems:" Style="{StaticResource RowLabel}"/>
                             <NumberBox x:Name="ChannelSystemsBox" Grid.Column="1" Style="{StaticResource Num}"
                                        ValueChanged="OnStructuralChanged"/>
                             <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeApolloniusChannels">
+                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                            </Button>
                         </Grid>
                         <Grid Style="{StaticResource Row}"
-                              ColumnDefinitions="375,*,Auto">
+                              ColumnDefinitions="375,*,Auto,Auto">
                             <TextBlock Text="Number of inaccessible pockets:" Style="{StaticResource RowLabel}"/>
                             <NumberBox x:Name="PocketsBox" Grid.Column="1" Style="{StaticResource Num}"
                                        ValueChanged="OnStructuralChanged"/>
                             <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeApolloniusChannels">
+                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto,Auto">
+                            <TextBlock Text="Dimensionality of pore system:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="DimensionalityBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnStructuralChanged"/>
+                            <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                            <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeApolloniusChannels">
+                                <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- Cocoa ChannelWindowGroup / StructuralChannelCell -->
+            <Expander Style="{StaticResource CellSection}" Header="Channel/Window Information">
+                <StackPanel Spacing="4">
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,Auto,Auto">
+                        <TextBlock Text="Largest overall cavity diameter (Di):" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="CavityDiameterBox" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        <Button Grid.Column="3" Style="{StaticResource Recompute}" Click="OnComputeApolloniusDiameters">
+                            <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                        </Button>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,Auto">
+                        <TextBlock Text="Restricting pore diameter (Df):" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="PoreDiameterBox" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,Auto">
+                        <TextBlock Text="Largest diameter along a viable path (Dif):" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="ViablePathDiameterBox" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,Auto">
+                        <TextBlock Text="Restricting pore diameter (Df2):" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="PoreDiameter2Box" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,Auto">
+                        <TextBlock Text="Largest diameter along a viable path (Dif2):" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="ViablePathDiameter2Box" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+
+                    <Border Style="{StaticResource Separator}"/>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,*,Auto,Auto">
+                        <TextBlock Text="Window 1 size:" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="Window1MinBox" Grid.Column="1" Style="{StaticResource Num}"
+                                   Margin="0,0,4,0" ValueChanged="OnStructuralChanged"/>
+                        <NumberBox x:Name="Window1MaxBox" Grid.Column="2" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[&#x00C5;]" Grid.Column="3" Style="{StaticResource UnitLabel}"/>
+                        <Button Grid.Column="4" Style="{StaticResource Recompute}" Click="OnComputeApolloniusWindows">
+                            <FontIcon Glyph="&#xE72C;" FontSize="12"/>
+                        </Button>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,Auto">
+                        <TextBlock Text="Window 1 ring atoms:" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="Window1RingBox" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,*,Auto">
+                        <TextBlock Text="Window 2 size:" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="Window2MinBox" Grid.Column="1" Style="{StaticResource Num}"
+                                   Margin="0,0,4,0" ValueChanged="OnStructuralChanged"/>
+                        <NumberBox x:Name="Window2MaxBox" Grid.Column="2" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[&#x00C5;]" Grid.Column="3" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,Auto">
+                        <TextBlock Text="Window 2 ring atoms:" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="Window2RingBox" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,*,Auto">
+                        <TextBlock Text="Window 3 size:" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="Window3MinBox" Grid.Column="1" Style="{StaticResource Num}"
+                                   Margin="0,0,4,0" ValueChanged="OnStructuralChanged"/>
+                        <NumberBox x:Name="Window3MaxBox" Grid.Column="2" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[&#x00C5;]" Grid.Column="3" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+                    <Grid Style="{StaticResource Row}"
+                          ColumnDefinitions="375,*,Auto">
+                        <TextBlock Text="Window 3 ring atoms:" Style="{StaticResource RowLabel}"/>
+                        <NumberBox x:Name="Window3RingBox" Grid.Column="1" Style="{StaticResource Num}"
+                                   ValueChanged="OnStructuralChanged"/>
+                        <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                    </Grid>
+                </StackPanel>
+            </Expander>
+
+            <!-- ================= Blocking pockets ================= -->
+            <Expander Style="{StaticResource CellSection}" Header="Blocking pockets">
+                <StackPanel Spacing="4">
+                    <TextBlock x:Name="BlockingHint" Text="No structure on selection."
+                               Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
+                    <StackPanel x:Name="BlockingBody" Spacing="4">
+                        <!-- Cocoa BlockingPocketsCell: probe used to decide inaccessible
+                             pockets, then recompute / load .block, then the table. -->
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*">
+                            <TextBlock Text="Probe sphere:" Style="{StaticResource RowLabel}"/>
+                            <ComboBox x:Name="BlockingPocketProbeCombo" Grid.Column="1" HorizontalAlignment="Stretch"
+                                      FontSize="{StaticResource RowLabelFontSize}"
+                                      SelectionChanged="OnBlockingPocketProbeMoleculeChanged"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Probe epsilon:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="BlockingPocketEpsilonBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnBlockingPocketProbeParameterChanged"/>
+                            <TextBlock Text="[K]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
+                        </Grid>
+                        <Grid Style="{StaticResource Row}"
+                              ColumnDefinitions="375,*,Auto">
+                            <TextBlock Text="Probe sigma:" Style="{StaticResource RowLabel}"/>
+                            <NumberBox x:Name="BlockingPocketSigmaBox" Grid.Column="1" Style="{StaticResource Num}"
+                                       ValueChanged="OnBlockingPocketProbeParameterChanged"/>
+                            <TextBlock Text="[&#xC5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
                         </Grid>
 
+                        <Grid Style="{StaticResource Row}" ColumnDefinitions="Auto,Auto,*">
+                            <Button Content="Recompute blocking pockets"
+                                    FontSize="{StaticResource RowLabelFontSize}"
+                                    Margin="0,0,8,0"
+                                    Click="OnComputeBlockingPockets"/>
+                            <Button x:Name="LoadBlockingPocketsButton" Grid.Column="1" Content="Load .block file…"
+                                    FontSize="{StaticResource RowLabelFontSize}"
+                                    Click="OnLoadBlockingPockets"/>
+                            <TextBlock x:Name="BlockingCountLabel" Grid.Column="2"
+                                       Style="{StaticResource UnitLabel}" Text="0 blocking pockets"/>
+                        </Grid>
+
+                        <!-- Cocoa lists the pockets in a small read-only table:
+                             the index, the fractional center and the radius. -->
                         <Border Style="{StaticResource TitledBox}">
                             <StackPanel>
-                                <TextBlock Text="Channel information" Style="{StaticResource BoxHeader}"/>
-                                <StackPanel Spacing="2">
-                                    <Grid Style="{StaticResource Row}"
-                                          ColumnDefinitions="375,*,Auto">
-                                        <TextBlock Text="Dimensionality of pore system:" Style="{StaticResource RowLabel}"/>
-                                        <NumberBox x:Name="DimensionalityBox" Grid.Column="1" Style="{StaticResource Num}"
-                                                   ValueChanged="OnStructuralChanged"/>
-                                        <TextBlock Text="[-]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
-                                    </Grid>
-                                    <Grid Style="{StaticResource Row}"
-                                          ColumnDefinitions="375,*,Auto">
-                                        <TextBlock Text="Largest overall cavity diameter (Di):" Style="{StaticResource RowLabel}"/>
-                                        <NumberBox x:Name="CavityDiameterBox" Grid.Column="1" Style="{StaticResource Num}"
-                                                   ValueChanged="OnStructuralChanged"/>
-                                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
-                                    </Grid>
-                                    <Grid Style="{StaticResource Row}"
-                                          ColumnDefinitions="375,*,Auto">
-                                        <TextBlock Text="Restricting pore diameter (Df):" Style="{StaticResource RowLabel}"/>
-                                        <NumberBox x:Name="PoreDiameterBox" Grid.Column="1" Style="{StaticResource Num}"
-                                                   ValueChanged="OnStructuralChanged"/>
-                                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
-                                    </Grid>
-                                    <Grid Style="{StaticResource Row}"
-                                          ColumnDefinitions="375,*,Auto">
-                                        <TextBlock Text="Largest diameter along a viable path (Dif):" Style="{StaticResource RowLabel}"/>
-                                        <NumberBox x:Name="ViablePathDiameterBox" Grid.Column="1" Style="{StaticResource Num}"
-                                                   ValueChanged="OnStructuralChanged"/>
-                                        <TextBlock Text="[&#x00C5;]" Grid.Column="2" Style="{StaticResource UnitLabel}"/>
-                                    </Grid>
-                                </StackPanel>
+                                <Grid ColumnDefinitions="40,*,*,*,*" Margin="0,0,0,2">
+                                    <TextBlock Text="#" Style="{StaticResource BoxHeader}"/>
+                                    <TextBlock Grid.Column="1" Text="x" Style="{StaticResource BoxHeader}"/>
+                                    <TextBlock Grid.Column="2" Text="y" Style="{StaticResource BoxHeader}"/>
+                                    <TextBlock Grid.Column="3" Text="z" Style="{StaticResource BoxHeader}"/>
+                                    <TextBlock Grid.Column="4" Text="radius [&#x00C5;]" Style="{StaticResource BoxHeader}"/>
+                                </Grid>
+                                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel x:Name="BlockingRows"/>
+                                </ScrollViewer>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -709,40 +848,6 @@
                             <TextBlock Text="Number of elements:" Style="{StaticResource RowLabel}"/>
                             <TextBox x:Name="ElementsBox" Grid.Column="1" Style="{StaticResource Readout}"/>
                         </Grid>
-                    </StackPanel>
-                </StackPanel>
-            </Expander>
-
-            <!-- ================= Blocking pockets ================= -->
-            <Expander Style="{StaticResource CellSection}" Header="Blocking pockets">
-                <StackPanel Spacing="4">
-                    <TextBlock x:Name="BlockingHint" Text="No structure on selection."
-                               Opacity="0.7" TextWrapping="Wrap" Visibility="Collapsed"/>
-                    <StackPanel x:Name="BlockingBody" Spacing="4">
-                        <Grid Style="{StaticResource Row}" ColumnDefinitions="Auto,*">
-                            <Button x:Name="LoadBlockingPocketsButton" Content="Load .block file…"
-                                    FontSize="{StaticResource RowLabelFontSize}"
-                                    Click="OnLoadBlockingPockets"/>
-                            <TextBlock x:Name="BlockingCountLabel" Grid.Column="1"
-                                       Style="{StaticResource UnitLabel}" Text="0 blocking pockets"/>
-                        </Grid>
-
-                        <!-- Cocoa lists the pockets in a small read-only table:
-                             the index, the fractional center and the radius. -->
-                        <Border Style="{StaticResource TitledBox}">
-                            <StackPanel>
-                                <Grid ColumnDefinitions="40,*,*,*,*" Margin="0,0,0,2">
-                                    <TextBlock Text="#" Style="{StaticResource BoxHeader}"/>
-                                    <TextBlock Grid.Column="1" Text="x" Style="{StaticResource BoxHeader}"/>
-                                    <TextBlock Grid.Column="2" Text="y" Style="{StaticResource BoxHeader}"/>
-                                    <TextBlock Grid.Column="3" Text="z" Style="{StaticResource BoxHeader}"/>
-                                    <TextBlock Grid.Column="4" Text="radius [&#x00C5;]" Style="{StaticResource BoxHeader}"/>
-                                </Grid>
-                                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
-                                    <StackPanel x:Name="BlockingRows"/>
-                                </ScrollViewer>
-                            </StackPanel>
-                        </Border>
                     </StackPanel>
                 </StackPanel>
             </Expander>

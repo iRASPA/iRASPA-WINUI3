@@ -25,6 +25,8 @@
 #include "rkstring.h"
 #include "rkcolor.h"
 #include <iostream>
+#include <cmath>
+#include <algorithm>
 #include <unordered_set>
 #include <symmetrykit.h>
 #include <simulationkit.h>
@@ -159,6 +161,9 @@ Structure::Structure(const std::shared_ptr<Object> object): Object(object), _ato
     _blockingPockets = structure->_blockingPockets;
     _drawBlockingPockets = structure->_drawBlockingPockets;
     _applyBlockingPockets = structure->_applyBlockingPockets;
+    _blockingPocketProbeMolecule = structure->_blockingPocketProbeMolecule;
+    _blockingPocketProbeEpsilon = structure->_blockingPocketProbeEpsilon;
+    _blockingPocketProbeSigma = structure->_blockingPocketProbeSigma;
 
     _blockingPocketsFrontSideHDR = structure->_blockingPocketsFrontSideHDR;
     _blockingPocketsFrontSideHDRExposure = structure->_blockingPocketsFrontSideHDRExposure;
@@ -260,6 +265,14 @@ Structure::Structure(const Structure &structure): Object(structure),  _atomsTree
   _structureLargestCavityDiameter = structure._structureLargestCavityDiameter;
   _structureRestrictingPoreLimitingDiameter = structure._structureRestrictingPoreLimitingDiameter;
   _structureLargestCavityDiameterAlongAViablePath = structure._structureLargestCavityDiameterAlongAViablePath;
+  _structureRestrictingPoreLimitingDiameter2 = structure._structureRestrictingPoreLimitingDiameter2;
+  _structureLargestCavityDiameterAlongAViablePath2 = structure._structureLargestCavityDiameterAlongAViablePath2;
+  _structureWindow1Size = structure._structureWindow1Size;
+  _structureWindow2Size = structure._structureWindow2Size;
+  _structureWindow3Size = structure._structureWindow3Size;
+  _structureWindow1RingAtoms = structure._structureWindow1RingAtoms;
+  _structureWindow2RingAtoms = structure._structureWindow2RingAtoms;
+  _structureWindow3RingAtoms = structure._structureWindow3RingAtoms;
   _structureVolumetricWellSurfaceArea = structure._structureVolumetricWellSurfaceArea;
   _structureGravimetricWellSurfaceArea = structure._structureGravimetricWellSurfaceArea;
   _structureVolumetricGeometricSurfaceArea = structure._structureVolumetricGeometricSurfaceArea;
@@ -270,6 +283,9 @@ Structure::Structure(const Structure &structure): Object(structure),  _atomsTree
   _blockingPockets = structure._blockingPockets;
   _drawBlockingPockets = structure._drawBlockingPockets;
   _applyBlockingPockets = structure._applyBlockingPockets;
+  _blockingPocketProbeMolecule = structure._blockingPocketProbeMolecule;
+  _blockingPocketProbeEpsilon = structure._blockingPocketProbeEpsilon;
+  _blockingPocketProbeSigma = structure._blockingPocketProbeSigma;
 
   _blockingPocketsFrontSideHDR = structure._blockingPocketsFrontSideHDR;
   _blockingPocketsFrontSideHDRExposure = structure._blockingPocketsFrontSideHDRExposure;
@@ -853,6 +869,75 @@ void Structure::setFrameworkProbeSigma(double value)
   _frameworkProbeSigma = value;
   _frameworkProbeMolecule =
       probeMoleculeMatching(double2(_frameworkProbeEpsilon, _frameworkProbeSigma));
+}
+
+double2 Structure::blockingPocketProbeParameters() const
+{
+  return double2(_blockingPocketProbeEpsilon, _blockingPocketProbeSigma);
+}
+
+void Structure::applyBlockingPocketProbeMolecule(ProbeMolecule probe)
+{
+  _blockingPocketProbeMolecule = probe;
+  if (auto parameters = probeMoleculeNamedParameters(probe))
+  {
+    _blockingPocketProbeEpsilon = parameters->x;
+    _blockingPocketProbeSigma = parameters->y;
+  }
+}
+
+void Structure::setBlockingPocketProbeEpsilon(double value)
+{
+  _blockingPocketProbeEpsilon = value;
+  _blockingPocketProbeMolecule =
+      probeMoleculeMatching(double2(_blockingPocketProbeEpsilon, _blockingPocketProbeSigma));
+}
+
+void Structure::setBlockingPocketProbeSigma(double value)
+{
+  _blockingPocketProbeSigma = value;
+  _blockingPocketProbeMolecule =
+      probeMoleculeMatching(double2(_blockingPocketProbeEpsilon, _blockingPocketProbeSigma));
+}
+
+double2 Structure::structureWindowSize(int index) const
+{
+  switch(index)
+  {
+    case 0: return _structureWindow1Size;
+    case 1: return _structureWindow2Size;
+    default: return _structureWindow3Size;
+  }
+}
+
+void Structure::setStructureWindowSize(int index, double2 value)
+{
+  switch(index)
+  {
+    case 0: _structureWindow1Size = value; break;
+    case 1: _structureWindow2Size = value; break;
+    default: _structureWindow3Size = value; break;
+  }
+}
+
+int64_t Structure::structureWindowRingAtoms(int index) const
+{
+  switch(index)
+  {
+    case 0: return _structureWindow1RingAtoms;
+    case 1: return _structureWindow2RingAtoms;
+    default: return _structureWindow3RingAtoms;
+  }
+}
+
+void Structure::setStructureWindowRingAtoms(int index, int64_t value)
+{
+  switch(index)
+  {
+    case 0: _structureWindow1RingAtoms = value; break;
+    case 1: _structureWindow2RingAtoms = value; break;
+    default: _structureWindow3RingAtoms = value; break;
+  }
 }
 
 void Structure::setRepresentationStyle(RepresentationStyle style)
@@ -1790,29 +1875,65 @@ std::vector<double4> Structure::parseBlockingPockets(const RKString &contents)
 // cell just like the atoms do, and the radius is used unchanged as the sphere radius in Angstrom.
 // Every sphere shares one material, which travels in the uniforms, so an instance carries only its
 // placement.
+//
+// A sphere that sits near a face, edge or corner of a periodic cell sticks out of that cell. The
+// protruding cap is drawn again on the opposite side, as many lattice images as the radius needs,
+// so a pocket at the origin fills all eight corners and a sphere larger than the cell wraps more
+// than once.
 std::vector<RKInPerInstanceAttributesAtoms> Structure::renderBlockingPockets() const
 {
   if(_blockingPockets.empty() || !_cell) {return std::vector<RKInPerInstanceAttributesAtoms>();}
 
   double3 contentShift = _cell->contentShift();
   bool3 contentFlip = _cell->contentFlip();
+  double3 widths = _cell->perpendicularWidths();
+
+  int minimumReplicaX = _cell->minimumReplicaX();
+  int minimumReplicaY = _cell->minimumReplicaY();
+  int minimumReplicaZ = _cell->minimumReplicaZ();
+  int maximumReplicaX = _cell->maximumReplicaX();
+  int maximumReplicaY = _cell->maximumReplicaY();
+  int maximumReplicaZ = _cell->maximumReplicaZ();
+
+  // Expand replica ranges so a pocket near a face/edge/corner gets lattice images that
+  // reconstruct the clipped sphere (Cocoa Structure.renderBlockingPockets wrapRange).
+  // Do not gate on Object::_periodic — that flag stays false for Crystal; Cocoa's Structure.periodic
+  // getter returns true for crystals. Clip planes discard the parts that stick outside the cell.
+  auto wrapRange = [](double center, double radius, double width, int replicaMin, int replicaMax) -> std::pair<int,int>
+  {
+    if(width <= 1.0e-12 || radius <= 0.0) {return {replicaMin, replicaMax};}
+    double fractionalRadius = radius / width;
+    double boxMin = double(replicaMin);
+    double boxMax = double(replicaMax) + 1.0;
+    int wrappedMin = int(std::ceil(boxMin - center - fractionalRadius + 1.0e-12));
+    int wrappedMax = int(std::floor(boxMax - center + fractionalRadius - 1.0e-12));
+    int lower = std::min(replicaMin, wrappedMin);
+    int upper = std::max(replicaMax, wrappedMax);
+    return {lower, std::max(lower, upper)};
+  };
 
   std::vector<RKInPerInstanceAttributesAtoms> data{};
 
   for(const double4 &blockingPocket: _blockingPockets)
   {
-    double3 pocketPosition = double3::flip(double3(blockingPocket.x, blockingPocket.y, blockingPocket.z),
-                                           contentFlip, double3(1.0,1.0,1.0)) + contentShift;
+    double3 position = double3::flip(double3(blockingPocket.x, blockingPocket.y, blockingPocket.z),
+                                     contentFlip, double3(1.0,1.0,1.0));
+    double3 base = position + contentShift;
+    double radius = blockingPocket.w;
     float4 scale = float4(blockingPocket.w, blockingPocket.w, blockingPocket.w, 1.0);
 
-    for(int k1=_cell->minimumReplicaX();k1<=_cell->maximumReplicaX();k1++)
+    auto rangeX = wrapRange(base.x, radius, widths.x, minimumReplicaX, maximumReplicaX);
+    auto rangeY = wrapRange(base.y, radius, widths.y, minimumReplicaY, maximumReplicaY);
+    auto rangeZ = wrapRange(base.z, radius, widths.z, minimumReplicaZ, maximumReplicaZ);
+
+    for(int k1=rangeX.first;k1<=rangeX.second;k1++)
     {
-      for(int k2=_cell->minimumReplicaY();k2<=_cell->maximumReplicaY();k2++)
+      for(int k2=rangeY.first;k2<=rangeY.second;k2++)
       {
-        for(int k3=_cell->minimumReplicaZ();k3<=_cell->maximumReplicaZ();k3++)
+        for(int k3=rangeZ.first;k3<=rangeZ.second;k3++)
         {
-          float4 position = float4(_cell->unitCell() * (pocketPosition + double3(k1,k2,k3)), 1.0);
-          data.push_back(RKInPerInstanceAttributesAtoms(position, float4(1.0,1.0,1.0,1.0),
+          float4 instancePosition = float4(_cell->unitCell() * (position + double3(k1,k2,k3) + contentShift), 1.0);
+          data.push_back(RKInPerInstanceAttributesAtoms(instancePosition, float4(1.0,1.0,1.0,1.0),
                                                         float4(1.0,1.0,1.0,1.0), float4(1.0,1.0,1.0,1.0),
                                                         scale, uint32_t(data.size())));
         }
@@ -2160,6 +2281,20 @@ BinaryArchive &operator<<(BinaryArchive &stream, const std::shared_ptr<Structure
 
   stream << structure->_structureVolumetricVanDerWaalsGeometricSurfaceArea;
   stream << structure->_structureGravimetricVanDerWaalsGeometricSurfaceArea;
+
+  stream << structure->_structureWindow1Size;
+  stream << structure->_structureWindow2Size;
+  stream << structure->_structureWindow3Size;
+  stream << structure->_structureWindow1RingAtoms;
+  stream << structure->_structureWindow2RingAtoms;
+  stream << structure->_structureWindow3RingAtoms;
+
+  stream << static_cast<typename std::underlying_type<ProbeMolecule>::type>(structure->_blockingPocketProbeMolecule);
+  stream << structure->_blockingPocketProbeEpsilon;
+  stream << structure->_blockingPocketProbeSigma;
+
+  stream << structure->_structureRestrictingPoreLimitingDiameter2;
+  stream << structure->_structureLargestCavityDiameterAlongAViablePath2;
 
   // handle super class
   stream << std::static_pointer_cast<Object>(structure);
@@ -2646,6 +2781,39 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<Structure> &str
       stream >> structure->_structureGravimetricVanDerWaalsGeometricSurfaceArea;
     }
 
+    if(versionNumber >= 18) // introduced in version 18
+    {
+      stream >> structure->_structureWindow1Size;
+      stream >> structure->_structureWindow2Size;
+      stream >> structure->_structureWindow3Size;
+    }
+
+    if(versionNumber >= 19) // introduced in version 19
+    {
+      stream >> structure->_structureWindow1RingAtoms;
+      stream >> structure->_structureWindow2RingAtoms;
+      stream >> structure->_structureWindow3RingAtoms;
+    }
+
+    if(versionNumber >= 20) // introduced in version 20
+    {
+      int64_t blockingPocketProbeMolecule;
+      stream >> blockingPocketProbeMolecule;
+      structure->_blockingPocketProbeMolecule = ProbeMolecule(blockingPocketProbeMolecule);
+    }
+
+    if(versionNumber >= 21) // introduced in version 21
+    {
+      stream >> structure->_blockingPocketProbeEpsilon;
+      stream >> structure->_blockingPocketProbeSigma;
+    }
+
+    if(versionNumber >= 22) // introduced in version 22
+    {
+      stream >> structure->_structureRestrictingPoreLimitingDiameter2;
+      stream >> structure->_structureLargestCavityDiameterAlongAViablePath2;
+    }
+
     // Older documents only stored the probe enum; seed ε/σ from the named molecule.
     if(versionNumber < 15)
     {
@@ -2661,6 +2829,14 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<Structure> &str
       {
         structure->_adsorptionSurfaceProbeEpsilon = parameters->x;
         structure->_adsorptionSurfaceProbeSigma = parameters->y;
+      }
+    }
+    if(versionNumber < 21)
+    {
+      if (auto parameters = probeMoleculeNamedParameters(structure->_blockingPocketProbeMolecule))
+      {
+        structure->_blockingPocketProbeEpsilon = parameters->x;
+        structure->_blockingPocketProbeSigma = parameters->y;
       }
     }
 

@@ -310,6 +310,14 @@ public:
   double structureLargestCavityDiameter() const override final {return _structureLargestCavityDiameter;}
   double structureRestrictingPoreLimitingDiameter() const override final {return _structureRestrictingPoreLimitingDiameter;}
   double structureLargestCavityDiameterAlongAViablePath() const override final {return _structureLargestCavityDiameterAlongAViablePath;}
+  double structureRestrictingPoreLimitingDiameter2() const override final {return _structureRestrictingPoreLimitingDiameter2;}
+  double structureLargestCavityDiameterAlongAViablePath2() const override final {return _structureLargestCavityDiameterAlongAViablePath2;}
+  double2 structureWindow1Size() const override final {return _structureWindow1Size;}
+  double2 structureWindow2Size() const override final {return _structureWindow2Size;}
+  double2 structureWindow3Size() const override final {return _structureWindow3Size;}
+  int64_t structureWindow1RingAtoms() const override final {return _structureWindow1RingAtoms;}
+  int64_t structureWindow2RingAtoms() const override final {return _structureWindow2RingAtoms;}
+  int64_t structureWindow3RingAtoms() const override final {return _structureWindow3RingAtoms;}
 
   // Protocol: StructuralPropertyEditor
   // ===============================================================================================
@@ -338,6 +346,14 @@ public:
   void setStructureLargestCavityDiameter(double value) override final {_structureLargestCavityDiameter = value;}
   void setStructureRestrictingPoreLimitingDiameter(double value) override final {_structureRestrictingPoreLimitingDiameter = value;}
   void setStructureLargestCavityDiameterAlongAViablePath(double value) override final {_structureLargestCavityDiameterAlongAViablePath = value;}
+  void setStructureRestrictingPoreLimitingDiameter2(double value) override final {_structureRestrictingPoreLimitingDiameter2 = value;}
+  void setStructureLargestCavityDiameterAlongAViablePath2(double value) override final {_structureLargestCavityDiameterAlongAViablePath2 = value;}
+  void setStructureWindow1Size(double2 value) override final {_structureWindow1Size = value;}
+  void setStructureWindow2Size(double2 value) override final {_structureWindow2Size = value;}
+  void setStructureWindow3Size(double2 value) override final {_structureWindow3Size = value;}
+  void setStructureWindow1RingAtoms(int64_t value) override final {_structureWindow1RingAtoms = value;}
+  void setStructureWindow2RingAtoms(int64_t value) override final {_structureWindow2RingAtoms = value;}
+  void setStructureWindow3RingAtoms(int64_t value) override final {_structureWindow3RingAtoms = value;}
 protected:
   SKAtomTreeController &ribbonAtomTreeController() override { return *_atomsTreeController; }
   const SKAtomTreeController &ribbonAtomTreeController() const override { return *_atomsTreeController; }

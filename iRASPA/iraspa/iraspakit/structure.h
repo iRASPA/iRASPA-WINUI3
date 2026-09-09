@@ -409,6 +409,21 @@ public:
   void applyFrameworkProbeMolecule(ProbeMolecule molecule);
   void setFrameworkProbeEpsilon(double value);
   void setFrameworkProbeSigma(double value);
+
+  /// Probe used to decide which cages are inaccessible pockets when blocking spheres are computed.
+  ProbeMolecule blockingPocketProbeMolecule() const {return _blockingPocketProbeMolecule;}
+  double blockingPocketProbeEpsilon() const {return _blockingPocketProbeEpsilon;}
+  double blockingPocketProbeSigma() const {return _blockingPocketProbeSigma;}
+  double2 blockingPocketProbeParameters() const;
+  void applyBlockingPocketProbeMolecule(ProbeMolecule probe);
+  void setBlockingPocketProbeEpsilon(double value);
+  void setBlockingPocketProbeSigma(double value);
+
+  double2 structureWindowSize(int index) const;
+  void setStructureWindowSize(int index, double2 value);
+  int64_t structureWindowRingAtoms(int index) const;
+  void setStructureWindowRingAtoms(int index, int64_t value);
+
   void setStructureNitrogenSurfaceArea(double value);
   void setStructureWellSurfaceArea(double value);
   void setStructureGeometricSurfaceArea(double value);
@@ -665,8 +680,8 @@ public:
   friend BinaryArchive &operator<<(BinaryArchive &, const std::shared_ptr<Structure> &);
   friend BinaryArchive &operator>>(BinaryArchive &, std::shared_ptr<Structure> &);
 protected:
-  // Cocoa Structure.classVersionNumber = 17 (geometric areas 14, probe ε/σ 15–16, VDW geometric 17).
-  int64_t _versionNumber{17};
+  // Cocoa Structure.classVersionNumber = 22 (windows 18–19, blocking-pocket probe 20–21, Df2/Dif2 22).
+  int64_t _versionNumber{22};
 
   std::shared_ptr<SKAtomTreeController> _atomsTreeController;
   std::shared_ptr<SKBondSetController> _bondSetController;
@@ -854,6 +869,9 @@ protected:
   ProbeMolecule _frameworkProbeMolecule = ProbeMolecule::nitrogen;
   double _frameworkProbeEpsilon = 36.0;
   double _frameworkProbeSigma = 3.31;
+  ProbeMolecule _blockingPocketProbeMolecule = ProbeMolecule::helium;
+  double _blockingPocketProbeEpsilon = 10.9;
+  double _blockingPocketProbeSigma = 2.64;
   RKString _structureMaterialType = RKString("Unspecified");
   double _structureMass = 0.0;
   double _structureDensity = 0.0;
@@ -874,6 +892,14 @@ protected:
   double _structureLargestCavityDiameter = 0.0;
   double _structureRestrictingPoreLimitingDiameter = 0.0;
   double _structureLargestCavityDiameterAlongAViablePath = 0.0;
+  double _structureRestrictingPoreLimitingDiameter2 = 0.0;
+  double _structureLargestCavityDiameterAlongAViablePath2 = 0.0;
+  double2 _structureWindow1Size{};
+  double2 _structureWindow2Size{};
+  double2 _structureWindow3Size{};
+  int64_t _structureWindow1RingAtoms = 0;
+  int64_t _structureWindow2RingAtoms = 0;
+  int64_t _structureWindow3RingAtoms = 0;
 
   // The fractional position (x,y,z) and the radius in Angstrom (w) of the blocking pockets.
   std::vector<double4> _blockingPockets{};

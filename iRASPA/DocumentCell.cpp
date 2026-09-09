@@ -10,6 +10,8 @@
 #include "structuralpropertyviewer.h"
 #include "structure.h"
 #include "skspacegroup.h"
+#include "skapolloniusporeanalysis.h"
+#include "skgeometricsurface.h"
 
 // The document-level half of the Cell tab (Cocoa
 // StructureCellDetailViewController): the undo snapshots a cell edit records,
@@ -77,6 +79,22 @@ DocumentController::SnapshotCellState(std::shared_ptr<Object> const& object) con
         properties.restrictingPoreLimitingDiameter = viewer->structureRestrictingPoreLimitingDiameter();
         properties.largestCavityDiameterAlongAViablePath =
             viewer->structureLargestCavityDiameterAlongAViablePath();
+        properties.restrictingPoreLimitingDiameter2 = viewer->structureRestrictingPoreLimitingDiameter2();
+        properties.largestCavityDiameterAlongAViablePath2 =
+            viewer->structureLargestCavityDiameterAlongAViablePath2();
+        properties.window1Size = viewer->structureWindow1Size();
+        properties.window2Size = viewer->structureWindow2Size();
+        properties.window3Size = viewer->structureWindow3Size();
+        properties.window1RingAtoms = viewer->structureWindow1RingAtoms();
+        properties.window2RingAtoms = viewer->structureWindow2RingAtoms();
+        properties.window3RingAtoms = viewer->structureWindow3RingAtoms();
+        if (auto structure = std::dynamic_pointer_cast<Structure>(object))
+        {
+            properties.blockingPocketProbeMolecule = structure->blockingPocketProbeMolecule();
+            properties.blockingPocketProbeEpsilon = structure->blockingPocketProbeEpsilon();
+            properties.blockingPocketProbeSigma = structure->blockingPocketProbeSigma();
+            properties.hasBlockingPocketProbe = true;
+        }
         state.structural = properties;
     }
     return state;
@@ -158,6 +176,24 @@ void DocumentController::RestoreCellStates(std::wstring const& actionName,
                 editor->setStructureRestrictingPoreLimitingDiameter(p.restrictingPoreLimitingDiameter);
                 editor->setStructureLargestCavityDiameterAlongAViablePath(
                     p.largestCavityDiameterAlongAViablePath);
+                editor->setStructureRestrictingPoreLimitingDiameter2(p.restrictingPoreLimitingDiameter2);
+                editor->setStructureLargestCavityDiameterAlongAViablePath2(
+                    p.largestCavityDiameterAlongAViablePath2);
+                editor->setStructureWindow1Size(p.window1Size);
+                editor->setStructureWindow2Size(p.window2Size);
+                editor->setStructureWindow3Size(p.window3Size);
+                editor->setStructureWindow1RingAtoms(p.window1RingAtoms);
+                editor->setStructureWindow2RingAtoms(p.window2RingAtoms);
+                editor->setStructureWindow3RingAtoms(p.window3RingAtoms);
+                if (p.hasBlockingPocketProbe)
+                {
+                    if (auto structure = std::dynamic_pointer_cast<Structure>(object))
+                    {
+                        structure->applyBlockingPocketProbeMolecule(p.blockingPocketProbeMolecule);
+                        structure->setBlockingPocketProbeEpsilon(p.blockingPocketProbeEpsilon);
+                        structure->setBlockingPocketProbeSigma(p.blockingPocketProbeSigma);
+                    }
+                }
             }
         }
 
@@ -358,6 +394,86 @@ void DocumentController::ComputeVanDerWaalsGeometricSurfaceArea()
     RegisterCellUndo(L"Compute Van der Waals Geometric Surface Area", before);
 }
 
+namespace
+{
+    // Cocoa recomputeApolloniusPoreProperties: build the diagram once, then copy
+    // only the fields the button asked for.
+    void ComputeApolloniusPoreProperties(DocumentController& controller,
+                                         bool fillChannels, bool fillDiameters, bool fillWindows,
+                                         std::wstring const& actionName)
+    {
+        auto before = controller.SnapshotCellStates();
+        std::vector<SKFrameworkSnapshot> snapshots;
+        std::vector<std::shared_ptr<StructuralPropertyEditor>> editors;
+        for (auto const& target : controller.TargetStructures())
+        {
+            auto object = target ? target->object() : nullptr;
+            auto structure = std::dynamic_pointer_cast<Structure>(object);
+            auto editor = std::dynamic_pointer_cast<StructuralPropertyEditor>(object);
+            if (!structure || !editor)
+                continue;
+            editors.push_back(editor);
+            snapshots.push_back(structure->frameworkSnapshot(/*applyingBlockingPockets=*/false));
+        }
+        try
+        {
+            const auto results = SKApolloniusPoreAnalysis::compute(snapshots);
+            for (size_t i = 0; i < results.size() && i < editors.size(); ++i)
+            {
+                auto& editor = *editors[i];
+                auto const& result = results[i];
+                if (fillChannels)
+                {
+                    editor.setStructureNumberOfChannelSystems(result.channels.numberOfChannels);
+                    editor.setStructureNumberOfInaccessiblePockets(result.channels.numberOfPockets);
+                    editor.setStructureDimensionalityOfPoreSystem(result.channels.dimensionality);
+                }
+                if (fillDiameters)
+                {
+                    editor.setStructureLargestCavityDiameter(result.diameters.includedSphereDiameter);
+                    editor.setStructureRestrictingPoreLimitingDiameter(result.diameters.freeSphereDiameter);
+                    editor.setStructureLargestCavityDiameterAlongAViablePath(
+                        result.diameters.includedAlongFreePathDiameter);
+                    editor.setStructureRestrictingPoreLimitingDiameter2(result.diameters.freeSphereDiameter2);
+                    editor.setStructureLargestCavityDiameterAlongAViablePath2(
+                        result.diameters.includedAlongFreePathDiameter2);
+                }
+                if (fillWindows)
+                {
+                    auto const& sizes = result.windows.sizes;
+                    auto const& rings = result.windows.ringAtomCounts;
+                    editor.setStructureWindow1Size(sizes.size() > 0 ? sizes[0] : double2());
+                    editor.setStructureWindow2Size(sizes.size() > 1 ? sizes[1] : double2());
+                    editor.setStructureWindow3Size(sizes.size() > 2 ? sizes[2] : double2());
+                    editor.setStructureWindow1RingAtoms(rings.size() > 0 ? rings[0] : 0);
+                    editor.setStructureWindow2RingAtoms(rings.size() > 1 ? rings[1] : 0);
+                    editor.setStructureWindow3RingAtoms(rings.size() > 2 ? rings[2] : 0);
+                }
+            }
+        }
+        catch (...)
+        {
+            controller.Log(L"Apollonius pore-property computation failed");
+        }
+        controller.RegisterCellUndo(actionName, before);
+    }
+}
+
+void DocumentController::ComputeApolloniusChannels()
+{
+    ComputeApolloniusPoreProperties(*this, true, false, false, L"Compute Channel Systems");
+}
+
+void DocumentController::ComputeApolloniusDiameters()
+{
+    ComputeApolloniusPoreProperties(*this, false, true, false, L"Compute Pore Diameters");
+}
+
+void DocumentController::ComputeApolloniusWindows()
+{
+    ComputeApolloniusPoreProperties(*this, false, false, true, L"Compute Pore Windows");
+}
+
 std::vector<double4> DocumentController::BlockingPockets() const
 {
     for (auto const& target : TargetStructures())
@@ -419,6 +535,39 @@ void DocumentController::LoadBlockingPocketsFile()
         SetBlockingPockets(perStructure);
         Log(L"Read " + std::to_wstring(pockets.size()) + L" blocking pockets from " + name);
     });
+}
+
+void DocumentController::ComputeBlockingPockets()
+{
+    std::vector<std::shared_ptr<Structure>> structures;
+    std::vector<SKFrameworkSnapshot> snapshots;
+    for (auto const& target : TargetStructures())
+    {
+        auto structure = target ? std::dynamic_pointer_cast<Structure>(target->object()) : nullptr;
+        if (!structure)
+            continue;
+        structures.push_back(structure);
+        // Cocoa: blocking-pocket probe parameters, empty pockets on the snapshot.
+        SKFrameworkSnapshot snapshot = structure->frameworkSnapshot(/*applyingBlockingPockets=*/false);
+        snapshot.probeParameters = structure->blockingPocketProbeParameters();
+        snapshot.blockingPockets.clear();
+        snapshots.push_back(std::move(snapshot));
+    }
+    if (structures.empty())
+        return;
+    try
+    {
+        const auto pockets = SKApolloniusPoreAnalysis::computeBlockingPockets(snapshots);
+        ApplyBlockingPockets(structures, pockets, L"Compute Blocking Pockets");
+        size_t count = 0;
+        for (auto const& list : pockets)
+            count += list.size();
+        Log(L"Computed " + std::to_wstring(count) + L" blocking pockets");
+    }
+    catch (...)
+    {
+        Log(L"Blocking-pocket computation failed");
+    }
 }
 
 void DocumentController::ChangeStructureType(ObjectType type)
