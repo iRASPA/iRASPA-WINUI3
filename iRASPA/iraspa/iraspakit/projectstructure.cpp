@@ -219,11 +219,24 @@ void ProjectStructure::setInitialSelectionIfNeeded()
   if(!_sceneList->selectedScene())
   {
     if(!_sceneList->scenes().empty())
-    {
       _sceneList->setSelectedScene(_sceneList->scenes().front());
-      _sceneList->setSelectedFrameIndex(0);
+  }
+
+  // Movies loaded from the gallery do not store which frame is current. With a scene already
+  // selected, the old path left that set empty, so the renderer was handed no frames at all.
+  bool anyFrameSelected = false;
+  for(const std::shared_ptr<Scene> &scene : _sceneList->scenes())
+  {
+    if(!scene)
+      continue;
+    for(const std::shared_ptr<Movie> &movie : scene->movies())
+    {
+      if(movie && !movie->selectedFramesIndexSet().empty())
+        anyFrameSelected = true;
     }
   }
+  if(!anyFrameSelected && !_sceneList->scenes().empty())
+    _sceneList->setSelectedFrameIndex(0);
 
   for(std::shared_ptr<Scene> scene : _sceneList->selectedScenes())
   {

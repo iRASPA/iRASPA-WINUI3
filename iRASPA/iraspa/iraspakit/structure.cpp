@@ -2546,6 +2546,11 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<Structure> &str
     int64_t adsorptionSurfaceRenderingMethod;
     stream >> adsorptionSurfaceRenderingMethod;
     structure->_adsorptionSurfaceRenderingMethod = RKEnergySurfaceType(adsorptionSurfaceRenderingMethod);
+    // Before well surfaces (archive version 13) the value 2 was multiple_values. It is wellSurface
+    // now, and a gallery framework stored that way would build a well field on every reload.
+    if (versionNumber < 13 &&
+        structure->_adsorptionSurfaceRenderingMethod == RKEnergySurfaceType::wellSurface)
+      structure->_adsorptionSurfaceRenderingMethod = RKEnergySurfaceType::multiple_values;
     int64_t adsorptionVolumeTransferFunction;
     stream >> adsorptionVolumeTransferFunction;
     structure->_adsorptionVolumeTransferFunction = RKPredefinedVolumeRenderingTransferFunction(adsorptionVolumeTransferFunction);

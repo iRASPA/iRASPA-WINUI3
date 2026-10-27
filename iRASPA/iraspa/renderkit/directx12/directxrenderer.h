@@ -273,6 +273,9 @@ private:
   ComPtr<ID3D12Resource> m_isosurfaceCBV[Dx12DeviceContext::kInflightFrameCount];
   ComPtr<ID3D12Resource> m_blockingPocketCBV[Dx12DeviceContext::kInflightFrameCount];
   ComPtr<ID3D12Resource> m_globalAxesCBV[Dx12DeviceContext::kInflightFrameCount];
+  // One clip sphere so root parameter t2 is never unbound. A root shader-resource view has no
+  // null binding; the geometric-surface pass replaces this when a structure actually has clips.
+  ComPtr<ID3D12Resource> m_geometricClipFallback;
   UINT m_structureCBVStride = 0;
   UINT m_structureCBVCapacity = 0;
   UINT m_isosurfaceCBVStride = 0;

@@ -326,9 +326,6 @@ void DirectXGeometricSurface::paint(ID3D12GraphicsCommandList *commandList, bool
   if (!pso)
     return;
 
-  commandList->SetPipelineState(pso);
-  commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-
   size_t index = 0;
   for (size_t i = 0; i < _renderStructures.size(); ++i)
   {
@@ -347,6 +344,9 @@ void DirectXGeometricSurface::paint(ID3D12GraphicsCommandList *commandList, bool
         const bool isOpaque = source->adsorptionSurfaceOpacity() > 0.99999;
         if (opaque == isOpaque)
         {
+          commandList->SetPipelineState(pso);
+          commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
           const size_t structureOffset = structureIndex ? *structureIndex : index;
           commandList->SetGraphicsRootConstantBufferView(
               1, structureCBVBase

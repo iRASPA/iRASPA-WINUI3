@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "Dx12SwapChainPanelHost.h"
 
+#include <cstdio>
+
 #include <microsoft.ui.xaml.media.dxinterop.h>
 
 #include <winrt/Microsoft.UI.Input.h>
@@ -174,10 +176,13 @@ void Dx12SwapChainPanelHost::RenderNow()
     {
         m_renderer->renderFrame();
     }
+    catch (std::exception const& ex)
+    {
+        std::fprintf(stderr, "Dx12SwapChainPanelHost::RenderNow: %s\n", ex.what());
+    }
     catch (...)
     {
-        m_inRender = false;
-        throw;
+        std::fprintf(stderr, "Dx12SwapChainPanelHost::RenderNow: render failed\n");
     }
     m_inRender = false;
 }

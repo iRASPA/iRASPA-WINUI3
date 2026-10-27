@@ -1787,10 +1787,25 @@ namespace winrt::iRASPA_WinUI::implementation
 
     void MainWindow::ReloadRenderer()
     {
-        if (auto *r = Renderer())
-            r->reloadData();
-        if (m_renderHost)
-            m_renderHost->RequestRedraw();
+        try
+        {
+            if (auto *r = Renderer())
+                r->reloadData();
+            if (m_renderHost)
+                m_renderHost->RequestRedraw();
+        }
+        catch (hresult_error const& ex)
+        {
+            AppendLog(std::wstring(L"Renderer update error: ") + std::wstring(ex.message()));
+        }
+        catch (std::exception const& ex)
+        {
+            AppendLog(std::wstring(L"Renderer update error: ") + winrt::to_hstring(ex.what()).c_str());
+        }
+        catch (...)
+        {
+            AppendLog(L"Renderer update error");
+        }
     }
 
     void MainWindow::RedrawRenderer()

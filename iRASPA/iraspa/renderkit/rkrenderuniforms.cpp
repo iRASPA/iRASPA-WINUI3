@@ -125,6 +125,9 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
 
   if (RKRenderObject* renderStructure = dynamic_cast<RKRenderObject*>(structure.get()))
   {
+    if (!renderStructure->cell())
+      return;
+
     SKBoundingBox boundingbox = renderStructure->cell()->boundingBox();
     double3 centerOfRotation = boundingbox.center();
 
@@ -330,6 +333,9 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
 
     if (RKRenderAtomSource* source = dynamic_cast<RKRenderAtomSource*>(structure.get()))
     {
+      if (!renderStructure->cell())
+        return;
+
       SKBoundingBox boundingbox = renderStructure->cell()->boundingBox();
       double3 centerOfRotation = boundingbox.center();
 
@@ -463,6 +469,9 @@ RKIsosurfaceUniforms::RKIsosurfaceUniforms(std::shared_ptr<RKRenderObject> struc
   {
     if (RKRenderVolumetricDataSource* source = dynamic_cast<RKRenderVolumetricDataSource*>(structure.get()))
     {
+      if (!renderStructure->cell())
+        return;
+
       double3x3 currentUnitCellMatrix = renderStructure->cell()->unitCell();
       double3x3 currentBoxMatrix = renderStructure->cell()->box();
       this->unitCellMatrix = float4x4(currentUnitCellMatrix);

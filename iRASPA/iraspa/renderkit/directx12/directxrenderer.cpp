@@ -140,6 +140,12 @@ void DirectXRenderer::createConstantBuffers()
     DirectXDeviceHelpers::writeUploadBuffer(m_blockingPocketCBV[i].Get(), &blockingPocket, sizeof(blockingPocket));
     DirectXDeviceHelpers::writeUploadBuffer(m_globalAxesCBV[i].Get(), &globalAxes, sizeof(globalAxes));
   }
+
+  // Satisfies register t2 for every draw. Only the geometric-surface shader reads it, and only
+  // when a surface is actually drawn; every other pass still has to leave the root view bound.
+  RKGeometricSurfaceClip clipFallback;
+  m_geometricClipFallback = DirectXDeviceHelpers::createUploadBuffer(dev, sizeof(clipFallback));
+  DirectXDeviceHelpers::writeUploadBuffer(m_geometricClipFallback.Get(), &clipFallback, sizeof(clipFallback));
 }
 
 void DirectXRenderer::pushStructuresToShaders()
@@ -295,6 +301,7 @@ void DirectXRenderer::resetSceneResources()
   m_isosurfaceCBVCapacity = 0;
   m_blockingPocketCBVStride = 0;
   m_blockingPocketCBVCapacity = 0;
+  m_geometricClipFallback.Reset();
 
   m_glowTexture.Reset();
   m_glowMsaaTexture.Reset();
@@ -751,16 +758,24 @@ void DirectXRenderer::bindShadowMask()
   if (!m_commandList)
     return;
 
-  // A root shader-resource view has no null binding, so the all-lit buffer stands in whenever
-  // nothing was traced. The shaders will not look at it — a mask size of zero has them report every
-  // light lit without reading anything — but the root signature has to be satisfied regardless.
+  // A root shader-resource view has no null binding. The all-lit buffer stands in whenever
+  // nothing was traced: a mask size of zero makes the shaders report every light lit without
+  // reading it, but the root view still has to be set. The geometric clip view is the same kind
+  // of slot (t2). Leaving it unset removes the device on the first draw, so the recorded atoms
+  // never reach the screen and the next click closes the process.
   ID3D12Resource *mask = (m_shadowMaskWidth > 0) ? m_shadowMaskShader.maskBuffer()
                                                  : m_shadowMaskShader.allLitBuffer();
-  if (!mask)
-    return;
-
-  m_commandList->SetGraphicsRootShaderResourceView(DirectXDeviceHelpers::kShadowMaskRootParameter,
-                                                   mask->GetGPUVirtualAddress());
+  if (mask)
+  {
+    m_commandList->SetGraphicsRootShaderResourceView(DirectXDeviceHelpers::kShadowMaskRootParameter,
+                                                     mask->GetGPUVirtualAddress());
+  }
+  if (m_geometricClipFallback)
+  {
+    m_commandList->SetGraphicsRootShaderResourceView(
+        DirectXDeviceHelpers::kGeometricSurfaceClipRootParameter,
+        m_geometricClipFallback->GetGPUVirtualAddress());
+  }
 }
 
 bool DirectXRenderer::initializeComposition(UINT width, UINT height)
@@ -908,7 +923,9 @@ void DirectXRenderer::setRenderDataSource(std::shared_ptr<RKRenderDataSource> so
 
 void DirectXRenderer::reloadData()
 {
-  if (!m_sceneReady)
+  // A removed device cannot rebuild buffers. Touching it here is what closed the window on the
+  // click that followed a failed present.
+  if (!m_sceneReady || !m_ready)
     return;
 
   // AO path (and style changes that rebuild AO heaps/textures) must not run while a
@@ -1930,12 +1947,19 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
 
     m_boundingBoxShader.paint(m_commandList.Get());
 
+    // Evaluated once. The paint calls below take the address as an argument, so a missing
+    // buffer would fault here even when that pass draws nothing.
+    const D3D12_GPU_VIRTUAL_ADDRESS isosurfaceAddress =
+        isosurfaceCB() ? isosurfaceCB()->GetGPUVirtualAddress() : 0;
+    const D3D12_GPU_VIRTUAL_ADDRESS blockingPocketAddress =
+        blockingPocketCB() ? blockingPocketCB()->GetGPUVirtualAddress() : 0;
+
     m_energySurfaceShader.paintOpaque(m_commandList.Get(),
                                       structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                      isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride);
+                                      isosurfaceAddress, m_isosurfaceCBVStride);
     m_geometricSurfaceShader.paintOpaque(m_commandList.Get(),
                                          structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                         isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                         isosurfaceAddress, m_isosurfaceCBVStride,
                                          m_camera);
 
     auto copySceneDepthForVolume = [&]() {
@@ -1979,7 +2003,7 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
       m_energyVolumeShader.paintOpaque(m_commandList.Get(),
                                        frameCB()->GetGPUVirtualAddress(),
                                        structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                       isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                       isosurfaceAddress, m_isosurfaceCBVStride,
                                        lightsCB()->GetGPUVirtualAddress(),
                                        item.sceneIndex, item.movieIndex, item.structureIndex);
     }
@@ -1995,7 +2019,7 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
       if (m_energyVolumeShader.paintTransparent(m_commandList.Get(),
                                                 frameCB()->GetGPUVirtualAddress(),
                                                 structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                                isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                                isosurfaceAddress, m_isosurfaceCBVStride,
                                                 lightsCB()->GetGPUVirtualAddress(),
                                                 item.sceneIndex, item.movieIndex, item.structureIndex))
       {
@@ -2007,16 +2031,16 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
                                       item.sceneIndex, item.movieIndex, item.structureIndex);
       m_energySurfaceShader.paintTransparent(m_commandList.Get(),
                                              structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                             isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                             isosurfaceAddress, m_isosurfaceCBVStride,
                                              item.sceneIndex, item.movieIndex, item.structureIndex);
       m_geometricSurfaceShader.paintTransparent(m_commandList.Get(),
                                                 structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                                isosurfaceCB()->GetGPUVirtualAddress(), m_isosurfaceCBVStride,
+                                                isosurfaceAddress, m_isosurfaceCBVStride,
                                                 m_camera,
                                                 item.sceneIndex, item.movieIndex, item.structureIndex);
       m_blockingPocketsShader.paintTransparent(m_commandList.Get(),
                                                structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
-                                               blockingPocketCB()->GetGPUVirtualAddress(),
+                                               blockingPocketAddress,
                                                m_blockingPocketCBVStride,
                                                item.sceneIndex, item.movieIndex, item.structureIndex);
     }
