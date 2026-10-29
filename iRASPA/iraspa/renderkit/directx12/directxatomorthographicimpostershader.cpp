@@ -136,9 +136,12 @@ void DirectXAtomOrthographicImposterShader::paint(ID3D12GraphicsCommandList *com
                                                   UINT structureCBVStride,
                                                   DirectXAmbientOcclusionShadowMapShader *aoShader)
 {
+  // Prefer the anti-aliased imposter while the view is still. If that pipeline was not
+  // created, draw the per-pixel one: skipping the pass is what leaves the unit cell up and
+  // the atoms missing.
   const bool perSample = DirectXDeviceHelpers::perSampleImposterShading();
-  ID3D12PipelineState *pso = perSample ? (_psoReady ? _pso.Get() : nullptr)
-                                       : (_perPixelPsoReady ? _perPixelPso.Get() : nullptr);
+  ID3D12PipelineState *pso = (perSample && _psoReady) ? _pso.Get()
+                                                      : (_perPixelPsoReady ? _perPixelPso.Get() : nullptr);
   if (!pso)
     return;
 

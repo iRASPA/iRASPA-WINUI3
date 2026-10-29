@@ -303,8 +303,8 @@ void DirectXBondShader::paint(ID3D12GraphicsCommandList *commandList,
 
   const bool perSample = DirectXDeviceHelpers::perSampleImposterShading();
 
-  ID3D12PipelineState *internalPso = perSample ? (_imposterPsoReady ? _imposterPso.Get() : nullptr)
-                                               : (_imposterPerPixelPsoReady ? _imposterPerPixelPso.Get() : nullptr);
+  ID3D12PipelineState *internalPso = (perSample && _imposterPsoReady) ? _imposterPso.Get()
+                                    : (_imposterPerPixelPsoReady ? _imposterPerPixelPso.Get() : nullptr);
   if (internalPso)
   {
     commandList->SetPipelineState(internalPso);
@@ -313,8 +313,8 @@ void DirectXBondShader::paint(ID3D12GraphicsCommandList *commandList,
   }
 
   ID3D12PipelineState *externalPso =
-      perSample ? (_externalImposterPsoReady ? _externalImposterPso.Get() : nullptr)
-                : (_externalImposterPerPixelPsoReady ? _externalImposterPerPixelPso.Get() : nullptr);
+      (perSample && _externalImposterPsoReady) ? _externalImposterPso.Get()
+      : (_externalImposterPerPixelPsoReady ? _externalImposterPerPixelPso.Get() : nullptr);
   if (externalPso)
   {
     commandList->SetPipelineState(externalPso);

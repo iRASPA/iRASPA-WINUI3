@@ -653,11 +653,17 @@ void DirectXRenderer::presentTracedFrame(D3D12_CPU_DESCRIPTOR_HANDLE destRtv, in
   scissor.bottom = height;
 
   // The tracer swapped in its own compute root signature and descriptor heap, so the graphics ones
-  // have to be put back before anything draws again.
+  // have to be put back before anything draws again. bindShadowMask also fills the root views that
+  // were added after 2.3.6; setting the signature clears them.
   m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
   m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
   m_commandList->SetGraphicsRootConstantBufferView(1, structureCB()->GetGPUVirtualAddress());
   m_commandList->SetGraphicsRootConstantBufferView(2, lightsCB()->GetGPUVirtualAddress());
+  bindShadowMask();
+  if (isosurfaceCB())
+    m_commandList->SetGraphicsRootConstantBufferView(4, isosurfaceCB()->GetGPUVirtualAddress());
+  if (globalAxesCB())
+    m_commandList->SetGraphicsRootConstantBufferView(5, globalAxesCB()->GetGPUVirtualAddress());
 
   m_commandList->OMSetRenderTargets(1, &destRtv, FALSE, nullptr);
   m_commandList->RSSetViewports(1, &viewport);
@@ -758,17 +764,25 @@ void DirectXRenderer::bindShadowMask()
   if (!m_commandList)
     return;
 
-  // A root shader-resource view has no null binding. The all-lit buffer stands in whenever
-  // nothing was traced: a mask size of zero makes the shaders report every light lit without
-  // reading it, but the root view still has to be set. The geometric clip view is the same kind
-  // of slot (t2). Leaving it unset removes the device on the first draw, so the recorded atoms
-  // never reach the screen and the next click closes the process.
+  // Every root parameter has to be set before the first draw, whether or not that pass reads it.
+  // A root view has no null binding. Leaving one unset removes the device, the recorded atoms
+  // never reach the screen, and (before the exception was caught) the next click closed the
+  // process. 2.3.6's root signature stopped at the global-axes constant buffer. The shadow mask
+  // (t1), the blocking-pocket constant buffer (b4) and the geometric clip spheres (t2) were added
+  // after that; only the two shader-resource views were filled in here, so b4 was still unset
+  // when the background and the atoms drew.
   ID3D12Resource *mask = (m_shadowMaskWidth > 0) ? m_shadowMaskShader.maskBuffer()
                                                  : m_shadowMaskShader.allLitBuffer();
   if (mask)
   {
     m_commandList->SetGraphicsRootShaderResourceView(DirectXDeviceHelpers::kShadowMaskRootParameter,
                                                      mask->GetGPUVirtualAddress());
+  }
+  if (ID3D12Resource *blockingPockets = blockingPocketCB())
+  {
+    m_commandList->SetGraphicsRootConstantBufferView(
+        DirectXDeviceHelpers::kBlockingPocketRootParameter,
+        blockingPockets->GetGPUVirtualAddress());
   }
   if (m_geometricClipFallback)
   {
