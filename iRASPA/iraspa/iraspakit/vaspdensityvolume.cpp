@@ -34,7 +34,7 @@ VASPDensityVolume::VASPDensityVolume(std::shared_ptr<SKStructure> frame): Struct
   expandSymmetry();
   _atomsTreeController->setTags();
 
-  SKColorSet colorSet(SKColorSet::ColorScheme::jmol);
+  const SKColorSet colorSet(SKColorSet::ColorScheme::jmol);
   for(const std::shared_ptr<SKAtomTreeNode> &node: _atomsTreeController->flattenedLeafNodes())
   {
     if(std::shared_ptr<SKAsymmetricAtom> atom = node->representedObject())
