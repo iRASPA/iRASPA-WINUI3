@@ -35,7 +35,59 @@ Primitive::Primitive(): _atomsTreeController(std::make_shared<SKAtomTreeControll
 
 Primitive::Primitive(const Primitive &primitive): Object(primitive), _atomsTreeController(std::make_shared<SKAtomTreeController>())
 {
+  BinaryArchive stream;
+  stream << primitive._atomsTreeController;
+  BinaryArchive streamRead(stream.buffer());
+  streamRead >> _atomsTreeController;
+  _atomsTreeController->setTags();
 
+  _spaceGroup = primitive._spaceGroup;
+  _selectionCOMTranslation = primitive._selectionCOMTranslation;
+  _selectionRotationIndex = primitive._selectionRotationIndex;
+  _selectionBodyFixedBasis = primitive._selectionBodyFixedBasis;
+  _drawAtoms = primitive._drawAtoms;
+
+  _primitiveTransformationMatrix = primitive._primitiveTransformationMatrix;
+  _primitiveOrientation = primitive._primitiveOrientation;
+  _primitiveRotationDelta = primitive._primitiveRotationDelta;
+
+  _primitiveOpacity = primitive._primitiveOpacity;
+  _primitiveIsCapped = primitive._primitiveIsCapped;
+  _primitiveIsFractional = primitive._primitiveIsFractional;
+  _primitiveNumberOfSides = primitive._primitiveNumberOfSides;
+  _primitiveThickness = primitive._primitiveThickness;
+
+  _primitiveHue = primitive._primitiveHue;
+  _primitiveSaturation = primitive._primitiveSaturation;
+  _primitiveValue = primitive._primitiveValue;
+
+  _primitiveSelectionStyle = primitive._primitiveSelectionStyle;
+  _primitiveSelectionStripesDensity = primitive._primitiveSelectionStripesDensity;
+  _primitiveSelectionStripesFrequency = primitive._primitiveSelectionStripesFrequency;
+  _primitiveSelectionWorleyNoise3DFrequency = primitive._primitiveSelectionWorleyNoise3DFrequency;
+  _primitiveSelectionWorleyNoise3DJitter = primitive._primitiveSelectionWorleyNoise3DJitter;
+  _primitiveSelectionScaling = primitive._primitiveSelectionScaling;
+  _primitiveSelectionIntensity = primitive._primitiveSelectionIntensity;
+
+  _primitiveFrontSideHDR = primitive._primitiveFrontSideHDR;
+  _primitiveFrontSideHDRExposure = primitive._primitiveFrontSideHDRExposure;
+  _primitiveFrontSideAmbientColor = primitive._primitiveFrontSideAmbientColor;
+  _primitiveFrontSideDiffuseColor = primitive._primitiveFrontSideDiffuseColor;
+  _primitiveFrontSideSpecularColor = primitive._primitiveFrontSideSpecularColor;
+  _primitiveFrontSideAmbientIntensity = primitive._primitiveFrontSideAmbientIntensity;
+  _primitiveFrontSideDiffuseIntensity = primitive._primitiveFrontSideDiffuseIntensity;
+  _primitiveFrontSideSpecularIntensity = primitive._primitiveFrontSideSpecularIntensity;
+  _primitiveFrontSideShininess = primitive._primitiveFrontSideShininess;
+
+  _primitiveBackSideHDR = primitive._primitiveBackSideHDR;
+  _primitiveBackSideHDRExposure = primitive._primitiveBackSideHDRExposure;
+  _primitiveBackSideAmbientColor = primitive._primitiveBackSideAmbientColor;
+  _primitiveBackSideDiffuseColor = primitive._primitiveBackSideDiffuseColor;
+  _primitiveBackSideSpecularColor = primitive._primitiveBackSideSpecularColor;
+  _primitiveBackSideAmbientIntensity = primitive._primitiveBackSideAmbientIntensity;
+  _primitiveBackSideDiffuseIntensity = primitive._primitiveBackSideDiffuseIntensity;
+  _primitiveBackSideSpecularIntensity = primitive._primitiveBackSideSpecularIntensity;
+  _primitiveBackSideShininess = primitive._primitiveBackSideShininess;
 }
 
 Primitive::Primitive(const std::shared_ptr<Object> object): Object(object), _atomsTreeController(std::make_shared<SKAtomTreeController>())

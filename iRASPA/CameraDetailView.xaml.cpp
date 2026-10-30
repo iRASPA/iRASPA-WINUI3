@@ -629,7 +629,7 @@ namespace winrt::iRASPA_WinUI::implementation
     {
         DetailControls::AttachColorWell(AxesBackgroundWell(), AxesBackgroundSwatch(), [this](RKColor color)
         {
-            if (!m_host)
+            if (m_suppressEvents || !m_host)
                 return;
             auto project = m_host->PaneProject();
             if (!project || !project->axes())
@@ -653,7 +653,7 @@ namespace winrt::iRASPA_WinUI::implementation
         {
             DetailControls::AttachColorWell(well.button, well.swatch, [this, set = well.set](RKColor color)
             {
-                if (!m_host)
+                if (m_suppressEvents || !m_host)
                     return;
                 auto project = m_host->PaneProject();
                 if (!project || !project->axes())
@@ -665,6 +665,8 @@ namespace winrt::iRASPA_WinUI::implementation
 
         DetailControls::AttachColorWell(SceneAmbientWell(), SceneAmbientSwatch(), [this](RKColor color)
         {
+            if (m_suppressEvents)
+                return;
             ApplySceneLighting([color](ProjectStructure& project) { project.setSceneAmbientColor(color); },
                                false);
         });
@@ -686,7 +688,7 @@ namespace winrt::iRASPA_WinUI::implementation
         {
             DetailControls::AttachColorWell(well.button, well.swatch, [this, set = well.set](RKColor color)
             {
-                if (!m_host)
+                if (m_suppressEvents || !m_host)
                     return;
                 if (auto project = m_host->PaneProject())
                 {

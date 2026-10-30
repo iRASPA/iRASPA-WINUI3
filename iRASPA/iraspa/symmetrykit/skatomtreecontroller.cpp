@@ -303,9 +303,13 @@ std::set<std::shared_ptr<SKAtomTreeNode>> SKAtomTreeController::selectedTreeNode
 std::vector<std::shared_ptr<SKAsymmetricAtom>> SKAtomTreeController::selectedObjects()
 {
   std::vector<std::shared_ptr<SKAsymmetricAtom>> selectedObjects{};
-  std::transform(_selectionIndexPaths.begin(), _selectionIndexPaths.end(), std::inserter(selectedObjects, selectedObjects.begin()),
-                   [this](IndexPath indexPath) -> std::shared_ptr<SKAsymmetricAtom>
-                          {return nodeAtIndexPath(indexPath)->representedObject();});
+  for (const IndexPath &indexPath : _selectionIndexPaths)
+  {
+    if (std::shared_ptr<SKAtomTreeNode> node = nodeAtIndexPath(indexPath))
+    {
+      selectedObjects.push_back(node->representedObject());
+    }
+  }
   return selectedObjects;
 }
 

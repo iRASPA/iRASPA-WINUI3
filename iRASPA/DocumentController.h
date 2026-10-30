@@ -174,6 +174,7 @@ struct BondsPanePresenter
 {
     virtual ~BondsPanePresenter() = default;
     virtual void RebindBonds() = 0;
+    virtual void ReloadRowSelection() = 0;
 };
 
 // Cocoa iRASPADocument plus the document-level half of its window controller:
@@ -214,6 +215,7 @@ public:
     // The same for the cached energy grids and well fields, which the blocking
     // pockets and the probe are part of the input to.
     void ReloadRendererInvalidatingIsosurfaces() const;
+    void InvalidateIsosurfaces() const;
     // ... and those of them that move the bounding box refit the camera to it
     // first, as a cell edit does.
     void RefitCameraToBoundingBox() const;

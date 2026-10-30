@@ -51,6 +51,8 @@ public:
   // ===============================================================================================
   std::vector<RKInPerInstanceAttributesBonds> renderInternalBonds() const override final;
   std::vector<RKInPerInstanceAttributesBonds> renderExternalBonds() const override final;
+  std::vector<RKInPerInstanceAttributesBonds> renderSelectedInternalBonds() const override final;
+  std::vector<RKInPerInstanceAttributesBonds> renderSelectedExternalBonds() const override final;
 
   // AtomViewer: overwritten from Structure
   // ===============================================================================================

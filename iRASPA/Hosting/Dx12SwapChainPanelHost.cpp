@@ -90,6 +90,8 @@ void Dx12SwapChainPanelHost::Initialize()
     m_pointerPressedToken = m_panel.PointerPressed({ this, &Dx12SwapChainPanelHost::OnPointerPressed });
     m_pointerMovedToken = m_panel.PointerMoved({ this, &Dx12SwapChainPanelHost::OnPointerMoved });
     m_pointerReleasedToken = m_panel.PointerReleased({ this, &Dx12SwapChainPanelHost::OnPointerReleased });
+    m_pointerCanceledToken = m_panel.PointerCanceled({ this, &Dx12SwapChainPanelHost::OnPointerCanceled });
+    m_pointerCaptureLostToken = m_panel.PointerCaptureLost({ this, &Dx12SwapChainPanelHost::OnPointerCaptureLost });
     m_pointerWheelToken = m_panel.PointerWheelChanged({ this, &Dx12SwapChainPanelHost::OnPointerWheelChanged });
 
     m_initialized = true;
@@ -120,6 +122,8 @@ void Dx12SwapChainPanelHost::Shutdown()
             if (m_pointerPressedToken) { m_panel.PointerPressed(m_pointerPressedToken); m_pointerPressedToken = {}; }
             if (m_pointerMovedToken) { m_panel.PointerMoved(m_pointerMovedToken); m_pointerMovedToken = {}; }
             if (m_pointerReleasedToken) { m_panel.PointerReleased(m_pointerReleasedToken); m_pointerReleasedToken = {}; }
+            if (m_pointerCanceledToken) { m_panel.PointerCanceled(m_pointerCanceledToken); m_pointerCanceledToken = {}; }
+            if (m_pointerCaptureLostToken) { m_panel.PointerCaptureLost(m_pointerCaptureLostToken); m_pointerCaptureLostToken = {}; }
             if (m_pointerWheelToken) { m_panel.PointerWheelChanged(m_pointerWheelToken); m_pointerWheelToken = {}; }
         }
     }
@@ -224,10 +228,18 @@ void Dx12SwapChainPanelHost::ResizeFromPanel()
         // Do not Present synchronously from SizeChanged — queue a redraw.
         RequestRedraw();
     }
+    catch (winrt::hresult_error const& ex)
+    {
+        std::fprintf(stderr, "Dx12SwapChainPanelHost::ResizeFromPanel: 0x%08X\n",
+                     static_cast<unsigned>(ex.code()));
+    }
+    catch (std::exception const& ex)
+    {
+        std::fprintf(stderr, "Dx12SwapChainPanelHost::ResizeFromPanel: %s\n", ex.what());
+    }
     catch (...)
     {
-        m_inResize = false;
-        throw;
+        std::fprintf(stderr, "Dx12SwapChainPanelHost::ResizeFromPanel: resize failed\n");
     }
     m_inResize = false;
 }
@@ -348,9 +360,13 @@ void Dx12SwapChainPanelHost::OnPointerPressed(winrt::Windows::Foundation::IInspe
 
     // The renderer still starts a pan here, as before; whether this turns out to be
     // a pan or a context-menu click is only decided on move or release.
-    m_rightPressMayBeMenu = pt.Properties().IsRightButtonPressed() && m_contextMenuHandler != nullptr;
+    const auto props = pt.Properties();
+    m_rightPressMayBeMenu = props.IsRightButtonPressed() && m_contextMenuHandler != nullptr;
     if (m_rightPressMayBeMenu)
         m_rightPressStart = pt.Position();
+
+    if (props.IsLeftButtonPressed() || props.IsRightButtonPressed() || props.IsMiddleButtonPressed())
+        m_panel.CapturePointer(e.Pointer());
 
     m_renderer->onPointerPressed(ToPointerEvent(e));
 }
@@ -373,9 +389,19 @@ void Dx12SwapChainPanelHost::OnPointerMoved(winrt::Windows::Foundation::IInspect
         return;
     }
 
+    const auto pt = e.GetCurrentPoint(m_panel);
+    const auto props = pt.Properties();
+    if (!props.IsLeftButtonPressed() && !props.IsRightButtonPressed() && !props.IsMiddleButtonPressed())
+    {
+        m_rightPressMayBeMenu = false;
+        if (m_renderer)
+            m_renderer->onPointerReleased(ToPointerEvent(e));
+        return;
+    }
+
     if (m_rightPressMayBeMenu)
     {
-        const auto pos = e.GetCurrentPoint(m_panel).Position();
+        const auto pos = pt.Position();
         const float dx = pos.X - m_rightPressStart.X;
         const float dy = pos.Y - m_rightPressStart.Y;
         if (dx * dx + dy * dy >= kContextMenuThresholdDips * kContextMenuThresholdDips)
@@ -423,6 +449,7 @@ void Dx12SwapChainPanelHost::OnPointerReleased(winrt::Windows::Foundation::IInsp
         return;
     }
 
+    m_panel.ReleasePointerCapture(e.Pointer());
     if (m_renderer) m_renderer->onPointerReleased(ToPointerEvent(e));
 
     if (m_rightPressMayBeMenu)
@@ -439,6 +466,27 @@ void Dx12SwapChainPanelHost::OnPointerReleased(winrt::Windows::Foundation::IInsp
             e.Handled(true);
         }
     }
+}
+
+void Dx12SwapChainPanelHost::OnPointerCanceled(winrt::Windows::Foundation::IInspectable const&, PointerRoutedEventArgs const& e)
+{
+    m_rubberBandMode = RubberBandMode::none;
+    m_rubberBandActive = false;
+    HideRubberBand();
+    m_rightPressMayBeMenu = false;
+    m_panel.ReleasePointerCapture(e.Pointer());
+    if (m_renderer)
+        m_renderer->onPointerReleased(ToPointerEvent(e));
+}
+
+void Dx12SwapChainPanelHost::OnPointerCaptureLost(winrt::Windows::Foundation::IInspectable const&, PointerRoutedEventArgs const& e)
+{
+    m_rubberBandMode = RubberBandMode::none;
+    m_rubberBandActive = false;
+    HideRubberBand();
+    m_rightPressMayBeMenu = false;
+    if (m_renderer)
+        m_renderer->onPointerReleased(ToPointerEvent(e));
 }
 
 void Dx12SwapChainPanelHost::OnPointerWheelChanged(winrt::Windows::Foundation::IInspectable const&, PointerRoutedEventArgs const& e)

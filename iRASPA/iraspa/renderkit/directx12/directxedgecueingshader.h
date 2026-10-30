@@ -27,6 +27,7 @@ public:
   /// was drawn with: a multisampled stencil is read as it stands, sample by sample, there being no
   /// resolve for a stencil the way there is for colour and depth.
   void initialize(ID3D12Device *device, DXGI_FORMAT rtvFormat, UINT sceneSampleCount);
+  void release();
 
   bool isReady() const { return _ready; }
 

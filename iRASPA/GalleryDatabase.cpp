@@ -168,6 +168,7 @@ namespace winrt::iRASPA_WinUI::implementation
 
     winrt::fire_and_forget MainWindow::LoadGalleryDatabaseAsync()
     {
+        auto lifetime = get_strong();
         auto dispatcher = DispatcherQueue();
         co_await winrt::resume_background();
 
@@ -201,7 +202,7 @@ namespace winrt::iRASPA_WinUI::implementation
             error = L"Gallery load error";
         }
 
-        dispatcher.TryEnqueue([this, database, error]()
+        dispatcher.TryEnqueue([this, lifetime, database, error]()
         {
             try
             {
@@ -223,6 +224,8 @@ namespace winrt::iRASPA_WinUI::implementation
     // section's rows in a fixed order rather than in whichever sequence the reads finish.
     winrt::fire_and_forget MainWindow::LoadStructureDatabasesAsync()
     {
+        auto lifetime = get_strong();
+
         struct Database
         {
             wchar_t const* fileName;
@@ -267,7 +270,7 @@ namespace winrt::iRASPA_WinUI::implementation
                 error = label + L" load error";
             }
 
-            dispatcher.TryEnqueue([this, database, error, label]()
+            dispatcher.TryEnqueue([this, lifetime, database, error, label]()
             {
                 try
                 {

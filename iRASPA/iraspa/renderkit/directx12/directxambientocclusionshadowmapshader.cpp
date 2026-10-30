@@ -579,7 +579,7 @@ void DirectXAmbientOcclusionShadowMapShader::adjustAmbientOcclusionTextureSize(I
       srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
       srv.Texture2D.MipLevels = 1;
       device->CreateShaderResourceView(res.texture.Get(), &srv, srvCpu);
-      res.valid = true;
+      res.valid = false;
     }
   }
 }
@@ -677,6 +677,7 @@ void DirectXAmbientOcclusionShadowMapShader::uploadAoTextureData(
   transition(_commandList.Get(), res.texture.Get(),
              D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
   executeAndWait(queue);
+  res.valid = true;
 }
 
 void DirectXAmbientOcclusionShadowMapShader::updateAmbientOcclusionTextures(
@@ -730,7 +731,7 @@ void DirectXAmbientOcclusionShadowMapShader::updateAmbientOcclusionTextures(
         continue;
 
       bool bakeAtoms = source->atomAmbientOcclusion() && _renderStructures[i][j]->isVisible() &&
-                       _aoResources[i][j].valid && _aoResources[i][j].texture;
+                       _aoResources[i][j].texture != nullptr;
       if (bakeAtoms && _cache.contains(_renderStructures[i][j].get()))
       {
         std::vector<uint16_t> *textureData = _cache.object(_renderStructures[i][j].get());
@@ -1131,6 +1132,7 @@ void DirectXAmbientOcclusionShadowMapShader::updateAmbientOcclusionTextures(
       transition(_commandList.Get(), aoRes.texture.Get(),
                  D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
       executeAndWait(queue);
+      aoRes.valid = true;
 
       auto *textureData = new std::vector<uint16_t>(size_t(textureSize) * size_t(textureSize));
       {

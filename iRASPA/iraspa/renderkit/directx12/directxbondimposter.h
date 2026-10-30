@@ -226,6 +226,7 @@ float cylinderIntersect(float3 ro, float3 rd, float3 a, float3 b, float r, out f
   float3 ba = b - a;
   float3 oc = ro - a;
   float baba = dot(ba, ba);
+  if (baba <= 1.0e-12) return -1.0;
   float bard = dot(ba, rd);
   float baoc = dot(ba, oc);
   float k2 = baba - bard * bard;
@@ -234,6 +235,7 @@ float cylinderIntersect(float3 ro, float3 rd, float3 a, float3 b, float r, out f
   float h = k1 * k1 - k2 * k0;
   if (h < 0.0) return -1.0;
   h = sqrt(h);
+  if (abs(k2) < 1.0e-12) return -1.0;
   float t = (-k1 - h) / k2;
 
   // body of the cylinder
@@ -246,6 +248,7 @@ float cylinderIntersect(float3 ro, float3 rd, float3 a, float3 b, float r, out f
   }
 
   // flat end-caps
+  if (abs(bard) < 1.0e-12) return -1.0;
   t = (((y < 0.0) ? 0.0 : baba) - baoc) / bard;
   if (abs(k1 + k2 * t) >= h) return -1.0;
   N = ba * float(sign(y)) / sqrt(baba);
@@ -270,6 +273,7 @@ float clippedCylinderIntersect(float3 ro, float3 rd, float3 a, float3 b, float r
   float3 ba = b - a;
   float3 oc = ro - a;
   float baba = dot(ba, ba);
+  if (baba <= 1.0e-12) return -1.0;
   float bard = dot(ba, rd);
   float baoc = dot(ba, oc);
   float k2 = baba - bard * bard;

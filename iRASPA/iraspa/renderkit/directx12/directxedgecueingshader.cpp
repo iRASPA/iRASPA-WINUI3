@@ -101,9 +101,30 @@ D3D12_GPU_DESCRIPTOR_HANDLE DirectXEdgeCueingShader::gpuHandle(UINT slot) const
   return handle;
 }
 
+void DirectXEdgeCueingShader::release()
+{
+  _rootSignature.Reset();
+  _pso.Reset();
+  _tracedPso.Reset();
+  _srvHeap.Reset();
+  _vertexBuffer.Reset();
+  _indexBuffer.Reset();
+  _sceneTexture.Reset();
+  _vbv = {};
+  _ibv = {};
+  _rtvFormat = DXGI_FORMAT_UNKNOWN;
+  _sceneSampleCount = 1;
+  _srvStride = 0;
+  _indexCount = 0;
+  _sceneWidth = 0;
+  _sceneHeight = 0;
+  _ready = false;
+}
+
 void DirectXEdgeCueingShader::initialize(ID3D12Device *device, DXGI_FORMAT rtvFormat,
                                          UINT sceneSampleCount)
 {
+  release();
   if (!device)
     return;
 

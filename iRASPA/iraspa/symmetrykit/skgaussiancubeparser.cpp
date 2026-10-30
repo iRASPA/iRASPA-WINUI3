@@ -78,7 +78,7 @@ std::cerr << "CHECK2" << scannedLine;
   // read first lattice vector
   _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
   termsScannedLined = scannedLine.splitWhitespace();
-  if(termsScannedLined.size()<3) {throw std::runtime_error("Missing first lattice vector");}
+  if(termsScannedLined.size()<4) {throw std::runtime_error("Missing first lattice vector");}
 
   succes = false;
   double dx = termsScannedLined[0].toInt(&succes);
@@ -101,7 +101,7 @@ std::cerr << "CHECK2" << scannedLine;
   // read second lattice vector
   _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
   termsScannedLined = scannedLine.splitWhitespace();
-  if(termsScannedLined.size()<3) {throw std::runtime_error("Missing second lattice vector");}
+  if(termsScannedLined.size()<4) {throw std::runtime_error("Missing second lattice vector");}
 
   succes = false;
   double dy = termsScannedLined[0].toInt(&succes);
@@ -124,7 +124,7 @@ std::cerr << "CHECK2" << scannedLine;
   // read third lattice vector
   _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
   termsScannedLined = scannedLine.splitWhitespace();
-  if(termsScannedLined.size()<3) {throw std::runtime_error("Missing third lattice vector");}
+  if(termsScannedLined.size()<4) {throw std::runtime_error("Missing third lattice vector");}
 
   succes = false;
   double dz = termsScannedLined[0].toInt(&succes);
@@ -161,6 +161,7 @@ std::cerr << "CHECK2" << scannedLine;
     std::shared_ptr<SKAsymmetricAtom> atom = std::make_shared<SKAsymmetricAtom>();
     atom->setElementIdentifier(atomicNumber);
     atom->setDisplayName(PredefinedElements::predefinedElements[atomicNumber]._chemicalSymbol);
+    atom->setUniqueForceFieldName(PredefinedElements::predefinedElements[atomicNumber]._chemicalSymbol);
 
     double3 position;
     succes = false;

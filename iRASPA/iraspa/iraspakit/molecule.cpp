@@ -891,7 +891,7 @@ std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> Molecule::tra
 
 std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> Molecule::translatedPositionsSelectionBodyFrame(std::vector<std::shared_ptr<SKAsymmetricAtom>> atoms, double3 translation) const
 {
-  double3 translationBodyFrame = double3x3::inverse(_selectionBodyFixedBasis) * translation;
+  double3 translationBodyFrame = _selectionBodyFixedBasis * translation;
 
   std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> translatedPositions{};
 

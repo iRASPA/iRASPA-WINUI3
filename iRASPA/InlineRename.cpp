@@ -183,6 +183,23 @@ bool InlineRenameController::Begin(FrameworkElement const& row,
     return true;
 }
 
+InlineRenameController::~InlineRenameController()
+{
+    if (g_active == this)
+        g_active = nullptr;
+    try
+    {
+        m_keyDownRevoker.revoke();
+        m_losingFocusRevoker.revoke();
+        m_lostFocusRevoker.revoke();
+        if (m_releaseTarget && m_releaseHandler)
+            m_releaseTarget.RemoveHandler(UIElement::PointerReleasedEvent(), m_releaseHandler);
+    }
+    catch (...)
+    {
+    }
+}
+
 void InlineRenameController::End(bool commit)
 {
     if (!m_editor)

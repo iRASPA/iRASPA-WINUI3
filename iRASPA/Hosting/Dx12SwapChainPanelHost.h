@@ -52,6 +52,10 @@ private:
                         winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
     void OnPointerReleased(winrt::Windows::Foundation::IInspectable const& sender,
                            winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
+    void OnPointerCanceled(winrt::Windows::Foundation::IInspectable const& sender,
+                           winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
+    void OnPointerCaptureLost(winrt::Windows::Foundation::IInspectable const& sender,
+                              winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
     void OnPointerWheelChanged(winrt::Windows::Foundation::IInspectable const& sender,
                                winrt::Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& e);
 
@@ -86,6 +90,8 @@ private:
     winrt::event_token m_pointerPressedToken{};
     winrt::event_token m_pointerMovedToken{};
     winrt::event_token m_pointerReleasedToken{};
+    winrt::event_token m_pointerCanceledToken{};
+    winrt::event_token m_pointerCaptureLostToken{};
     winrt::event_token m_pointerWheelToken{};
 
     // Outlives the host in queued dispatcher lambdas; flipped to false in

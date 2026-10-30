@@ -137,14 +137,15 @@ namespace winrt::iRASPA_WinUI::implementation
 
     // Card view model for one force-field atom type (one row of the Cocoa
     // NSTableView). Fields write straight through to the ForceFieldType /
-    // SKColorSet via TwoWay bindings, like the Cocoa cell's target/actions.
+    // SKColorSet via TwoWay bindings, like the Cocoa cells' target/actions.
     struct ElementCardItem : implements<ElementCardItem,
                                        ICustomPropertyProvider,
                                        INotifyPropertyChanged,
                                        IStringable>
     {
-        ForceFieldSet* m_set{ nullptr };
-        SKColorSet* m_colorSet{ nullptr };
+        DocumentController* m_controller{ nullptr };
+        int m_forceFieldSetIndex{ -1 };
+        int m_colorSetIndex{ -1 };
         int m_row{ -1 };
         bool m_editable{ false };
         // The built-in types keep their identity even in an editable set, as in
@@ -158,12 +159,35 @@ namespace winrt::iRASPA_WinUI::implementation
         ElementsDetailView* m_view{ nullptr };
         winrt::event<PropertyChangedEventHandler> m_propertyChanged;
 
+        ForceFieldSet* Set() const
+        {
+            if (!m_controller || !m_controller->Document())
+                return nullptr;
+            auto& sets = m_controller->Document()->forceFieldSets();
+            if (m_forceFieldSetIndex < 0 ||
+                m_forceFieldSetIndex >= static_cast<int>(sets.forceFieldSets().size()))
+                return nullptr;
+            return &sets[m_forceFieldSetIndex];
+        }
+
+        SKColorSet* ColorSet() const
+        {
+            if (!m_controller || !m_controller->Document())
+                return nullptr;
+            auto& sets = m_controller->Document()->colorSets();
+            if (m_colorSetIndex < 0 ||
+                m_colorSetIndex >= static_cast<int>(sets.colorSets().size()))
+                return nullptr;
+            return &sets[static_cast<size_t>(m_colorSetIndex)];
+        }
+
         ForceFieldType* AtomType() const
         {
-            if (!m_set || m_row < 0 ||
-                m_row >= static_cast<int>(m_set->atomTypeList().size()))
+            auto* set = Set();
+            if (!set || m_row < 0 ||
+                m_row >= static_cast<int>(set->atomTypeList().size()))
                 return nullptr;
-            return &m_set->atomTypeList()[static_cast<size_t>(m_row)];
+            return &set->atomTypeList()[static_cast<size_t>(m_row)];
         }
 
         SKElement const* Element() const
@@ -212,9 +236,10 @@ namespace winrt::iRASPA_WinUI::implementation
         {
             RKColor color = RKColor::fromRgb(128, 128, 128);
             auto* type = AtomType();
-            if (type && m_colorSet)
+            auto* colorSet = ColorSet();
+            if (type && colorSet)
             {
-                if (const RKColor* c = static_cast<const SKColorSet&>(*m_colorSet)
+                if (const RKColor* c = static_cast<const SKColorSet&>(*colorSet)
                         [type->forceFieldStringIdentifier()])
                     color = *c;
             }
@@ -756,8 +781,9 @@ namespace winrt::iRASPA_WinUI::implementation
         for (size_t i = 0; i < count; ++i)
         {
             auto item = make_self<ElementCardItem>();
-            item->m_set = &forceFieldSet;
-            item->m_colorSet = &colorSet;
+            item->m_controller = m_controller;
+            item->m_forceFieldSetIndex = m_forceFieldSetIndex;
+            item->m_colorSetIndex = m_colorSetIndex;
             item->m_row = static_cast<int>(i);
             item->m_editable = setEditable;
             item->m_typeEditable = setEditable && !ForceFieldSet::isDefaultForceFieldType(
@@ -997,13 +1023,14 @@ namespace winrt::iRASPA_WinUI::implementation
 
     winrt::fire_and_forget ElementsDetailView::PickColorAsync(IInspectable item)
     {
-        auto lifetime = get_strong();
+        auto weak_this = get_weak();
 
         auto card = item.try_as<ElementCardItem>();
         if (!card)
             co_return;
         auto* type = card->AtomType();
-        if (!type || !card->m_colorSet)
+        auto* colorSet = card->ColorSet();
+        if (!type || !colorSet)
             co_return;
         if (!card->m_colorEditable)
         {
@@ -1012,6 +1039,11 @@ namespace winrt::iRASPA_WinUI::implementation
             co_return;
         }
 
+        const std::wstring forceFieldId = type->forceFieldStringIdentifier().toStdWString();
+        const int atomicNumber = static_cast<int>(type->atomicNumber());
+        (void)atomicNumber;
+        const int colorSetIndex = card->m_colorSetIndex;
+        auto weakCard = make_weak(card);
         RKColor current = card->CurrentColor();
 
         auto dlg = ContentDialog();
@@ -1032,14 +1064,23 @@ namespace winrt::iRASPA_WinUI::implementation
         if (result != ContentDialogResult::Primary)
             co_return;
 
+        auto self = weak_this.get();
+        if (!self || !self->m_controller || !self->m_controller->Document())
+            co_return;
+        auto& colorSets = self->m_controller->Document()->colorSets();
+        if (colorSetIndex < 0 ||
+            colorSetIndex >= static_cast<int>(colorSets.colorSets().size()))
+            co_return;
+        auto& activeColorSet = colorSets[static_cast<size_t>(colorSetIndex)];
+        if (!activeColorSet.editable())
+            co_return;
+
         RKColor chosen = WinColorToRKColor(picker.Color());
-        (*card->m_colorSet)[type->forceFieldStringIdentifier()] = chosen;
-        card->Raise(L"Swatch");
-        if (m_controller)
-        {
-            m_controller->ReapplyForceFieldAndColors();
-            m_controller->Log(L"Element color updated");
-        }
+        activeColorSet[RKString::fromStdWString(forceFieldId)] = chosen;
+        if (auto liveCard = weakCard.get())
+            liveCard->Raise(L"Swatch");
+        self->m_controller->ReapplyForceFieldAndColors();
+        self->m_controller->Log(L"Element color updated");
     }
 
     void ElementsDetailView::OnForceFieldSetChanged([[maybe_unused]] IInspectable const&,
@@ -1075,6 +1116,8 @@ namespace winrt::iRASPA_WinUI::implementation
         // previous one back; the selection is ours to set here.
         e.Handled(true);
 
+        if (m_cards)
+            m_cards.Clear();
         const int index =
             m_controller->AddForceFieldSet(std::wstring(e.Text()), m_forceFieldSetIndex);
         if (index >= 0)
@@ -1093,6 +1136,8 @@ namespace winrt::iRASPA_WinUI::implementation
             return;
         e.Handled(true);
 
+        if (m_cards)
+            m_cards.Clear();
         const int index = m_controller->AddColorSet(std::wstring(e.Text()), m_colorSetIndex);
         if (index >= 0)
             m_colorSetIndex = index;

@@ -153,8 +153,9 @@ PSOutput PSMain(PSInput input)
   float4 color = float4(lighting.diffuse, 1.0) * float4(1.0, 1.0, 0.0, 1.0);
 )foo") + DirectXAtomImposter::ModelNormalStringLiteral + std::string(R"foo(
   // Longitude/latitude of the hit point, so the stripes run along the atom's own meridians.
+  t1 = normalize(t1);
   float2 st = float2(0.5 + 0.5 * atan2(t1.z, t1.x) / 3.141592653589793,
-                     0.5 - asin(t1.y) / 3.141592653589793);
+                     0.5 - asin(clamp(t1.y, -1.0, 1.0)) / 3.141592653589793);
   float uDensity = structureUniforms.atomSelectionStripesDensity;
   float frequency = structureUniforms.atomSelectionStripesFrequency;
   if (frac(st.x * frequency) >= uDensity && frac(st.y * frequency) >= uDensity)

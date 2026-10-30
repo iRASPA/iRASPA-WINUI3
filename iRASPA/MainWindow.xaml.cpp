@@ -1623,6 +1623,7 @@ namespace winrt::iRASPA_WinUI::implementation
     // camera form.
     winrt::fire_and_forget MainWindow::PickBackgroundImageAsync()
     {
+        auto lifetime = get_strong();
         try
         {
             FileOpenPicker picker;
@@ -1668,6 +1669,7 @@ namespace winrt::iRASPA_WinUI::implementation
                                                         std::wstring typeName,
                                                         std::wstring suggestedName)
     {
+        auto lifetime = get_strong();
         try
         {
             FileSavePicker picker;
@@ -1711,6 +1713,7 @@ namespace winrt::iRASPA_WinUI::implementation
         std::wstring extension,
         std::function<void(std::wstring const&, std::wstring const&)> completion)
     {
+        auto lifetime = get_strong();
         try
         {
             FileOpenPicker picker;
@@ -1874,6 +1877,11 @@ namespace winrt::iRASPA_WinUI::implementation
     {
         if (m_project)
         {
+            if (auto scene = m_controller.SelectedScene())
+            {
+                InvalidateSceneAmbientOcclusion(scene);
+                InvalidateSceneIsosurfaces(scene);
+            }
             if (auto cam = m_project->camera())
                 cam->resetForNewBoundingBox(m_project->renderBoundingBox());
         }
@@ -2026,6 +2034,8 @@ namespace winrt::iRASPA_WinUI::implementation
 
         try
         {
+            if (auto scene = m_controller.SelectedScene())
+                InvalidateSceneAmbientOcclusion(scene);
             renderer->setRenderStructures(m_project->sceneList()->selectediRASPARenderStructures());
             renderer->reloadData();
         }
@@ -2194,8 +2204,7 @@ namespace winrt::iRASPA_WinUI::implementation
                 {
                     if (epoch != m_projectLoadEpoch)
                         return;
-                    if (inspector == 0 || inspector == 1 || inspector == 2 || inspector == 3 ||
-                        inspector == 4 || inspector == 5)
+                    if (inspector >= 0 && inspector <= 6)
                         ShowInspector(inspector);
                 }
                 catch (...)
@@ -2491,6 +2500,7 @@ namespace winrt::iRASPA_WinUI::implementation
 
     winrt::fire_and_forget MainWindow::ImportStructuresAsync()
     {
+        auto lifetime = get_strong();
         // fire_and_forget keeps the call site unchanged; the common dialog itself
         // is modal and synchronous (IFileOpenDialog::Show).
         try

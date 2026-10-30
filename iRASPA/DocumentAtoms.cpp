@@ -305,6 +305,8 @@ void DocumentController::ReloadAtomRowSelection() const
 {
     if (m_atomsPane)
         m_atomsPane->ReloadRowSelection();
+    if (m_bondsPane)
+        m_bondsPane->ReloadRowSelection();
 }
 
 void DocumentController::AddAtomNode(std::weak_ptr<iRASPAObject> frameRef,

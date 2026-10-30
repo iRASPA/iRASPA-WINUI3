@@ -19,6 +19,8 @@
 // virtue of the row template only ever revealing one editor.
 struct InlineRenameController
 {
+    ~InlineRenameController();
+
     // The row is searched for the TextBox tagged "editor" that every row
     // template carries collapsed. Returns false when the row has none.
     bool Begin(winrt::Microsoft::UI::Xaml::FrameworkElement const& row,

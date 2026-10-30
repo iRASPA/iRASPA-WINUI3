@@ -28,6 +28,8 @@ namespace winrt::iRASPA_WinUI::implementation
 
         // BondsPanePresenter
         void RebindBonds() override;
+        void ReloadRowSelection() override;
+        void ReloadSelectionFromModel();
 
         // What a row needs from the pane: the length to show, the length write,
         // and the renderer refresh a visibility or type change asks for.

@@ -645,7 +645,7 @@ public:
   RKString experimentalMeasurementRefinementDetails() override final {return _experimentalMeasurementRefinementDetails;}
   void setExperimentalMeasurementGoodnessOfFit(RKString goodness) override final {_experimentalMeasurementGoodnessOfFit = goodness;}
   RKString experimentalMeasurementGoodnessOfFit() override final {return _experimentalMeasurementGoodnessOfFit;}
-  void setExperimentalMeasurementRefinementDetails(RKString name) override final {_experimentalMeasurementGoodnessOfFit = name;}
+  void setExperimentalMeasurementRefinementDetails(RKString name) override final {_experimentalMeasurementRefinementDetails = name;}
   RKString experimentalMeasurementRFactorGt() override final {return _experimentalMeasurementRFactorGt;}
   void setExperimentalMeasurementRFactorGt(RKString name) override final {_experimentalMeasurementRFactorGt = name;}
   RKString experimentalMeasurementRFactorAll() override final {return _experimentalMeasurementRFactorAll;}

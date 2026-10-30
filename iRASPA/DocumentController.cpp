@@ -47,9 +47,16 @@ void DocumentController::ReloadRendererInvalidatingIsosurfaces() const
 {
     if (!m_host)
         return;
+    InvalidateIsosurfaces();
+    m_host->ReloadRendererData();
+}
+
+void DocumentController::InvalidateIsosurfaces() const
+{
+    if (!m_host)
+        return;
     if (auto scene = SelectedScene())
         m_host->InvalidateSceneIsosurfaces(scene);
-    m_host->ReloadRendererData();
 }
 
 void DocumentController::RefitCameraToBoundingBox() const

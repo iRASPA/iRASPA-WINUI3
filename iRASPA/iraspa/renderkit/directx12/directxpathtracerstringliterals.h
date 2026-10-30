@@ -228,6 +228,7 @@ PathTracerHit pathTracerIntersectCylinder(float3 origin, float3 direction, float
   float3 ba = pointB - pointA;
   float3 oc = origin - pointA;
   float baba = dot(ba, ba);
+  if (baba <= 1.0e-12) return result;
   float bard = dot(ba, rd);
   float baoc = dot(ba, oc);
   float k2 = baba - bard * bard;
@@ -618,7 +619,14 @@ float3 pathTracerRibbonColor(float structureType, StructureUniformData su)
 {
   if (structureType < 0.5) return su.ribbonCoilColor.xyz;
   if (structureType < 1.5) return su.ribbonHelixColor.xyz;
-  return su.ribbonSheetColor.xyz;
+  if (structureType < 2.5) return su.ribbonSheetColor.xyz;
+  // Nucleic-acid cartoons carry their own codes and are colored the way PyMOL colors bases.
+  if (structureType < 3.5) return float3(1.0, 1.0, 0.0);
+  if (structureType < 4.5) return float3(1.0, 1.0, 0.0);
+  if (structureType < 5.5) return float3(1.0, 0.0, 0.0);
+  if (structureType < 6.5) return float3(0.4, 0.4, 0.4);
+  if (structureType < 7.5) return float3(0.6, 1.0, 0.94);
+  return su.ribbonCoilColor.xyz;
 }
 
 PathTracerSurface pathTracerSphereSurface(PathTracerSphere sphere, StructureUniformData su)
@@ -970,6 +978,15 @@ void accumulateKernel(uint3 threadPosition : SV_DispatchThreadID)
   {
     pathTracerSurfaceInfo[pixel] =
         float4(primaryDepth, float(primaryStructure), float(primaryCategory), 1.0);
+  }
+  else if (recordedPrimary)
+  {
+    float4 prevInfo = pathTracerSurfaceInfo[pixel];
+    if (prevInfo.x >= 1.0 && primaryDepth < 1.0)
+    {
+      pathTracerSurfaceInfo[pixel] =
+          float4(primaryDepth, float(primaryStructure), float(primaryCategory), 1.0);
+    }
   }
 }
 )foo";

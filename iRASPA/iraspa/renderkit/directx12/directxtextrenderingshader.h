@@ -18,6 +18,7 @@
 
 struct DirectXFontAtlasGpu
 {
+  ID3D12Device *device = nullptr;
   std::unique_ptr<RKFontAtlas> cpu;
   ComPtr<ID3D12Resource> texture;
   ComPtr<ID3D12Resource> uploadBuffer;
@@ -44,6 +45,7 @@ public:
   static DirectXFontAtlasGpu *getOrCreateFontAtlas(const RKString &fontName, ID3D12Device *device);
   static void uploadFontAtlasTexture(DirectXFontAtlasGpu *entry, ID3D12Device *device,
                                      ID3D12GraphicsCommandList *commandList);
+  static void releaseUploadBuffers();
 
 private:
   struct StructureBuffers

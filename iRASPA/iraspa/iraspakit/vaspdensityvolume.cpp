@@ -30,8 +30,27 @@ std::shared_ptr<Object> VASPDensityVolume::shallowClone()
 
 VASPDensityVolume::VASPDensityVolume(std::shared_ptr<SKStructure> frame): Structure(frame)
 {
+  this->_drawUnitCell = frame->drawUnitCell;
   expandSymmetry();
   _atomsTreeController->setTags();
+
+  SKColorSet colorSet(SKColorSet::ColorScheme::jmol);
+  for(const std::shared_ptr<SKAtomTreeNode> &node: _atomsTreeController->flattenedLeafNodes())
+  {
+    if(std::shared_ptr<SKAsymmetricAtom> atom = node->representedObject())
+    {
+      RKString chemicalElement = PredefinedElements::predefinedElements[atom->elementIdentifier()]._chemicalSymbol;
+      if(atom->uniqueForceFieldName().isEmpty() || atom->uniqueForceFieldName() == "C")
+      {
+        atom->setUniqueForceFieldName(chemicalElement);
+      }
+      if(const RKColor* color = colorSet[chemicalElement])
+      {
+        atom->setColor(*color);
+      }
+      atom->setDrawRadius(drawRadius(atom->elementIdentifier()));
+    }
+  }
 
   _dimensions = frame->dimensions;
   _spacing = frame->spacing;
@@ -39,9 +58,6 @@ VASPDensityVolume::VASPDensityVolume(std::shared_ptr<SKStructure> frame): Struct
   _cell = frame->cell;
   _data = frame->byteData;
   _range = std::pair(frame->range.first, frame->range.second);
-  _average = frame->average;
-  _variance = frame->variance;
-
   _average = frame->average;
   _variance = frame->variance;
   _adsorptionSurfaceIsoValue = frame->average;
@@ -523,6 +539,159 @@ std::vector<RKInPerInstanceAttributesAtoms> VASPDensityVolume::renderSelectedAto
   return atomData;
 }
 
+std::vector<RKInPerInstanceAttributesBonds> VASPDensityVolume::renderSelectedInternalBonds() const
+{
+  int minimumReplicaX = _cell->minimumReplicaX();
+  int minimumReplicaY = _cell->minimumReplicaY();
+  int minimumReplicaZ = _cell->minimumReplicaZ();
+
+  int maximumReplicaX = _cell->maximumReplicaX();
+  int maximumReplicaY = _cell->maximumReplicaY();
+  int maximumReplicaZ = _cell->maximumReplicaZ();
+
+  double3 contentShift = _cell->contentShift();
+  bool3 contentFlip = _cell->contentFlip();
+
+  std::vector<RKInPerInstanceAttributesBonds> data = std::vector<RKInPerInstanceAttributesBonds>();
+
+  const std::vector<std::shared_ptr<SKAsymmetricBond>> asymmetricBonds = _bondSetController->arrangedObjects();
+
+  for(int asymmetricBondIndex: _bondSetController->selectionIndexSet())
+  {
+    std::shared_ptr<SKAsymmetricBond> asymmetricBond = _bondSetController->arrangedObjects()[asymmetricBondIndex];
+    bool isVisible = asymmetricBond->isVisible() && asymmetricBond->atom1()->isVisible() && asymmetricBond->atom2()->isVisible();
+
+    if(isVisible)
+    {
+      const std::vector<std::shared_ptr<SKBond>> bonds = asymmetricBond->copies();
+      for(std::shared_ptr<SKBond> bond : bonds)
+      {
+        if(bond->atom1()->type() == SKAtomCopy::AtomCopyType::copy && bond->atom2()->type() == SKAtomCopy::AtomCopyType::copy && bond->boundaryType() == SKBond::BoundaryType::internal)
+        {
+          RKColor color1 = bond->atom1()->parent()->color();
+          RKColor color2 = bond->atom2()->parent()->color();
+
+          double3 copyPosition1 = double3::flip(bond->atom1()->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
+          double3 copyPosition2 = double3::flip(bond->atom2()->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
+
+          for(int k1=minimumReplicaX;k1<=maximumReplicaX;k1++)
+          {
+            for(int k2=minimumReplicaY;k2<=maximumReplicaY;k2++)
+            {
+              for(int k3=minimumReplicaZ;k3<=maximumReplicaZ;k3++)
+              {
+                double3 pos1 = _cell->unitCell() * (copyPosition1 + double3(k1,k2,k3));
+                double3 pos2 = _cell->unitCell() * (copyPosition2 + double3(k1,k2,k3));
+                double bondLength = (pos2-pos1).length();
+                double drawRadius1 = bond->atom1()->parent()->drawRadius()/bondLength;
+                double drawRadius2 = bond->atom2()->parent()->drawRadius()/bondLength;
+
+                RKInPerInstanceAttributesBonds bondData = RKInPerInstanceAttributesBonds(
+                            float4(pos1,1.0),
+                            float4(pos2,1.0),
+                            float4(color1.redF(),color1.greenF(),color1.blueF(),color1.alphaF()),
+                            float4(color2.redF(),color2.greenF(),color2.blueF(),color2.alphaF()),
+                            float4(drawRadius1, std::min(bond->atom1()->parent()->occupancy(),bond->atom2()->parent()->occupancy()), drawRadius2, drawRadius1/drawRadius2),
+                            asymmetricBondIndex,
+                            static_cast<typename std::underlying_type<SKAsymmetricBond::SKBondType>::type>(asymmetricBond->getBondType()));
+                data.push_back(bondData);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return data;
+}
+
+std::vector<RKInPerInstanceAttributesBonds> VASPDensityVolume::renderSelectedExternalBonds() const
+{
+  std::vector<RKInPerInstanceAttributesBonds> data = std::vector<RKInPerInstanceAttributesBonds>();
+
+  int minimumReplicaX = _cell->minimumReplicaX();
+  int minimumReplicaY = _cell->minimumReplicaY();
+  int minimumReplicaZ = _cell->minimumReplicaZ();
+
+  int maximumReplicaX = _cell->maximumReplicaX();
+  int maximumReplicaY = _cell->maximumReplicaY();
+  int maximumReplicaZ = _cell->maximumReplicaZ();
+
+  double3 contentShift = _cell->contentShift();
+  bool3 contentFlip = _cell->contentFlip();
+
+  const std::vector<std::shared_ptr<SKAsymmetricBond>> asymmetricBonds = _bondSetController->arrangedObjects();
+
+  for(int asymmetricBondIndex: _bondSetController->selectionIndexSet())
+  {
+    std::shared_ptr<SKAsymmetricBond> asymmetricBond = _bondSetController->arrangedObjects()[asymmetricBondIndex];
+    const std::vector<std::shared_ptr<SKBond>> bonds = asymmetricBond->copies();
+    for(std::shared_ptr<SKBond> bond : bonds)
+    {
+      if(bond->boundaryType() == SKBond::BoundaryType::external)
+      {
+        RKColor color1 = bond->atom1()->parent()->color();
+        RKColor color2 = bond->atom2()->parent()->color();
+        double w = (asymmetricBond->isVisible() && bond->atom1()->parent()->isVisible() && bond->atom2()->parent()->isVisible()) ? 1.0 : -1.0;
+
+        double3 copyPosition1 = double3::flip(bond->atom1()->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
+        double3 copyPosition2 = double3::flip(bond->atom2()->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
+
+        for(int k1=minimumReplicaX;k1<=maximumReplicaX;k1++)
+        {
+          for(int k2=minimumReplicaY;k2<=maximumReplicaY;k2++)
+          {
+            for(int k3=minimumReplicaZ;k3<=maximumReplicaZ;k3++)
+            {
+              double3 frac_pos1 = copyPosition1 + double3(k1,k2,k3);
+              double3 frac_pos2 = copyPosition2 + double3(k1,k2,k3);
+
+              double3 dr = frac_pos2 - frac_pos1;
+
+              // apply boundary condition
+              dr.x -= rint(dr.x);
+              dr.y -= rint(dr.y);
+              dr.z -= rint(dr.z);
+
+              double3 pos1 = _cell->unitCell() * frac_pos1;  //+ bond.atom1.asymmetricParentAtom.displacement
+              double3 pos2 = _cell->unitCell() * frac_pos2;  // + bond.atom2.asymmetricParentAtom.displacement
+
+              dr = _cell->unitCell() * dr;
+              double bondLength = dr.length();
+
+              double drawRadius1 = bond->atom1()->parent()->drawRadius()/bondLength;
+              double drawRadius2 = bond->atom2()->parent()->drawRadius()/bondLength;
+
+              RKInPerInstanceAttributesBonds bondData = RKInPerInstanceAttributesBonds(
+                            float4(pos1,w),
+                            float4(pos1 + dr,w),
+                            float4(color1.redF(),color1.greenF(),color1.blueF(),color1.alphaF()),
+                            float4(color2.redF(),color2.greenF(),color2.blueF(),color2.alphaF()),
+                            float4(drawRadius1, std::min(bond->atom1()->parent()->occupancy(),bond->atom2()->parent()->occupancy()), drawRadius2, drawRadius1/drawRadius2),
+                            asymmetricBondIndex,
+                            static_cast<typename std::underlying_type<SKAsymmetricBond::SKBondType>::type>(asymmetricBond->getBondType()));
+              data.push_back(bondData);
+
+              RKInPerInstanceAttributesBonds bondData2 = RKInPerInstanceAttributesBonds(
+                            float4(pos2,w),
+                            float4(pos2 - dr,w),
+                            float4(color2.redF(),color2.greenF(),color2.blueF(),color2.alphaF()),
+                            float4(color1.redF(),color1.greenF(),color1.blueF(),color1.alphaF()),
+                            float4(drawRadius2, std::min(bond->atom2()->parent()->occupancy(),bond->atom1()->parent()->occupancy()), drawRadius1, drawRadius2/drawRadius1),
+                            asymmetricBondIndex,
+                            static_cast<typename std::underlying_type<SKAsymmetricBond::SKBondType>::type>(asymmetricBond->getBondType()));
+              data.push_back(bondData2);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return data;
+}
+
 std::set<int> VASPDensityVolume::filterCartesianAtomPositions(std::function<bool(double3)> & closure)
 {
   std::set<int> data;
@@ -978,7 +1147,7 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<VASPDensityVolu
   stream >> magicNumber;
   if(magicNumber != int64_t(0x6f6b6198))
   {
-    throw InvalidArchiveVersionException(__FILE__, __LINE__, "GaussianCubeVolume invalid magic-number");
+    throw InvalidArchiveVersionException(__FILE__, __LINE__, "VASPDensityVolume invalid magic-number");
   }
 
   std::shared_ptr<Structure> object = std::static_pointer_cast<Structure>(volume);

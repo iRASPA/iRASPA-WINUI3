@@ -24,17 +24,18 @@ RKString stripElementSuffix(RKString s)
 {
   std::string u = s.utf8();
   std::string out;
-  out.reserve(u.size());
-  for (size_t i = 0; i < u.size(); )
+  out.reserve(2);
+  for (size_t i = 0; i < u.size() && out.size() < 2; ++i)
   {
     const char c = u[i];
-    if ((c >= '0' && c <= '9') || c == '+' || c == '-')
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
     {
-      i += (i + 1 < u.size()) ? 2 : 1;
-      continue;
+      out.push_back(c);
     }
-    out.push_back(c);
-    ++i;
+    else
+    {
+      break;
+    }
   }
   return RKString(out);
 }
@@ -662,6 +663,14 @@ void SKCIFParser::appendAtomSite(const std::map<RKString, RKString> &dictionary,
       {
         atom->setElementIdentifier(atomicIt->second);
       }
+      else if (stripped.size() > 1)
+      {
+        atomicIt = PredefinedElements::atomicNumberData.find(stripped.mid(0, 1));
+        if (atomicIt != PredefinedElements::atomicNumberData.end())
+        {
+          atom->setElementIdentifier(atomicIt->second);
+        }
+      }
     }
   }
 
@@ -1031,7 +1040,8 @@ void SKCIFParser::parseLoop(const RKString& string)
         parseSymmetryEquivPos(*symmetryXYZ);
       }
       else if (auto chemicalSymbol = normalizedChemicalElement(
-                   dictionaryValue(dictionary, {"_atom_site_type_symbol", "_atom_site.type_symbol"})))
+                   dictionaryValue(dictionary, {"_atom_site_type_symbol", "_atom_site.type_symbol",
+                                                "_atom_site_label", "_atom_site.label_atom_id"})))
       {
         appendAtomSite(dictionary, *chemicalSymbol);
       }

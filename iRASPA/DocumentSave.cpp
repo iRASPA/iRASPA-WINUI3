@@ -135,6 +135,7 @@ namespace winrt::iRASPA_WinUI::implementation
             AppendLog(L"Save already in progress");
             co_return;
         }
+        m_saveInProgress = true;
 
         std::wstring path = saveAs ? std::wstring() : m_documentPath;
 
@@ -163,6 +164,7 @@ namespace winrt::iRASPA_WinUI::implementation
                 StorageFile file = co_await picker.PickSaveFileAsync();
                 if (!file)
                 {
+                    m_saveInProgress = false;
                     AppendLog(L"Save cancelled");
                     co_return;
                 }
@@ -170,33 +172,35 @@ namespace winrt::iRASPA_WinUI::implementation
             }
             catch (hresult_error const& ex)
             {
+                m_saveInProgress = false;
                 AppendLog(std::wstring(L"Save failed: ") + std::wstring(ex.message()));
+                co_return;
+            }
+            catch (...)
+            {
+                m_saveInProgress = false;
+                AppendLog(L"Save failed");
                 co_return;
             }
         }
 
-        m_saveInProgress = true;
-        auto dispatcher = DispatcherQueue();
-        co_await winrt::resume_background();
-
+        // WriteDocumentToFile reads the live document tree, color sets, force-field
+        // sets and loaded ProjectStructure instances, and writes m_savedProjectCount,
+        // so it must run on the UI thread to avoid racing with UI mutations.
         std::wstring error;
         const bool ok = WriteDocumentToFile(path, error);
-
-        dispatcher.TryEnqueue([this, lifetime, ok, path, error]()
+        m_saveInProgress = false;
+        if (ok)
         {
-            m_saveInProgress = false;
-            if (ok)
-            {
-                m_documentPath = path;
-                Title(L"iRASPA - " + hstring{ FileNameOf(path) });
-                AppendLog(L"Saved " + FileNameOf(path) + L" (" +
-                          std::to_wstring(m_savedProjectCount) + L" project(s))");
-            }
-            else
-            {
-                AppendLog(error.empty() ? std::wstring(L"Save failed") : error);
-            }
-        });
+            m_documentPath = path;
+            Title(L"iRASPA - " + hstring{ FileNameOf(path) });
+            AppendLog(L"Saved " + FileNameOf(path) + L" (" +
+                      std::to_wstring(m_savedProjectCount) + L" project(s))");
+        }
+        else
+        {
+            AppendLog(error.empty() ? std::wstring(L"Save failed") : error);
+        }
     }
 
     // Cocoa iRASPADocument.readDocumentFileFormat(url:) — the counterpart of

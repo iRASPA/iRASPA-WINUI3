@@ -267,6 +267,7 @@ void DirectXRenderer::uploadPendingTextures()
   m_device.commandQueue()->ExecuteCommandLists(1, lists);
   if (m_fence)
     m_device.waitForGPU(m_fence);
+  DirectXTextRenderingShader::releaseUploadBuffers();
 }
 
 void DirectXRenderer::resetSceneResources()
@@ -276,6 +277,7 @@ void DirectXRenderer::resetSceneResources()
   m_pathTracerShader.release();
   m_pathTracerGeometry.release();
   m_tracedPresentShader.release();
+  m_edgeCueingShader.release();
   m_tracedSceneColor.Reset();
   m_tracedSceneColorWidth = 0;
   m_tracedSceneColorHeight = 0;
@@ -986,6 +988,7 @@ void DirectXRenderer::reloadData()
   uploadPendingTextures();
   updateStructureUniforms();
   updateIsosurfaceUniforms();
+  updateBlockingPocketUniforms();
   updateGlobalAxesUniforms();
   markNeedsDisplay();
 }
@@ -2098,6 +2101,9 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
                            lightsCB()->GetGPUVirtualAddress(),
                            globalAxesCB() ? globalAxesCB()->GetGPUVirtualAddress() : 0,
                            width, height);
+  m_commandList->RSSetViewports(1, &viewport);
+  m_commandList->RSSetScissorRects(1, &scissor);
+  m_commandList->SetDescriptorHeaps(1, heaps);
 }
 
 /// Selection glow → blur → composite onto \a destRtv, which already holds the resolved
@@ -2508,7 +2514,7 @@ RKImage DirectXRenderer::captureTracedFrameWithCues(int width, int height)
 
   // The composite cannot be both read and written, so the cues are drawn into a second image of the
   // same format, which is what is read back.
-  const DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM;
+  const DXGI_FORMAT format = m_device.backBufferFormat();
 
   D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
   rtvHeapDesc.NumDescriptors = 1;

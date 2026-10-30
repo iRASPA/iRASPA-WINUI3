@@ -67,7 +67,7 @@ Crystal::Crystal(std::shared_ptr<SKStructure> frame): Structure(frame)
 
 Crystal::Crystal(const Crystal &crystal): Structure(crystal)
 {
-
+  _spaceGroup = crystal._spaceGroup;
 }
 
 Crystal::Crystal(const std::shared_ptr<Object> object): Structure(object)

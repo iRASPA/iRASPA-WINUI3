@@ -905,7 +905,11 @@ namespace winrt::iRASPA_WinUI::implementation
 
         BindCheck(AtomDraw(), [this](bool on)
         {
-            ForEachAs<AtomStructureEditor>(m_controller, [on](auto editor) { editor->setDrawAtoms(on); });
+            ForEachAs<AtomStructureEditor>(m_controller, [on](auto editor)
+            {
+                editor->setDrawAtoms(on);
+                editor->recheckRepresentationStyle();
+            });
         });
         BindSlider(AtomScaleSlider(), AtomScaleBox(), 0.1, 2.0, 0.01, [this](double value)
         {
@@ -933,8 +937,6 @@ namespace winrt::iRASPA_WinUI::implementation
                       AgreedAs<BondStructureViewer>(m_controller, [](auto const& b)
                                                     { return b->bondScaleFactor(); }));
             m_suppress = wasSuppressed;
-            if (m_controller)
-                m_controller->ReloadRenderer();
         });
         // A style writes most of the atom and bond settings, so the whole form is
         // reloaded afterwards, as Cocoa reloads the rows the style touched. The
@@ -1571,7 +1573,7 @@ namespace winrt::iRASPA_WinUI::implementation
             });
             if (m_controller)
             {
-                m_controller->ReloadRendererInvalidatingIsosurfaces();
+                m_controller->InvalidateIsosurfaces();
                 m_controller->Log(on ? L"Apply blocking pockets: ON" : L"Apply blocking pockets: OFF");
             }
         });
@@ -1604,7 +1606,7 @@ namespace winrt::iRASPA_WinUI::implementation
                 m_controller->Log(L"Isosurface rendering selected");
                 break;
             }
-            m_controller->ReloadRendererInvalidatingIsosurfaces();
+            m_controller->InvalidateIsosurfaces();
         });
         BindCombo(VolProbe(), [this](int index, hstring const&)
         {
@@ -1618,7 +1620,7 @@ namespace winrt::iRASPA_WinUI::implementation
             // The grid was computed for the previous probe, so it no longer describes
             // what the surface is a level set of.
             if (m_controller)
-                m_controller->ReloadRendererInvalidatingIsosurfaces();
+                m_controller->InvalidateIsosurfaces();
             Reload();
         });
         BindNumber(VolProbeEpsilon(), 0.0, 1.0e6, 0.1, [this](double value)
@@ -1628,7 +1630,7 @@ namespace winrt::iRASPA_WinUI::implementation
                 viewer->setAdsorptionSurfaceProbeEpsilon(value);
             });
             if (m_controller)
-                m_controller->ReloadRendererInvalidatingIsosurfaces();
+                m_controller->InvalidateIsosurfaces();
             Reload();
         });
         BindNumber(VolProbeSigma(), 0.0, 100.0, 0.01, [this](double value)
@@ -1638,7 +1640,7 @@ namespace winrt::iRASPA_WinUI::implementation
                 viewer->setAdsorptionSurfaceProbeSigma(value);
             });
             if (m_controller)
-                m_controller->ReloadRendererInvalidatingIsosurfaces();
+                m_controller->InvalidateIsosurfaces();
             Reload();
         });
         BindCombo(VolTF(), [this](int index, hstring const&)
@@ -1661,7 +1663,7 @@ namespace winrt::iRASPA_WinUI::implementation
             });
             // A grid of another size is a different grid, so the cached one goes.
             if (m_controller)
-                m_controller->ReloadRendererInvalidatingIsosurfaces();
+                m_controller->InvalidateIsosurfaces();
         });
         BindNumber(VolStep(), 0.001, 1.0, 0.001, [this](double value)
         {

@@ -45,6 +45,7 @@ MolecularCrystal::MolecularCrystal()
 
 MolecularCrystal::MolecularCrystal(const MolecularCrystal &molecularCrystal): Structure(molecularCrystal)
 {
+  _spaceGroup = molecularCrystal._spaceGroup;
 }
 
 MolecularCrystal::MolecularCrystal(std::shared_ptr<SKStructure> frame): Structure(frame)
@@ -122,8 +123,7 @@ std::vector<RKInPerInstanceAttributesAtoms> MolecularCrystal::renderAtoms() cons
 
       for (std::shared_ptr<SKAtomCopy> copy : atom->copies())
       {
-        double3 fractionalPosition = _cell->inverseUnitCell()  * (copy->position() + contentShift);
-        double3 adjustedFractionalPosition = double3::flip(fractionalPosition, contentFlip, double3(1.0,1.0,1.0));
+        double3 copyPosition = double3::flip(_cell->inverseUnitCell() * copy->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
 
         if (copy->type() == SKAtomCopy::AtomCopyType::copy)
         {
@@ -133,7 +133,7 @@ std::vector<RKInPerInstanceAttributesAtoms> MolecularCrystal::renderAtoms() cons
             {
               for (int k3 = minimumReplicaZ;k3 <= maximumReplicaZ;k3++)
               {
-                double3 CartesianPosition = _cell->unitCell() * (double3::fract(adjustedFractionalPosition) + double3(k1, k2, k3));
+                double3 CartesianPosition = _cell->unitCell() * (copyPosition + double3(k1, k2, k3));
                 float4 position = float4(CartesianPosition, w);
 
                 RKInPerInstanceAttributesAtoms atom1 = RKInPerInstanceAttributesAtoms(position, ambient, diffuse, specular, scale, asymmetricAtomIndex);
@@ -364,8 +364,7 @@ std::vector<RKInPerInstanceAttributesAtoms> MolecularCrystal::renderSelectedAtom
         {
           if (copy->type() == SKAtomCopy::AtomCopyType::copy)
           {
-            double3 fractionalPosition = _cell->inverseUnitCell()  * (copy->position() + contentShift);
-            double3 adjustedFractionalPosition = double3::flip(fractionalPosition, contentFlip, double3(1.0,1.0,1.0));
+            double3 copyPosition = double3::flip(_cell->inverseUnitCell() * copy->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
 
             for (int k1 = minimumReplicaX;k1 <= maximumReplicaX;k1++)
             {
@@ -373,7 +372,7 @@ std::vector<RKInPerInstanceAttributesAtoms> MolecularCrystal::renderSelectedAtom
               {
                 for (int k3 = minimumReplicaZ;k3 <= maximumReplicaZ;k3++)
                 {
-                  double3 CartesianPosition = _cell->unitCell() * (double3::fract(adjustedFractionalPosition) + double3(k1, k2, k3));
+                  double3 CartesianPosition = _cell->unitCell() * (copyPosition + double3(k1, k2, k3));
                   float4 position = float4(CartesianPosition, 1.0);
 
                   RKInPerInstanceAttributesAtoms atom1 = RKInPerInstanceAttributesAtoms(position, ambient, diffuse, specular, scale, asymmetricAtomIndex);
@@ -418,10 +417,8 @@ std::vector<RKInPerInstanceAttributesBonds> MolecularCrystal::renderSelectedInte
       {
         if(bond->atom1()->type() == SKAtomCopy::AtomCopyType::copy && bond->atom2()->type() == SKAtomCopy::AtomCopyType::copy && bond->boundaryType() == SKBond::BoundaryType::internal)
         {
-          double3 fractionalPosition1 = _cell->inverseUnitCell()  * (bond->atom1()->position() + contentShift);
-          double3 adjustedFractionalPosition1 = double3::flip(fractionalPosition1, contentFlip, double3(1.0,1.0,1.0));
-          double3 fractionalPosition2 = _cell->inverseUnitCell()  * (bond->atom2()->position() + contentShift);
-          double3 adjustedFractionalPosition2 = double3::flip(fractionalPosition2, contentFlip, double3(1.0,1.0,1.0));
+          double3 copyPosition1 = double3::flip(_cell->inverseUnitCell() * bond->atom1()->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
+          double3 copyPosition2 = double3::flip(_cell->inverseUnitCell() * bond->atom2()->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
 
           RKColor color1 = bond->atom1()->parent()->color();
           RKColor color2 = bond->atom2()->parent()->color();
@@ -432,8 +429,8 @@ std::vector<RKInPerInstanceAttributesBonds> MolecularCrystal::renderSelectedInte
             {
               for(int k3=minimumReplicaZ;k3<=maximumReplicaZ;k3++)
               {
-                double3 pos1 = _cell->unitCell() * (double3::fract(adjustedFractionalPosition1) + double3(k1, k2, k3));
-                double3 pos2 = _cell->unitCell() * (double3::fract(adjustedFractionalPosition2) + double3(k1, k2, k3));
+                double3 pos1 = _cell->unitCell() * (copyPosition1 + double3(k1, k2, k3));
+                double3 pos2 = _cell->unitCell() * (copyPosition2 + double3(k1, k2, k3));
 
                 double bondLength = (pos2-pos1).length();
                 double drawRadius1 = bond->atom1()->parent()->drawRadius()/bondLength;
@@ -494,8 +491,7 @@ std::set<int> MolecularCrystal::filterCartesianAtomPositions(std::function<bool(
           {
             if(copy->type() == SKAtomCopy::AtomCopyType::copy)
             {
-              double3 fractionalPosition = _cell->inverseUnitCell()  * (copy->position() + contentShift);
-              double3 adjustedFractionalPosition = double3::flip(fractionalPosition, contentFlip, double3(1.0,1.0,1.0));
+              double3 copyPosition = double3::flip(_cell->inverseUnitCell() * copy->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
 
               for(int k1=minimumReplicaX;k1<=maximumReplicaX;k1++)
               {
@@ -503,7 +499,7 @@ std::set<int> MolecularCrystal::filterCartesianAtomPositions(std::function<bool(
                 {
                   for(int k3=minimumReplicaZ;k3<=maximumReplicaZ;k3++)
                   {
-                    double3 CartesianPosition = _cell->unitCell() * (double3::fract(adjustedFractionalPosition) + double3(k1, k2, k3));
+                    double3 CartesianPosition = _cell->unitCell() * (copyPosition + double3(k1, k2, k3));
 
                     double4 position = rotationMatrix * double4(CartesianPosition.x, CartesianPosition.y, CartesianPosition.z, 1.0);
 
@@ -558,10 +554,8 @@ BondSelectionIndexSet MolecularCrystal::filterCartesianBondPositions(std::functi
         const std::vector<std::shared_ptr<SKBond>> bonds = asymmetricBond->copies();
         for(const std::shared_ptr<SKBond> &bond : bonds)
         {
-          double3 fractionalPosition1 = _cell->inverseUnitCell()  * (bond->atom1()->position() + contentShift);
-          double3 adjustedFractionalPosition1 = double3::flip(fractionalPosition1, contentFlip, double3(1.0,1.0,1.0));
-          double3 fractionalPosition2 = _cell->inverseUnitCell()  * (bond->atom2()->position() + contentShift);
-          double3 adjustedFractionalPosition2 = double3::flip(fractionalPosition2, contentFlip, double3(1.0,1.0,1.0));
+          double3 copyPosition1 = double3::flip(_cell->inverseUnitCell() * bond->atom1()->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
+          double3 copyPosition2 = double3::flip(_cell->inverseUnitCell() * bond->atom2()->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
 
           for(int k1=minimumReplicaX;k1<=maximumReplicaX;k1++)
           {
@@ -569,8 +563,8 @@ BondSelectionIndexSet MolecularCrystal::filterCartesianBondPositions(std::functi
             {
               for(int k3=minimumReplicaZ;k3<=maximumReplicaZ;k3++)
               {
-                double3 pos1 = _cell->unitCell() * (double3::fract(adjustedFractionalPosition1) + double3(k1, k2, k3));
-                double3 pos2 = _cell->unitCell() * (double3::fract(adjustedFractionalPosition2) + double3(k1, k2, k3));
+                double3 pos1 = _cell->unitCell() * (copyPosition1 + double3(k1, k2, k3));
+                double3 pos2 = _cell->unitCell() * (copyPosition2 + double3(k1, k2, k3));
 
                 double3 dr = (pos2 -pos1);
 
@@ -1174,8 +1168,7 @@ std::vector<double3> MolecularCrystal::atomPositions() const
               {
                 double4x4 rotationMatrix = double4x4::AffinityMatrixToTransformationAroundArbitraryPoint(double4x4(_orientation), boundingBox().center());
 
-                double3 fractionalPosition = pos + _cell->unitCell()  * double3(double(k1), double(k2), double(k3));
-                double3 cartesianPosition = _cell->convertToCartesian(fractionalPosition);
+                double3 cartesianPosition = pos + _cell->unitCell() * double3(double(k1), double(k2), double(k3));
 
                 double4 position = rotationMatrix * double4(cartesianPosition.x, cartesianPosition.y, cartesianPosition.z, 1.0);
 
@@ -1531,7 +1524,7 @@ std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> MolecularCrys
                    ds.z -= std::rint(ds.z);
                    double3 translatedPositionCartesian = _cell->convertToCartesian(ds);
                    double3 position = rotationMatrix * translatedPositionCartesian;
-                   return std::make_pair(atom, _cell->convertToFractional(position) + com);
+                   return std::make_pair(atom, position + com);
                  });
 
   return translatedPositions;
@@ -1553,7 +1546,7 @@ std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> MolecularCrys
                    ds.z -= std::rint(ds.z);
                    double3 translatedPositionCartesian = _cell->convertToCartesian(ds);
                    double3 position = rotationMatrix * translatedPositionCartesian;
-                   return std::make_pair(atom, _cell->convertToFractional(position) + com);
+                   return std::make_pair(atom, position + com);
                  });
 
   return translatedPositions;

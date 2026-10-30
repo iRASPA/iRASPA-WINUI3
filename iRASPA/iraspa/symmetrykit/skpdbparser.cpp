@@ -530,6 +530,7 @@ void SKPDBParser::startParsing() noexcept(false)
           if (std::map<RKString,int>::iterator index = PredefinedElements::atomicNumberData.find(elementString); index != PredefinedElements::atomicNumberData.end())
           {
              atom->setElementIdentifier(index->second);
+             atom->setUniqueForceFieldName(elementString);
           }
 
           if(scannedLine.size()>=20)
@@ -545,6 +546,7 @@ void SKPDBParser::startParsing() noexcept(false)
               if (std::map<RKString,int>::iterator index = PredefinedElements::atomicNumberData.find(it->second); index != PredefinedElements::atomicNumberData.end())
               {
                  atom->setElementIdentifier(index->second);
+                 atom->setUniqueForceFieldName(it->second);
               }
             }
             auto typeIt = PredefinedElements::residueDefinitionsType.find(residueName + "+" + backboneLookupName);
@@ -618,6 +620,7 @@ void SKPDBParser::startParsing() noexcept(false)
             if (std::map<RKString,int>::iterator index = PredefinedElements::atomicNumberData.find(chemicalElement); index != PredefinedElements::atomicNumberData.end())
             {
                atom->setElementIdentifier(index->second);
+               atom->setUniqueForceFieldName(chemicalElement);
             }
           }
         }

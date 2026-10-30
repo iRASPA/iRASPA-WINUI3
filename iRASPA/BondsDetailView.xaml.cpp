@@ -424,7 +424,34 @@ namespace winrt::iRASPA_WinUI::implementation
             m_items.Append(*item);
         }
         CountText().Text(std::to_wstring(bondSet->arrangedObjects().size()) + L" bonds");
-        DispatcherQueue().TryEnqueue([this]() { m_suppressSelectionEvents = false; });
+        DispatcherQueue().TryEnqueue([this]() { ReloadSelectionFromModel(); });
+    }
+
+    void BondsDetailView::ReloadRowSelection()
+    {
+        ReloadSelectionFromModel();
+    }
+
+    void BondsDetailView::ReloadSelectionFromModel()
+    {
+        auto bondSet = m_controller ? m_controller->BondSet(m_frame) : nullptr;
+        if (!bondSet || !m_items)
+        {
+            m_suppressSelectionEvents = false;
+            return;
+        }
+
+        auto const& selected = bondSet->selectionIndexSet();
+        auto list = List();
+        m_suppressSelectionEvents = true;
+        list.DeselectAll();
+        const uint32_t count = m_items.Size();
+        for (size_t idx : selected)
+        {
+            if (idx < count)
+                list.Select(static_cast<int32_t>(idx));
+        }
+        m_suppressSelectionEvents = false;
     }
 
     // computeBonds replaced the asymmetric bonds, so every row is holding one
@@ -439,24 +466,59 @@ namespace winrt::iRASPA_WinUI::implementation
 
         auto const& bonds = bondSet->arrangedObjects();
         const uint32_t count = m_items.Size();
+        if (bonds.size() != count)
+        {
+            bondSet->setTags();
+            Populate();
+            return;
+        }
+
+        std::vector<std::shared_ptr<SKAsymmetricBond>> matched(count);
         for (uint32_t i = 0; i < count; ++i)
         {
             auto item = m_items.GetAt(i).try_as<BondFlatItem>();
             if (!item || !item->m_bond)
-                continue;
+            {
+                bondSet->setTags();
+                Populate();
+                return;
+            }
             auto oldA1 = item->m_bond->atom1();
             auto oldA2 = item->m_bond->atom2();
+            std::shared_ptr<SKAsymmetricBond> found;
             for (auto const& bond : bonds)
             {
                 auto a1 = bond->atom1();
                 auto a2 = bond->atom2();
                 if ((a1 == oldA1 && a2 == oldA2) || (a1 == oldA2 && a2 == oldA1))
                 {
-                    item->m_bond = bond;
+                    found = bond;
                     break;
                 }
             }
-            item->RaiseLengthChanged();
+            if (!found)
+            {
+                bondSet->setTags();
+                Populate();
+                return;
+            }
+            matched[i] = std::move(found);
+        }
+
+        bondSet->setTags();
+        CountText().Text(std::to_wstring(bonds.size()) + L" bonds");
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            if (auto item = m_items.GetAt(i).try_as<BondFlatItem>())
+            {
+                item->m_bond = matched[i];
+                item->Raise(L"IdText");
+                item->Raise(L"Tag1");
+                item->Raise(L"Tag2");
+                item->Raise(L"Atom1Id");
+                item->Raise(L"Atom2Id");
+                item->RaiseLengthChanged();
+            }
         }
     }
 

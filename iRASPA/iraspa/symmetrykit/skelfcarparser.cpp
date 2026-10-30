@@ -52,16 +52,26 @@ void SKELFCARParser::startParsing() noexcept(false)
   _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
   if(scannedLine.empty()) {throw std::runtime_error("Empty file");}
 
-  // skip first line
+  // read universal scaling factor
   _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
   if(scannedLine.empty()) {throw std::runtime_error("POSCAR file near empty");}
+
+  bool succes = false;
+  double scaleFactor = 1.0;
+  termsScannedLined = scannedLine.splitWhitespace();
+  if(!termsScannedLined.empty())
+  {
+    double parsedScale = termsScannedLined[0].toDouble(&succes);
+    if(succes && parsedScale > 0.0)
+    {
+      scaleFactor = parsedScale;
+    }
+  }
 
   // read first lattice vector
   _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
   termsScannedLined = scannedLine.splitWhitespace();
   if(termsScannedLined.size()<3) {throw std::runtime_error("Missing first lattice vector in POSCAR");}
-
-  bool succes = false;
   unitCell.ax = termsScannedLined[0].toDouble(&succes);
   if(!succes) {throw std::runtime_error("Could not parse the x-coordinate of first lattice vector");}
 
@@ -99,6 +109,8 @@ void SKELFCARParser::startParsing() noexcept(false)
   unitCell.cz = termsScannedLined[2].toDouble(&succes);
   if(!succes) {throw std::runtime_error("Could not parse the z-coordinate of third lattice vector");}
 
+  unitCell = scaleFactor * unitCell;
+
   _frame->cell = std::make_shared<SKCell>(unitCell);
   inverseUnitCell = unitCell.inverse();
 
@@ -117,14 +129,14 @@ void SKELFCARParser::startParsing() noexcept(false)
   // skip first line
   _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
   std::vector<RKString> directOrCartesian = scannedLine.splitWhitespace();
-  if(elementList[0].toLower() == "selective") // skip Selective dynamics line
+  if(!directOrCartesian.empty() && directOrCartesian[0].toLower().startsWith("s")) // skip Selective dynamics line
   {
     _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
     directOrCartesian = scannedLine.splitWhitespace();
   }
 
   bool cartesian = false;
-  if(directOrCartesian[0].toLower() == "cartesian")
+  if(!directOrCartesian.empty() && (directOrCartesian[0].toLower().startsWith("c") || directOrCartesian[0].toLower().startsWith("k")))
   {
     cartesian = true;
   }
@@ -149,6 +161,7 @@ void SKELFCARParser::startParsing() noexcept(false)
       {
          atom->setElementIdentifier(index->second);
          atom->setDisplayName(chemicalElement);
+         atom->setUniqueForceFieldName(chemicalElement);
       }
       else
       {
@@ -169,7 +182,7 @@ void SKELFCARParser::startParsing() noexcept(false)
       // convert to fractional position if Cartesian coordinates are specified
       if(cartesian)
       {
-        atom->setPosition(inverseUnitCell * position);
+        atom->setPosition(inverseUnitCell * (scaleFactor * position));
       }
       else
       {

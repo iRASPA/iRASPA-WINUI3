@@ -850,8 +850,9 @@ ID3D12Resource *Dx12DeviceContext::createOffscreenRenderTarget(D3D12_CPU_DESCRIP
                                                                UINT width, UINT height,
                                                                const float *clearColor, int samples)
 {
+  const DXGI_FORMAT format = backBufferFormat();
   D3D12_CLEAR_VALUE clearValue = {};
-  clearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+  clearValue.Format = format;
   if (clearColor)
     memcpy(clearValue.Color, clearColor, 4 * sizeof(float));
 
@@ -864,7 +865,7 @@ ID3D12Resource *Dx12DeviceContext::createOffscreenRenderTarget(D3D12_CPU_DESCRIP
   rtDesc.Height = height;
   rtDesc.DepthOrArraySize = 1;
   rtDesc.MipLevels = 1;
-  rtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+  rtDesc.Format = format;
   rtDesc.SampleDesc = makeSampleDesc(rtDesc.Format, samples);
   rtDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 

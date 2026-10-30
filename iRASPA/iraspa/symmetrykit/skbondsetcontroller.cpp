@@ -198,7 +198,8 @@ void SKBondSetController::insertSelection(BondSelectionNodesAndIndexSet selectio
 
 void SKBondSetController::deleteBonds(BondSelectionNodesAndIndexSet selection)
 {
-  for (const auto &[bondItem, index] : selection)
+  ReversedBondSelectionNodesAndIndexSet reversedSelection(selection.begin(), selection.end());
+  for (const auto &[bondItem, index] : reversedSelection)
   {
     _arrangedObjects.erase(_arrangedObjects.begin() + index);
   }
@@ -218,9 +219,13 @@ void SKBondSetController::correctBondSelectionDueToAtomSelection()
 {
   AtomSelectionNodesAndIndexPaths selectedAtomNodes = _atomTreecontroller->selectionNodesAndIndexPaths();
   std::set<std::shared_ptr<SKAsymmetricAtom>> selectedAtoms;
-  std::transform(selectedAtomNodes.second.begin(),selectedAtomNodes.second.end(),std::inserter(selectedAtoms, selectedAtoms.begin()),
-                 [](std::pair<std::shared_ptr<SKAtomTreeNode>, IndexPath> pair) -> std::shared_ptr<SKAsymmetricAtom>
-                        {return pair.first->representedObject();});
+  for (const auto &pair : selectedAtomNodes.second)
+  {
+    if (pair.first)
+    {
+      selectedAtoms.insert(pair.first->representedObject());
+    }
+  }
 
   int bondIndex=0;
   for(const std::shared_ptr<SKAsymmetricBond> &bond : _arrangedObjects)

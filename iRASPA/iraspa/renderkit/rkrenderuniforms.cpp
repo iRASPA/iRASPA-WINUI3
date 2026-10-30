@@ -148,6 +148,21 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
     this->boxMatrix[3][1] = float(shift.y);
     this->boxMatrix[3][2] = float(shift.z);
 
+    double3x3 unitCell = renderStructure->cell()->unitCell();
+    double3 corner = unitCell * double3(double(renderStructure->cell()->minimumReplicas().x), double(renderStructure->cell()->minimumReplicas().y), double(renderStructure->cell()->minimumReplicas().z));
+    double3 corner2 = unitCell * double3(double(renderStructure->cell()->maximumReplicas().x)+1.0, double(renderStructure->cell()->maximumReplicas().y)+1.0, double(renderStructure->cell()->maximumReplicas().z)+1.0);
+
+    // clipping planes are in object space
+    double3 u_plane0 = double3::normalize(double3::cross(box[0],box[1]));
+    double3 u_plane1 = double3::normalize(double3::cross(box[2],box[0]));
+    double3 u_plane2 = double3::normalize(double3::cross(box[1],box[2]));
+    this->clipPlaneBack = float4(u_plane0.x, u_plane0.y, u_plane0.z, -double3::dot(u_plane0,corner));
+    this->clipPlaneBottom = float4(u_plane1.x, u_plane1.y, u_plane1.z, -double3::dot(u_plane1,corner));
+    this->clipPlaneLeft = float4(u_plane2.x, u_plane2.y, u_plane2.z, -double3::dot(u_plane2,corner));
+    this->clipPlaneFront = float4(-u_plane0.x, -u_plane0.y, -u_plane0.z, double3::dot(u_plane0,corner2));
+    this->clipPlaneTop = float4(-u_plane1.x, -u_plane1.y, -u_plane1.z, double3::dot(u_plane1,corner2));
+    this->clipPlaneRight = float4(-u_plane2.x, -u_plane2.y, -u_plane2.z, double3::dot(u_plane2,corner2));
+
     if (RKRenderLocalAxesSource* renderStructure = dynamic_cast<RKRenderLocalAxesSource*>(structure.get()))
     {
       double3 offset = renderStructure->renderLocalAxes().offset();
@@ -320,8 +335,74 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
 
 RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIdentifier, std::shared_ptr<RKRenderObject> structure, double4x4 inverseModelMatrix)
 {
+  this->sceneIdentifier = int32_t(sceneIdentifier);
+  this->MovieIdentifier = int32_t(movieIdentifier);
+
   if (RKRenderObject* renderStructure = dynamic_cast<RKRenderObject*>(structure.get()))
   {
+    if (!renderStructure->cell())
+      return;
+
+    SKBoundingBox boundingbox = renderStructure->cell()->boundingBox();
+    double3 centerOfRotation = boundingbox.center();
+
+    // difference
+    double4x4 currentModelMatrix = inverseModelMatrix * double4x4::AffinityMatrixToTransformationAroundArbitraryPointWithTranslation(double4x4(renderStructure->orientation()),centerOfRotation, renderStructure->origin());
+    this->modelMatrix = float4x4(currentModelMatrix);
+    this->inverseModelMatrix = float4x4(double4x4::inverse(currentModelMatrix));
+
+    double3x3 unitCell = renderStructure->cell()->unitCell();
+    double3x3 box = renderStructure->cell()->box();
+    double3 corner = unitCell * double3(double(renderStructure->cell()->minimumReplicas().x), double(renderStructure->cell()->minimumReplicas().y), double(renderStructure->cell()->minimumReplicas().z));
+    double3 corner2 = unitCell * double3(double(renderStructure->cell()->maximumReplicas().x)+1.0, double(renderStructure->cell()->maximumReplicas().y)+1.0, double(renderStructure->cell()->maximumReplicas().z)+1.0);
+
+    double3 numberOfReplicas = renderStructure->cell()->numberOfReplicas();
+    this->numberOfReplicas = float4(numberOfReplicas.x,numberOfReplicas.y,numberOfReplicas.z,1.0);
+
+    this->boxMatrix = float4x4(box);
+    this->inverseBoxMatrix = float4x4(double4x4::inverse(box));
+    double3 shift = renderStructure->cell()->unitCell() * double3(renderStructure->cell()->minimumReplicas());
+    this->boxMatrix[3][0] = float(shift.x);
+    this->boxMatrix[3][1] = float(shift.y);
+    this->boxMatrix[3][2] = float(shift.z);
+
+    // clipping planes are in object space
+    double3 u_plane0 = double3::normalize(double3::cross(box[0],box[1]));
+    double3 u_plane1 = double3::normalize(double3::cross(box[2],box[0]));
+    double3 u_plane2 = double3::normalize(double3::cross(box[1],box[2]));
+    this->clipPlaneBack = float4(u_plane0.x, u_plane0.y, u_plane0.z, -double3::dot(u_plane0,corner));
+    this->clipPlaneBottom = float4(u_plane1.x, u_plane1.y, u_plane1.z, -double3::dot(u_plane1,corner));
+    this->clipPlaneLeft = float4(u_plane2.x, u_plane2.y, u_plane2.z, -double3::dot(u_plane2,corner));
+    this->clipPlaneFront = float4(-u_plane0.x, -u_plane0.y, -u_plane0.z, double3::dot(u_plane0,corner2));
+    this->clipPlaneTop = float4(-u_plane1.x, -u_plane1.y, -u_plane1.z, double3::dot(u_plane1,corner2));
+    this->clipPlaneRight = float4(-u_plane2.x, -u_plane2.y, -u_plane2.z, double3::dot(u_plane2,corner2));
+
+    if (RKRenderLocalAxesSource* renderStructure = dynamic_cast<RKRenderLocalAxesSource*>(structure.get()))
+    {
+      double3 offset = renderStructure->renderLocalAxes().offset();
+
+      switch(renderStructure->renderLocalAxes().position())
+      {
+      case RKLocalAxes::Position::none:
+        this->localAxisPosition = float4(0.0,0.0,0.0,1.0) + float4(offset.x,offset.y,offset.z,0.0);
+        break;
+      case RKLocalAxes::Position::origin:
+        this->localAxisPosition = float4(0.0,0.0,0.0,1.0) + float4(offset.x,offset.y,offset.z,0.0);
+        break;
+      case RKLocalAxes::Position::center:
+        this->localAxisPosition =  box * float4(0.5,0.5,0.5,1.0) + float4(offset.x,offset.y,offset.z,0.0);
+        break;
+      case RKLocalAxes::Position::originBoundingBox:
+        this->localAxisPosition = float4(boundingbox.minimum().x,boundingbox.minimum().y,boundingbox.minimum().z,1.0) + float4(offset.x,offset.y,offset.z,0.0);
+        break;
+      case RKLocalAxes::Position::centerBoundingBox:
+        this->localAxisPosition = float4(centerOfRotation.x, centerOfRotation.y, centerOfRotation.z, 1.0) + float4(offset.x,offset.y,offset.z,0.0);
+        break;
+      default:
+        break;
+      }
+    }
+
     if (RKRenderUnitCellSource* source = dynamic_cast<RKRenderUnitCellSource*>(structure.get()))
     {
       this->unitCellScaling =  float(source->unitCellScaleFactor());
@@ -333,22 +414,8 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
 
     if (RKRenderAtomSource* source = dynamic_cast<RKRenderAtomSource*>(structure.get()))
     {
-      if (!renderStructure->cell())
-        return;
-
-      SKBoundingBox boundingbox = renderStructure->cell()->boundingBox();
-      double3 centerOfRotation = boundingbox.center();
-
-      // difference
-      double4x4 modelMatrix2 = inverseModelMatrix * double4x4::AffinityMatrixToTransformationAroundArbitraryPointWithTranslation(double4x4(renderStructure->orientation()),centerOfRotation, renderStructure->origin());
-      this->modelMatrix = float4x4(modelMatrix2);
-
-      this->sceneIdentifier = int32_t(sceneIdentifier);
-      this->MovieIdentifier = int32_t(movieIdentifier);
-
       this->colorAtomsWithBondColor = source->colorAtomsWithBondColor();
       this->atomScaleFactor = float(source->atomScaleFactor());
-      this->modelMatrix = float4x4(modelMatrix);
       this->atomHue = source->atomHue();
       this->atomSaturation = source->atomSaturation();
       this->atomValue = source->atomValue();
@@ -373,18 +440,6 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
       this->clipAtomsAtUnitCell = source->clipAtomsAtUnitCell();
       this->edgeCueingAtoms = float(static_cast<int>(source->atomEdgeCueing()));
 
-      double3x3 unitCell = renderStructure->cell()->unitCell();
-      double3x3 box = renderStructure->cell()->box();
-      double3 corner = unitCell * double3(double(renderStructure->cell()->minimumReplicas().x), double(renderStructure->cell()->minimumReplicas().y), double(renderStructure->cell()->minimumReplicas().z));
-      double3 corner2 = unitCell * double3(double(renderStructure->cell()->maximumReplicas().x)+1.0, double(renderStructure->cell()->maximumReplicas().y)+1.0, double(renderStructure->cell()->maximumReplicas().z)+1.0);
-
-      this->boxMatrix = float4x4(box);
-      double3 shift = renderStructure->cell()->unitCell() * double3(renderStructure->cell()->minimumReplicas());
-      this->boxMatrix[3][0] = float(shift.x);
-      this->boxMatrix[3][1] = float(shift.y);
-      this->boxMatrix[3][2] = float(shift.z);
-
-
       this->atomSelectionStripesDensity = float(source->atomSelectionStripesDensity());
       this->atomSelectionStripesFrequency = float(source->atomSelectionStripesFrequency());
       this->atomSelectionWorleyNoise3DFrequency = float(source->atomSelectionWorleyNoise3DFrequency());
@@ -399,19 +454,6 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
                                                    float(source->renderTextOffset().y),
                                                    float(source->renderTextOffset().z),
                                                    0.0);
-
-
-
-      // clipping planes are in object space
-      double3 u_plane0 = double3::normalize(double3::cross(box[0],box[1]));
-      double3 u_plane1 = double3::normalize(double3::cross(box[2],box[0]));
-      double3 u_plane2 = double3::normalize(double3::cross(box[1],box[2]));
-      this->clipPlaneBack = float4(u_plane0.x, u_plane0.y, u_plane0.z, -double3::dot(u_plane0,corner));
-      this->clipPlaneBottom = float4(u_plane1.x, u_plane1.y, u_plane1.z, -double3::dot(u_plane1,corner));
-      this->clipPlaneLeft = float4(u_plane2.x, u_plane2.y, u_plane2.z, -double3::dot(u_plane2,corner));
-      this->clipPlaneFront = float4(-u_plane0.x, -u_plane0.y, -u_plane0.z, double3::dot(u_plane0,corner2));
-      this->clipPlaneTop = float4(-u_plane1.x, -u_plane1.y, -u_plane1.z, double3::dot(u_plane1,corner2));
-      this->clipPlaneRight = float4(-u_plane2.x, -u_plane2.y, -u_plane2.z, double3::dot(u_plane2,corner2));
     }
 
     if (RKRenderBondSource* source = dynamic_cast<RKRenderBondSource*>(structure.get()))
@@ -441,6 +483,42 @@ RKStructureUniforms::RKStructureUniforms(size_t sceneIdentifier, size_t movieIde
       this->bondSelectionWorleyNoise3DJitter = float(source->bondSelectionWorleyNoise3DJitter());
       this->bondSelectionScaling = float(std::max(1.001,source->bondSelectionScaling())); // avoid artifacts
       this->bondSelectionIntensity = float(source->bondSelectionIntensity());
+    }
+
+    if(RKRenderPrimitiveObjectsSource *source = dynamic_cast<RKRenderPrimitiveObjectsSource*>(structure.get()))
+    {
+      float4x4 primitiveModelMatrix = float4x4(double4x4(source->primitiveOrientation()));
+      float4x4 primitiveNormalMatrix = float4x4(double3x3(source->primitiveOrientation()).inverse().transpose());  // tranpose
+
+      this->primitiveTransformationMatrix = primitiveModelMatrix * float4x4(source->primitiveTransformationMatrix());
+      this->primitiveTransformationNormalMatrix = primitiveNormalMatrix * float4x4(source->primitiveTransformationMatrix().inverse().transpose());
+
+      this->primitiveOpacity = source->primitiveOpacity();
+
+      this->primitiveSelectionStripesDensity = float(source->primitiveSelectionStripesDensity());
+      this->primitiveSelectionStripesFrequency = float(source->primitiveSelectionStripesFrequency());
+      this->primitiveSelectionWorleyNoise3DFrequency = float(source->primitiveSelectionWorleyNoise3DFrequency());
+      this->primitiveSelectionWorleyNoise3DJitter = float(source->primitiveSelectionWorleyNoise3DJitter());
+      this->primitiveSelectionIntensity = float(source->primitiveSelectionIntensity());
+      this->primitiveSelectionScaling = float(std::max(1.001,source->primitiveSelectionScaling())); // avoid artifacts
+
+      this->primitiveHue = float(source->primitiveHue());
+      this->primitiveSaturation = float(source->primitiveSaturation());
+      this->primitiveValue = float(source->primitiveValue());
+
+      this->primitiveFrontSideHDR = source->primitiveFrontSideHDR();
+      this->primitiveFrontSideHDRExposure = float(source->primitiveFrontSideHDRExposure());
+      this->primitiveAmbientFrontSide = float(source->primitiveFrontSideAmbientIntensity()) * float4(source->primitiveFrontSideAmbientColor(), source->primitiveOpacity());
+      this->primitiveDiffuseFrontSide = float(source->primitiveFrontSideDiffuseIntensity()) * float4(source->primitiveFrontSideDiffuseColor(), source->primitiveOpacity());
+      this->primitiveSpecularFrontSide = float(source->primitiveFrontSideSpecularIntensity()) * float4(source->primitiveFrontSideSpecularColor(), source->primitiveOpacity());
+      this->primitiveShininessFrontSide = float(source->primitiveFrontSideShininess());
+
+      this->primitiveBackSideHDR = source->primitiveBackSideHDR();
+      this->primitiveBackSideHDRExposure = float(source->primitiveBackSideHDRExposure());
+      this->primitiveAmbientBackSide = float(source->primitiveBackSideAmbientIntensity()) * float4(source->primitiveBackSideAmbientColor(), source->primitiveOpacity());
+      this->primitiveDiffuseBackSide = float(source->primitiveBackSideDiffuseIntensity()) * float4(source->primitiveBackSideDiffuseColor(), source->primitiveOpacity());
+      this->primitiveSpecularBackSide = float(source->primitiveBackSideSpecularIntensity()) * float4(source->primitiveBackSideSpecularColor(), source->primitiveOpacity());
+      this->primitiveShininessBackSide = float(source->primitiveBackSideShininess());
     }
   }
 }

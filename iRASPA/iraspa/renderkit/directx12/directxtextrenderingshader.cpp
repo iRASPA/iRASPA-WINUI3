@@ -23,12 +23,17 @@ DirectXFontAtlasGpu *DirectXTextRenderingShader::getOrCreateFontAtlas(const RKSt
   const std::string key = fontName.toStdString();
   auto it = _fontCache.find(key);
   if (it != _fontCache.end())
-    return it->second.get();
+  {
+    if (!device || it->second->device == device)
+      return it->second.get();
+    _fontCache.erase(it);
+  }
 
   if (!device)
     return nullptr;
 
   auto entry = std::make_unique<DirectXFontAtlasGpu>();
+  entry->device = device;
   entry->cpu = std::make_unique<RKFontAtlas>(fontName, 256);
 
   D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
@@ -125,6 +130,15 @@ void DirectXTextRenderingShader::uploadFontAtlasTexture(DirectXFontAtlasGpu *ent
   device->CreateShaderResourceView(entry->texture.Get(), &srvDesc,
                                    entry->srvHeap->GetCPUDescriptorHandleForHeapStart());
   entry->uploaded = true;
+}
+
+void DirectXTextRenderingShader::releaseUploadBuffers()
+{
+  for (auto &pair : _fontCache)
+  {
+    if (pair.second && pair.second->uploaded)
+      pair.second->uploadBuffer.Reset();
+  }
 }
 
 void DirectXTextRenderingShader::initializePSO(ID3D12Device *device, ID3D12RootSignature *rootSignature,

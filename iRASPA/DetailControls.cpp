@@ -667,9 +667,10 @@ namespace winrt::iRASPA_WinUI::DetailControls
     {
         if (!button || !swatch || !apply)
             return;
+        auto suppress = std::make_shared<bool>(false);
         Flyout flyout;
         flyout.Placement(FlyoutPlacementMode::Bottom);
-        flyout.Opening([apply = std::move(apply), weakSwatch = make_weak(swatch),
+        flyout.Opening([apply = std::move(apply), suppress, weakSwatch = make_weak(swatch),
                         weakFlyout = make_weak(flyout)](IInspectable const&, IInspectable const&)
         {
             auto fly = weakFlyout.get();
@@ -679,15 +680,21 @@ namespace winrt::iRASPA_WinUI::DetailControls
             const auto shown = sw.Background().as<SolidColorBrush>().Color();
             if (auto existing = fly.Content().try_as<ColorPicker>())
             {
+                *suppress = true;
                 existing.Color(shown);
+                *suppress = false;
                 return;
             }
             ColorPicker picker;
             picker.IsAlphaEnabled(true);
             picker.IsMoreButtonVisible(true);
+            *suppress = true;
             picker.Color(shown);
-            picker.ColorChanged([apply, weakSwatch](ColorPicker const&, ColorChangedEventArgs const& args)
+            *suppress = false;
+            picker.ColorChanged([apply, suppress, weakSwatch](ColorPicker const&, ColorChangedEventArgs const& args)
             {
+                if (*suppress)
+                    return;
                 const auto color = args.NewColor();
                 if (auto s = weakSwatch.get())
                     s.Background(SolidColorBrush(color));

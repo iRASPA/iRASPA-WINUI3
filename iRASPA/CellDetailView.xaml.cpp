@@ -1141,7 +1141,9 @@ namespace winrt::iRASPA_WinUI::implementation
             if (axis == 0) object.setOriginX(value);
             if (axis == 1) object.setOriginY(value);
             if (axis == 2) object.setOriginZ(value);
+            object.reComputeBoundingBox();
         }, DocumentController::CellReload::CameraAndRenderer);
+        ReloadReadouts();
     }
 
     void CellDetailView::OnFlipToggled(IInspectable const& sender, RoutedEventArgs const&)

@@ -205,7 +205,14 @@ void DocumentController::RestoreCellStates(std::wstring const& actionName,
     RegisterUndo(ObjectUndoStack(), actionName,
                  [this, actionName, inverse]() { RestoreCellStates(actionName, inverse); });
     if (m_host)
+    {
+        if (auto scene = SelectedScene())
+        {
+            m_host->InvalidateSceneAmbientOcclusion(scene);
+            m_host->InvalidateSceneIsosurfaces(scene);
+        }
         m_host->ReloadAfterCellEdit();
+    }
     if (m_cellPane)
         m_cellPane->Reload();
 }
@@ -244,9 +251,24 @@ void DocumentController::ReloadAfterCellEdit(CellReload reload)
         return;
     switch (reload)
     {
-    case CellReload::None:              break;
-    case CellReload::Renderer:          m_host->ReloadRendererData(); break;
-    case CellReload::CameraAndRenderer: m_host->ReloadAfterCellEdit(); break;
+    case CellReload::None:
+        break;
+    case CellReload::Renderer:
+        if (auto scene = SelectedScene())
+        {
+            m_host->InvalidateSceneAmbientOcclusion(scene);
+            m_host->InvalidateSceneIsosurfaces(scene);
+        }
+        m_host->ReloadRendererData();
+        break;
+    case CellReload::CameraAndRenderer:
+        if (auto scene = SelectedScene())
+        {
+            m_host->InvalidateSceneAmbientOcclusion(scene);
+            m_host->InvalidateSceneIsosurfaces(scene);
+        }
+        m_host->ReloadAfterCellEdit();
+        break;
     }
 }
 

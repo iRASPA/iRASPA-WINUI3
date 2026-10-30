@@ -416,6 +416,7 @@ void DirectXEnergyVolumeRenderedSurface::initializeTransferFunctionTexture(
   _commandList->ResourceBarrier(1, &barrier);
 
   executeAndWait(commandQueue);
+  _transferFunctionUpload.Reset();
 }
 
 void DirectXEnergyVolumeRenderedSurface::reloadData(ID3D12Device *device, ID3D12CommandQueue *commandQueue)
@@ -427,19 +428,6 @@ void DirectXEnergyVolumeRenderedSurface::reloadData(ID3D12Device *device, ID3D12
   }
 
   volumeLog("reloadData begin structures=" + std::to_string(_renderStructures.size()));
-
-  // Drop cached grids so quality / method / data changes rebuild the 3D texture.
-  for (size_t i = 0; i < _renderStructures.size(); ++i)
-  {
-    for (size_t j = 0; j < _renderStructures[i].size(); ++j)
-    {
-      if (_renderStructures[i][j])
-      {
-        for (RKCache<RKRenderObject *, std::vector<float4>> &cache : _caches)
-          cache.remove(_renderStructures[i][j].get());
-      }
-    }
-  }
 
   ensureUploadInfrastructure(device);
   ensureFarDepthTexture(device, commandQueue);
@@ -693,6 +681,12 @@ void DirectXEnergyVolumeRenderedSurface::initializeVertexBuffers(ID3D12Device *d
   else
     _commandList->Close();
 
+  for (size_t i = 0; i < _buffers.size(); ++i)
+  {
+    for (size_t j = 0; j < _buffers[i].size(); ++j)
+      _buffers[i][j].volumeUpload.Reset();
+  }
+
   // Always bind a valid far-depth SRV so t2 is never an uninitialized descriptor.
   bindFarDepthToAllSlots(device);
 }
@@ -770,6 +764,7 @@ void DirectXEnergyVolumeRenderedSurface::ensureFarDepthTexture(ID3D12Device *dev
   _commandList->ResourceBarrier(1, &barrier);
 
   executeAndWait(commandQueue);
+  _farDepthUpload.Reset();
 }
 
 void DirectXEnergyVolumeRenderedSurface::bindFarDepthToAllSlots(ID3D12Device *device)

@@ -80,6 +80,7 @@ Structure::Structure(const std::shared_ptr<Object> object): Object(object), _ato
   {
     _atomRepresentationType = atomStructureViewer->atomRepresentationType();
     _atomRepresentationStyle = atomStructureViewer->atomRepresentationStyle();
+    _atomEdgeCueing = atomStructureViewer->atomEdgeCueing();
     _atomColorSchemeIdentifier = atomStructureViewer->atomColorSchemeIdentifier();
     _atomColorSchemeOrder = atomStructureViewer->colorSchemeOrder();
     _atomForceFieldIdentifier = atomStructureViewer->atomForceFieldIdentifier();
@@ -158,6 +159,8 @@ Structure::Structure(const std::shared_ptr<Object> object): Object(object), _ato
   // across directly rather than losing them.
   if (std::shared_ptr<Structure> structure = std::dynamic_pointer_cast<Structure>(object))
   {
+    _atomEdgeCueing = structure->_atomEdgeCueing;
+
     _blockingPockets = structure->_blockingPockets;
     _drawBlockingPockets = structure->_drawBlockingPockets;
     _applyBlockingPockets = structure->_applyBlockingPockets;
@@ -344,6 +347,7 @@ Structure::Structure(const Structure &structure): Object(structure),  _atomsTree
 
   _atomRepresentationType = structure._atomRepresentationType;
   _atomRepresentationStyle = structure._atomRepresentationStyle;
+  _atomEdgeCueing = structure._atomEdgeCueing;
   _atomForceFieldIdentifier = structure._atomForceFieldIdentifier;
   _atomForceFieldOrder = structure._atomForceFieldOrder;
   _atomColorSchemeIdentifier = structure._atomColorSchemeIdentifier;
@@ -1116,18 +1120,20 @@ void Structure::setRepresentationStyle(RepresentationStyle style)
 		default:
 			break;
 		}
-	}
 
-	std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
+		std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
 
-    for (const std::shared_ptr<SKAtomTreeNode> &node : asymmetricAtomNodes)
-	{
-		if (std::shared_ptr<SKAsymmetricAtom> atom = node->representedObject())
+		for (const std::shared_ptr<SKAtomTreeNode> &node : asymmetricAtomNodes)
 		{
-			// multiple_values is the mixed-selection sentinel rather than a real
-			// type, and leaves the radii as they are.
-			if (_atomRepresentationType != RepresentationType::multiple_values)
-				atom->setDrawRadius(drawRadius(atom->elementIdentifier()));
+			if (std::shared_ptr<SKAsymmetricAtom> atom = node->representedObject())
+			{
+				// multiple_values is the mixed-selection sentinel rather than a real
+				// type, and leaves the radii as they are.
+				if (_atomRepresentationType == RepresentationType::forcefield)
+					atom->setDrawRadius((atom->potentialParameters().y > 0.0) ? 0.5 * atom->potentialParameters().y : drawRadius(atom->elementIdentifier()));
+				else if (_atomRepresentationType != RepresentationType::multiple_values)
+					atom->setDrawRadius(drawRadius(atom->elementIdentifier()));
+			}
 		}
 	}
 }
@@ -1354,7 +1360,7 @@ void Structure::setRepresentationType(RepresentationType type)
       if(std::shared_ptr<SKAsymmetricAtom> atom = node->representedObject())
       {
         if(type == RepresentationType::forcefield)
-          atom->setDrawRadius(SKGeometricSurface::inflatedRadius(atom->potentialParameters().y, 0.0));
+          atom->setDrawRadius((atom->potentialParameters().y > 0.0) ? 0.5 * atom->potentialParameters().y : drawRadius(atom->elementIdentifier()));
         else if(type == RepresentationType::unity)
           atom->setDrawRadius(_bondScaleFactor);
         else
@@ -1404,6 +1410,7 @@ void Structure::setRepresentationColorSchemeIdentifier(const RKString colorSchem
             break;
           }
           atom->setColor(RKColor::fromRgb(0,0,0,255));
+          break;
         }
         case SKColorSet::ColorSchemeOrder::forceFieldOnly:
         {
@@ -1451,6 +1458,8 @@ void Structure::updateForceField(ForceFieldSets &forceFieldSets)
           {
             atom->setPotentialParameters(forceFieldType->potentialParameters());
             atom->setBondDistanceCriteria(forceFieldType->userDefinedRadius());
+            if(_atomRepresentationType == RepresentationType::forcefield)
+              atom->setDrawRadius(0.5 * atom->potentialParameters().y);
           }
         }
       }
@@ -1465,18 +1474,15 @@ void Structure::updateForceField(ForceFieldSets &forceFieldSets)
           {
             atom->setPotentialParameters(forceFieldType->potentialParameters());
             atom->setBondDistanceCriteria(forceFieldType->userDefinedRadius());
-            break;
+            if(_atomRepresentationType == RepresentationType::forcefield)
+              atom->setDrawRadius(0.5 * atom->potentialParameters().y);
           }
-          else
+          else if(ForceFieldType* forceFieldTypeElement = (*forceField)[PredefinedElements::predefinedElements[atom->elementIdentifier()]._chemicalSymbol])
           {
-            SKElement& element = PredefinedElements::predefinedElements[atom->elementIdentifier()];
-            const RKString chemicalElement = element._chemicalSymbol;
-            forceFieldType = (*forceField)[chemicalElement];
-            if(forceFieldType)
-            {
-              atom->setPotentialParameters(forceFieldType->potentialParameters());
-              atom->setBondDistanceCriteria(forceFieldType->userDefinedRadius());
-            }
+            atom->setPotentialParameters(forceFieldTypeElement->potentialParameters());
+            atom->setBondDistanceCriteria(forceFieldTypeElement->userDefinedRadius());
+            if(_atomRepresentationType == RepresentationType::forcefield)
+              atom->setDrawRadius(0.5 * atom->potentialParameters().y);
           }
         }
       }
@@ -1496,6 +1502,8 @@ void Structure::updateForceField(ForceFieldSets &forceFieldSets)
           {
             atom->setPotentialParameters(double2(0.0, 1.0));
           }
+          if(_atomRepresentationType == RepresentationType::forcefield)
+            atom->setDrawRadius(0.5 * atom->potentialParameters().y);
         }
       }
       break;
@@ -2699,15 +2707,11 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<Structure> &str
   structure->_citationPublicationDate = RKDate(int(year), int(month), int(day));
   stream >> structure->_citationDatebaseCodes;
 
-  structure->setRepresentationStyle(structure->atomRepresentationStyle());
-
   if(versionNumber <= 4)
   {
     structure->expandSymmetry();
     structure->computeBonds();
   }
-
-  structure->reComputeBoundingBox();
 
   structure->atomsTreeController()->setTags();
   structure->bondSetController()->setTags();
@@ -2848,6 +2852,8 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<Structure> &str
     std::shared_ptr<Object> object = std::static_pointer_cast<Object>(structure);
     stream >> object;
   }
+
+  structure->reComputeBoundingBox();
 
   return stream;
 }

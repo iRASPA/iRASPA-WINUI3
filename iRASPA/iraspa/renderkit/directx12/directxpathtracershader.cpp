@@ -586,8 +586,7 @@ bool DirectXPathTracerShader::encodeInteractive(
   // size of the scene.
   values.rayEpsilon = 1.0e-4f * geometry.sceneRadius();
   values.ambientOcclusionStrength = settings.ambientOcclusionStrength;
-  values.sceneColorSwapsRedAndBlue =
-      (context.backBufferFormat() == DXGI_FORMAT_B8G8R8A8_UNORM) ? 1u : 0u;
+  values.sceneColorSwapsRedAndBlue = 0u;
   // Zero is what tells the accumulate kernel to start the sums rather than add to them, which is
   // what makes each frame stand on its own.
   values.sampleOffset = 0;
@@ -646,8 +645,7 @@ bool DirectXPathTracerShader::render(Dx12DeviceContext &context,
   uniforms.rayEpsilon = 1.0e-4f * geometry.sceneRadius();
   uniforms.ambientOcclusionStrength = settings.ambientOcclusionStrength;
   uniforms.accumulatedSamples = static_cast<float>(sampleCount);
-  uniforms.sceneColorSwapsRedAndBlue =
-      (context.backBufferFormat() == DXGI_FORMAT_B8G8R8A8_UNORM) ? 1u : 0u;
+  uniforms.sceneColorSwapsRedAndBlue = 0u;
 
   // Traced in batches, one command list each, so that no single dispatch runs long enough for the
   // display driver to decide the device has stopped responding and reset it.

@@ -349,14 +349,16 @@ void DocumentController::SelectSceneMovie(std::shared_ptr<Scene> const& scene,
         chosen->selectedFrameIndex(frameIndex);
 
     RefreshFrameRows();
-    if (m_host)
-        m_host->ApplySelectionToRenderer(true);
-
     // Appearance section scope stays tied to the left pane (Project/Scene/Frame);
     // do not switch it here — project load also selects a movie and would hide
     // Primitive while the Project pane is still showing.
     if (m_host)
-        m_host->RefreshInspector();
+    {
+        if (refreshRenderer)
+            m_host->ApplySelectionToRenderer(true);
+        else
+            m_host->RefreshInspector();
+    }
 
     ShowMovieInfo(chosen);
 }
@@ -421,9 +423,6 @@ void DocumentController::SelectSceneMovies(
     if (m_host)
         m_host->ApplySelectionToRenderer(true);
 
-    if (m_host)
-        m_host->RefreshInspector();
-
     if (picks.size() == 1)
         ShowMovieInfo(primary.second);
     else
@@ -463,9 +462,6 @@ void DocumentController::SetFrameSelection(std::weak_ptr<Movie> movieRef,
 
     if (m_host)
         m_host->ApplySelectionToRenderer(true);
-
-    if (m_host)
-        m_host->RefreshInspector();
 
     ShowFrameInfo(primaryIndex);
 }
