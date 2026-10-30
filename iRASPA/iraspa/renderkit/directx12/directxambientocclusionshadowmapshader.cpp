@@ -1279,7 +1279,7 @@ struct VSOutput
 
 VSOutput VSMain(VSInput input)
 {
-  VSOutput output;
+  VSOutput output = (VSOutput)0;
   float sphere_radius = structureUniforms.atomScaleFactor * input.instanceScale.x;
   output.eye_position = mul(shadowUniforms.viewMatrix, mul(structureUniforms.modelMatrix, input.instancePosition));
   output.sphere_radius = sphere_radius;
@@ -1291,6 +1291,11 @@ VSOutput VSMain(VSInput input)
   // OpenGL NDC Z [-1,1] -> D3D clip Z [0,1] for rasterization only (PS overrides depth).
   clip.z = clip.z * 0.5f + clip.w * 0.5f;
   output.position = clip;
+
+  if (input.instancePosition.w < 0.0)
+  {
+    output.position = float4(0.0, 0.0, 0.0, 0.0);
+  }
   return output;
 }
 )foo");

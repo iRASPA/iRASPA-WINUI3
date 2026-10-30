@@ -181,16 +181,15 @@ struct VSOutput
   float3 frag_pos : TEXCOORD3;
   nointerpolation float3 frag_center : TEXCOORD4;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD5;
-  float3 V : TEXCOORD6;
-  nointerpolation float4 sphere_radius : TEXCOORD7;
-  nointerpolation float k1 : TEXCOORD8;
-  nointerpolation float k2 : TEXCOORD9;
+  float3 V : TEXCOORD5;
+  nointerpolation float4 sphere_radius : TEXCOORD6;
+  nointerpolation float k1 : TEXCOORD7;
+  nointerpolation float k2 : TEXCOORD8;
 };
 
 VSOutput VSMain(VSInput input)
 {
-  VSOutput output;
+  VSOutput output = (VSOutput)0;
 
   float4 scale = structureUniforms.atomScaleFactor * input.instanceScale;
 
@@ -210,13 +209,6 @@ VSOutput VSMain(VSInput input)
   }
 
   output.N = float3(0, 0, 1);
-
-  // Cocoa encodes atom visibility in instancePosition.w (±1). Negative w must not rasterize.
-  if (input.instancePosition.w < 0.0)
-  {
-    output.position = float4(0.0, 0.0, 0.0, 0.0);
-    return output;
-  }
 
   output.eye_position = mul(frameUniforms.viewMatrix, mul(structureUniforms.modelMatrix, input.instancePosition));
   output.instancePosition = input.instancePosition;
@@ -238,6 +230,12 @@ VSOutput VSMain(VSInput input)
   float4 clip = mul(frameUniforms.projectionMatrix, pos2);
   clip.z = clip.z * 0.5f + clip.w * 0.5f;
   output.position = clip;
+
+  // Cocoa encodes atom visibility in instancePosition.w (±1). Negative w must not rasterize.
+  if (input.instancePosition.w < 0.0)
+  {
+    output.position = float4(0.0, 0.0, 0.0, 0.0);
+  }
   return output;
 }
 )foo");
@@ -271,11 +269,10 @@ struct PSInput
   )foo") + s + std::string(R"foo(float3 frag_pos : TEXCOORD3;
   nointerpolation float3 frag_center : TEXCOORD4;
   float3 N : NORMAL0;
-  float3 L : TEXCOORD5;
-  float3 V : TEXCOORD6;
-  nointerpolation float4 sphere_radius : TEXCOORD7;
-  nointerpolation float k1 : TEXCOORD8;
-  nointerpolation float k2 : TEXCOORD9;
+  float3 V : TEXCOORD5;
+  nointerpolation float4 sphere_radius : TEXCOORD6;
+  nointerpolation float k1 : TEXCOORD7;
+  nointerpolation float k2 : TEXCOORD8;
 };
 
 struct PSOutput

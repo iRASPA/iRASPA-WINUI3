@@ -284,8 +284,7 @@ struct VSOutput
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
   float3 ModelN : NORMAL1;
-  float3 L : TEXCOORD0;
-  float3 V : TEXCOORD1;
+  float3 V : TEXCOORD0;
   float3 ambient : COLOR0;
   float3 diffuse : COLOR1;
   float3 specular : COLOR2;
@@ -293,7 +292,7 @@ struct VSOutput
 
 VSOutput VSMain(VSInput input)
 {
-  VSOutput output;
+  VSOutput output = (VSOutput)0;
   float4 pos = ribbonSelectionExpandedPosition(input.vertexPosition, input.vertexNormal, 0.2);
   float3 localNormal = normalize(input.vertexNormal.xyz);
 
@@ -329,8 +328,7 @@ struct PSInput
   float4 position : SV_POSITION;
   float3 N : NORMAL0;
   float3 ModelN : NORMAL1;
-  float3 L : TEXCOORD0;
-  float3 V : TEXCOORD1;
+  float3 V : TEXCOORD0;
   float3 ambient : COLOR0;
   float3 diffuse : COLOR1;
   float3 specular : COLOR2;

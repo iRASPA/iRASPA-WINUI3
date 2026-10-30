@@ -89,7 +89,7 @@ rate + "float3 frag_pos : TEXCOORD2;\n"
     return std::string(R"foo(
 VSOutput VSMain(VSInput input)
 {
-  VSOutput output;
+  VSOutput output = (VSOutput)0;
 
   float4 scale = structureUniforms.atomSelectionScaling * structureUniforms.atomScaleFactor * input.instanceScale;
   // Material colours only: the pixel stage sums the rig, so a light colour folded in here would be
@@ -113,6 +113,11 @@ VSOutput VSMain(VSInput input)
   // OpenGL NDC z runs from -1 to 1, D3D from 0 to 1.
   clip.z = clip.z * 0.5f + clip.w * 0.5f;
   output.position = clip;
+
+  if (input.instancePosition.w < 0.0)
+  {
+    output.position = float4(0.0, 0.0, 0.0, 0.0);
+  }
   return output;
 }
 )foo");

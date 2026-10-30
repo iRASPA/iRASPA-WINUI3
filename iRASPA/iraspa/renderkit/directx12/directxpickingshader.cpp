@@ -665,7 +665,7 @@ struct VSOutput
 
 VSOutput VSMain(VSInput input)
 {
-  VSOutput output;
+  VSOutput output = (VSOutput)0;
   output.instanceId = input.instanceTag;
 
   float4 scale = structureUniforms.atomScaleFactor * input.instanceScale;
@@ -681,6 +681,11 @@ VSOutput VSMain(VSInput input)
   float4 clip = mul(frameUniforms.projectionMatrix, pos2);
   clip.z = clip.z * 0.5f + clip.w * 0.5f;
   output.position = clip;
+
+  if (input.instancePosition.w < 0.0)
+  {
+    output.position = float4(0.0, 0.0, 0.0, 0.0);
+  }
   return output;
 }
 )foo");
