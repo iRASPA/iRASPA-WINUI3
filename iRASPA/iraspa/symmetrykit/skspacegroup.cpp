@@ -251,6 +251,8 @@ std::optional<SKSpaceGroup::FoundSpaceGroupInfo> SKSpaceGroup::findSpaceGroup(do
 {
   std::vector<std::tuple<double3, int, double> > reducedAtoms{};
 
+  if(atoms.empty()) return std::nullopt;
+
   if(allowPartialOccupancies)
   {
     reducedAtoms = atoms;
@@ -368,7 +370,7 @@ std::optional<SKSpaceGroup::FoundSpaceGroupInfo> SKSpaceGroup::findSpaceGroup(do
               // must be a rigid rotation
               assert((rotationMatrix.determinant()-1.0)<1e-5);
 
-              return SKSpaceGroup::FoundSpaceGroupInfo{HallNumber, origin, cell, SKRotationalChangeOfBasis(SKRotationMatrix()), transformationMatrix, rotationMatrix,
+              return SKSpaceGroup::FoundSpaceGroupInfo{HallNumber, origin, cell, SKRotationalChangeOfBasis(SKRotationMatrix::identity), transformationMatrix, rotationMatrix,
                                                        symmetrizedAtomsInConventionalCell, asymmetricAtoms};
             }
           }
@@ -410,7 +412,7 @@ std::optional<SKSpaceGroup::FoundSpaceGroupInfo> SKSpaceGroup::findSpaceGroup(do
             // must be a rigid rotation
             assert((rotationMatrix.determinant()-1.0)<1e-5);
 
-            return SKSpaceGroup::FoundSpaceGroupInfo{HallNumber, origin, cell, SKRotationalChangeOfBasis(SKRotationMatrix()), transformationMatrix, rotationMatrix,
+            return SKSpaceGroup::FoundSpaceGroupInfo{HallNumber, origin, cell, SKRotationalChangeOfBasis(SKRotationMatrix::identity), transformationMatrix, rotationMatrix,
                                                      symmetrizedAtomsInConventionalCell, asymmetricAtoms};
           }
         }
@@ -423,6 +425,8 @@ std::optional<SKSpaceGroup::FoundSpaceGroupInfo> SKSpaceGroup::findSpaceGroup(do
 std::optional<SKSpaceGroup::FoundNiggliCellInfo> SKSpaceGroup::findNiggliCell(double3x3 unitCell, std::vector<std::tuple<double3, int, double>> atoms, bool allowPartialOccupancies, double symmetryPrecision = 1e-2)
 {
   std::vector<std::tuple<double3, int, double> > reducedAtoms{};
+
+  if(atoms.empty()) return std::nullopt;
 
   int leastOccuringAtomType = 0;
   if(allowPartialOccupancies)
@@ -628,17 +632,28 @@ std::optional<double3> SKSpaceGroup::getOriginShift(int HallNumber, Centring cen
   case Centring::a_face:
   case Centring::b_face:
   case Centring::c_face:
+    if(spaceGroupLatticeTranslations.size() < 2)
+    {
+      return std::nullopt;
+    }
     if(spaceGroupLatticeTranslations[1].x == 0)
     {
       dataBaseSpaceGroupCentering = Centring::a_face;
     }
-    if(spaceGroupLatticeTranslations[1].y == 0)
+    else if(spaceGroupLatticeTranslations[1].y == 0)
     {
       dataBaseSpaceGroupCentering = Centring::b_face;
     }
-    if(spaceGroupLatticeTranslations[1].z == 0)
+    else if(spaceGroupLatticeTranslations[1].z == 0)
     {
       dataBaseSpaceGroupCentering = Centring::c_face;
+    }
+    else
+    {
+      // The change-of-basis mapped the base-centring onto a body-centring (e.g. the
+      // monoclinic R3 / R2.R3 bases map (1/2,1/2,0) to (1/2,1/2,1/2)). That is a different
+      // cell choice with its own Hall setting in the database, so this one cannot match.
+      return std::nullopt;
     }
     break;
   default:
@@ -789,7 +804,11 @@ BinaryArchive &operator>>(BinaryArchive &stream, SKSpaceGroup &spaceGroup)
 {
   int64_t HallNumber;
   stream >> HallNumber;
-  spaceGroup._spaceGroupSetting = SKSpaceGroupDataBase::spaceGroupData[HallNumber];
+  if(HallNumber < 0 || HallNumber >= static_cast<int64_t>(SKSpaceGroupDataBase::spaceGroupData.size()))
+  {
+    throw BinaryArchiveError("SKSpaceGroup: Hall number out of range");
+  }
+  spaceGroup._spaceGroupSetting = SKSpaceGroupDataBase::spaceGroupData[static_cast<size_t>(HallNumber)];
   return stream;
 }
 

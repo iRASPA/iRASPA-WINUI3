@@ -814,8 +814,8 @@ std::shared_ptr<Structure> ProteinCrystal::appliedCellContentShift() const
   {
     if(const std::shared_ptr<SKAsymmetricAtom> asymmetricAtom = node->representedObject())
     {
-      double3 fractionalPosition = inverseUnitCell * (asymmetricAtom->position()  + contentShift);
-      double3 position = double3::flip(fractionalPosition, contentFlip, double3(0.0,0.0,0.0));
+      // contentShift is fractional (as used when rendering), so apply it after converting to fractional
+      double3 position = double3::flip(inverseUnitCell * asymmetricAtom->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
       asymmetricAtom->setPosition(unitCell * double3::fract(position));
     }
   }
@@ -1143,8 +1143,7 @@ std::vector<double3> ProteinCrystal::atomUnitCellPositions() const
       {
         if (copy->type() == SKAtomCopy::AtomCopyType::copy)
         {
-          double3 fractionalPosition = _cell->inverseUnitCell() * (copy->position()  + contentShift);
-          double3 position = double3::flip(fractionalPosition, contentFlip, double3(0.0,0.0,0.0));
+          double3 position = double3::flip(_cell->inverseUnitCell() * copy->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
 
           atomData.push_back(double3::fract(position));
         }
@@ -1287,8 +1286,7 @@ std::vector<RKInPerInstanceAttributesText> ProteinCrystal::atomTextData(RKFontAt
 
         for (std::shared_ptr<SKAtomCopy> copy : atom->copies())
         {
-          double3 fractionalPosition = _cell->inverseUnitCell()  * (copy->position() + contentShift);
-          double3 adjustedFractionalPosition = double3::flip(fractionalPosition, contentFlip, double3(1.0,1.0,1.0));
+          double3 adjustedFractionalPosition = double3::flip(_cell->inverseUnitCell() * copy->position(), contentFlip, double3(1.0,1.0,1.0)) + contentShift;
 
           if (copy->type() == SKAtomCopy::AtomCopyType::copy)
           {

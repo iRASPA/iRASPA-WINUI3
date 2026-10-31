@@ -144,6 +144,10 @@ std::cerr << "CHECK2" << scannedLine;
   unitCell.cz = conversionFactor.z * dimensions.z * termsScannedLined[3].toDouble(&succes);
   if(!succes) {throw std::runtime_error("Count not parse the z-coordinate of first lattice vector");}
 
+  // The origin uses the same units as the atom positions (Bohr unless the voxel count is
+  // negative), so it must be converted along with them.
+  origin = conversionFactor * origin;
+
   // Create the unit cell
   _frame->cell = std::make_shared<SKCell>(unitCell);
   inverseUnitCell = (unitCell).inverse();
@@ -157,6 +161,10 @@ std::cerr << "CHECK2" << scannedLine;
 
     int atomicNumber = termsScannedLined[0].toInt(&succes);
     if(!succes) {throw std::runtime_error("Atomic number not an int");}
+    if(atomicNumber < 0 || atomicNumber >= static_cast<int>(PredefinedElements::predefinedElements.size()))
+    {
+      throw std::runtime_error("Atomic number out of range");
+    }
 
     std::shared_ptr<SKAsymmetricAtom> atom = std::make_shared<SKAsymmetricAtom>();
     atom->setElementIdentifier(atomicNumber);
@@ -209,8 +217,8 @@ std::cerr << "CHECK2" << scannedLine;
   _frame->origin = origin;
   _frame->dimensions = dimensions;
   _frame->range = std::pair(minimumValue, maximumValue);
-  _frame->average = sum / (numberOfElements);
-  _frame->variance = sumSquared / (numberOfElements - 1);
+  _frame->average = numberOfElements > 0 ? sum / double(numberOfElements) : 0.0;
+  _frame->variance = numberOfElements > 1 ? (sumSquared - double(numberOfElements) * _frame->average * _frame->average) / double(numberOfElements - 1) : 0.0;
   _frame->byteData = RKByteArray(reinterpret_cast<const uint8_t*>(dataPoints.data()), reinterpret_cast<const uint8_t*>(dataPoints.data()) + dataPoints.size() * sizeof(float));
 
   _movies.push_back({_frame});

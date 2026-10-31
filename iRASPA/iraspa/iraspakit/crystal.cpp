@@ -1227,6 +1227,7 @@ std::shared_ptr<Structure> Crystal::wrapAtomsToCell() const
   {
     if(const std::shared_ptr<SKAsymmetricAtom> asymmetricAtom = node->representedObject())
     {
+      asymmetricAtom->setPosition(double3::fract(asymmetricAtom->position()));
       for(const std::shared_ptr<SKAtomCopy> &atomCopy : asymmetricAtom->copies())
       {
         double3 position = double3::fract(atomCopy->position());
@@ -1358,7 +1359,8 @@ double3 Crystal::bondVector(std::shared_ptr<SKBond> bond) const
   ds.x -= floor(ds.x + 0.5);
   ds.y -= floor(ds.y + 0.5);
   ds.z -= floor(ds.z + 0.5);
-  return ds;
+  // callers combine this with Cartesian positions, so return a Cartesian vector
+  return _cell->unitCell() * ds;
 }
 
 std::pair<double3, double3> Crystal::computeChangedBondLength(std::shared_ptr<SKBond> bond, double bondLength) const

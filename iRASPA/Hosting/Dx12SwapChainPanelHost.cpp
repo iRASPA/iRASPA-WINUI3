@@ -159,13 +159,17 @@ void Dx12SwapChainPanelHost::RequestRedraw()
         return;
 
     m_redrawQueued = true;
-    queue.TryEnqueue([this, alive = m_alive]()
+    const bool queued = queue.TryEnqueue([this, alive = m_alive]()
     {
         if (!*alive)
             return;
         m_redrawQueued = false;
         RenderNow();
     });
+    // A queue that is shutting down refuses the item; the flag must not stay
+    // set, or no redraw could ever be requested again.
+    if (!queued)
+        m_redrawQueued = false;
 }
 
 void Dx12SwapChainPanelHost::RenderNow()
@@ -220,11 +224,13 @@ void Dx12SwapChainPanelHost::ResizeFromPanel()
     }
 
     m_inResize = true;
-    m_lastPixelWidth = width;
-    m_lastPixelHeight = height;
     try
     {
         m_renderer->resize(width, height);
+        // Recorded only once the resize took: a failed one is retried by the
+        // next SizeChanged instead of being short-circuited as "same size".
+        m_lastPixelWidth = width;
+        m_lastPixelHeight = height;
         // Do not Present synchronously from SizeChanged — queue a redraw.
         RequestRedraw();
     }
@@ -449,8 +455,10 @@ void Dx12SwapChainPanelHost::OnPointerReleased(winrt::Windows::Foundation::IInsp
         return;
     }
 
-    m_panel.ReleasePointerCapture(e.Pointer());
+    // The release goes to the renderer before the capture is given up: releasing
+    // the capture raises PointerCaptureLost, which cancels any tracking left.
     if (m_renderer) m_renderer->onPointerReleased(ToPointerEvent(e));
+    m_panel.ReleasePointerCapture(e.Pointer());
 
     if (m_rightPressMayBeMenu)
     {
@@ -475,8 +483,9 @@ void Dx12SwapChainPanelHost::OnPointerCanceled(winrt::Windows::Foundation::IInsp
     HideRubberBand();
     m_rightPressMayBeMenu = false;
     m_panel.ReleasePointerCapture(e.Pointer());
+    // A cancelled gesture is not a click: it must not pick/select.
     if (m_renderer)
-        m_renderer->onPointerReleased(ToPointerEvent(e));
+        m_renderer->onPointerCanceled();
 }
 
 void Dx12SwapChainPanelHost::OnPointerCaptureLost(winrt::Windows::Foundation::IInspectable const&, PointerRoutedEventArgs const& e)
@@ -485,8 +494,9 @@ void Dx12SwapChainPanelHost::OnPointerCaptureLost(winrt::Windows::Foundation::II
     m_rubberBandActive = false;
     HideRubberBand();
     m_rightPressMayBeMenu = false;
+    (void)e;
     if (m_renderer)
-        m_renderer->onPointerReleased(ToPointerEvent(e));
+        m_renderer->onPointerCanceled();
 }
 
 void Dx12SwapChainPanelHost::OnPointerWheelChanged(winrt::Windows::Foundation::IInspectable const&, PointerRoutedEventArgs const& e)

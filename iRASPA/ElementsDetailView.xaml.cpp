@@ -290,7 +290,8 @@ namespace winrt::iRASPA_WinUI::implementation
             }
             auto v = ParseDouble(text);
             const int maxZ = static_cast<int>(PredefinedElements::predefinedElements.size()) - 1;
-            if (!v || *v < 0 || *v > maxZ)
+            // Whole numbers from 1 (hydrogen) up; entry 0 of the table is the blank placeholder.
+            if (!v || *v < 1 || *v > maxZ || *v != std::floor(*v))
             {
                 Raise(L"AtomicNumber"); // invalid: restore
                 return;
@@ -1060,7 +1061,18 @@ namespace winrt::iRASPA_WinUI::implementation
         picker.IsHexInputVisible(true);
         dlg.Content(picker);
 
-        auto result = co_await dlg.ShowAsync();
+        // Only one ContentDialog may be open at a time; a second press while the
+        // first is up makes ShowAsync throw, and an exception leaving a
+        // fire_and_forget terminates the process.
+        ContentDialogResult result = ContentDialogResult::None;
+        try
+        {
+            result = co_await dlg.ShowAsync();
+        }
+        catch (hresult_error const&)
+        {
+            co_return;
+        }
         if (result != ContentDialogResult::Primary)
             co_return;
 

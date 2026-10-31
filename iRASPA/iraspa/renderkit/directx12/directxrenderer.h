@@ -132,6 +132,9 @@ public:
   void onPointerPressed(const Dx12Input::PointerEvent &e);
   void onPointerMoved(const Dx12Input::PointerEvent &e);
   void onPointerReleased(const Dx12Input::PointerEvent &e);
+  /// The gesture was taken away (capture lost, system cancel): end whatever was
+  /// being tracked without treating it as a click or applying a pick.
+  void onPointerCanceled();
   void onWheel(const Dx12Input::WheelEvent &e);
 
   /// Rubber-band selection (Cocoa selectInRectangle). Coordinates are device

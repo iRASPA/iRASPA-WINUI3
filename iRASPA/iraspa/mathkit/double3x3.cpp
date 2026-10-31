@@ -232,7 +232,10 @@ void double3x3::solve_lambdas(double3 &res)
   };
 }
 
-int solve_type( double3 lambdas)
+// Takes lambdas by reference: for the two-equal-eigenvalues case the values are reordered
+// so that lambdas[0] == lambdas[1] and lambdas[2] is the distinct one, which solve_angles_1
+// relies on (it divides by lambdas[0] - lambdas[2]).
+int solve_type( double3 &lambdas)
 {
   int i1, i2, isum = 0;
   double t, lambdasum = 0.0;

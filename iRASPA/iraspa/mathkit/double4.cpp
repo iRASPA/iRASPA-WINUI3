@@ -25,7 +25,7 @@
 
 void double4::normalise()
 {
-  double magnitude = sqrt((x * x) + (y * y) + (z * z) * (w * w));
+  double magnitude = sqrt((x * x) + (y * y) + (z * z) + (w * w));
 
   if (magnitude != 0)
   {

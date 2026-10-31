@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <set>
 
 // The document-level half of the Atoms tab (Cocoa
 // StructureAtomDetailViewController plus the atom half of its undo manager):
@@ -38,16 +39,6 @@ namespace
     {
         auto viewer = AtomViewerOf(frame);
         return viewer ? viewer->atomsTreeController() : nullptr;
-    }
-
-    std::wstring ElementSymbolOf(std::shared_ptr<SKAsymmetricAtom> const& atom)
-    {
-        if (!atom)
-            return {};
-        const auto z = static_cast<size_t>(atom->elementIdentifier());
-        if (z < PredefinedElements::predefinedElements.size())
-            return PredefinedElements::predefinedElements[z]._chemicalSymbol.toStdWString();
-        return L"?";
     }
 
     std::optional<int> AtomicNumberOf(std::wstring const& text)
@@ -169,22 +160,12 @@ void DocumentController::SetAtomField(std::shared_ptr<SKAtomTreeNode> const& nod
         if (!z || *z < 0 || *z >= static_cast<int>(PredefinedElements::predefinedElements.size()))
             return;
         // The port renames the atom and its force-field type along with the
-        // element, so all three writes have to undo as one step.
-        if (stack)
-            stack->beginUndoGrouping(L"Change Atom Element");
-        registerInverse(L"Change Atom Element", AtomField::name,
-                        atom->displayName().toStdWString());
-        registerInverse(L"Change Atom Element", AtomField::forceFieldType,
-                        atom->uniqueForceFieldName().toStdWString());
-        registerInverse(L"Change Atom Element", field, ElementSymbolOf(atom));
+        // element. SetAtomElement writes and undoes the three as one; three
+        // separate field inverses would re-enter this case on undo and multiply
+        // with every round trip, leaving the name/type on the wrong element.
         auto const& el = PredefinedElements::predefinedElements[static_cast<size_t>(*z)];
-        atom->setElementIdentifier(*z);
-        atom->setDisplayName(el._chemicalSymbol);
-        atom->setUniqueForceFieldName(el._chemicalSymbol);
-        node->setDisplayName(el._chemicalSymbol);
-        if (stack)
-            stack->endUndoGrouping();
-        break;
+        SetAtomElement(node, *z, el._chemicalSymbol, el._chemicalSymbol);
+        return;
     }
     case AtomField::forceFieldType:
         registerInverse(L"Change Atom Force Field Type", field,
@@ -244,9 +225,50 @@ void DocumentController::SetAtomField(std::shared_ptr<SKAtomTreeNode> const& nod
             m_atomsPane->RefreshNetCharge();
         ReloadRenderer();
         break;
+    case AtomField::forceFieldType:
+        // The force-field type picks the atom's colour in the force-field colour
+        // scheme and its radius in the force-field radius mode.
+        ReloadRenderer();
+        break;
     default:
         break;
     }
+}
+
+void DocumentController::SetAtomElement(std::shared_ptr<SKAtomTreeNode> const& node, int atomicNumber,
+                                        RKString const& displayName, RKString const& forceFieldType)
+{
+    if (!node)
+        return;
+    auto atom = node->representedObject();
+    if (!atom)
+        return;
+    if (atomicNumber < 0 || atomicNumber >= static_cast<int>(PredefinedElements::predefinedElements.size()))
+        return;
+
+    const int previousNumber = atom->elementIdentifier();
+    const RKString previousName = atom->displayName();
+    const RKString previousType = atom->uniqueForceFieldName();
+    RegisterUndo(ObjectUndoStack(), L"Change Atom Element",
+                 [this, node, previousNumber, previousName, previousType]()
+                 {
+                     SetAtomElement(node, previousNumber, previousName, previousType);
+                 });
+
+    atom->setElementIdentifier(atomicNumber);
+    atom->setDisplayName(displayName);
+    atom->setUniqueForceFieldName(forceFieldType);
+    node->setDisplayName(displayName);
+
+    if (m_atomsPane)
+    {
+        m_atomsPane->RefreshField(node, AtomField::element);
+        m_atomsPane->RefreshField(node, AtomField::name);
+        m_atomsPane->RefreshField(node, AtomField::forceFieldType);
+    }
+    // A new element changes the radius, colour and force-field parameters of the
+    // atom and its symmetry copies, so the derived data and the render reload.
+    AfterAtomGeometryEdit(AtomsFrame());
 }
 
 void DocumentController::AfterAtomGeometryEdit(std::weak_ptr<iRASPAObject> frameRef)
@@ -564,6 +586,13 @@ bool DocumentController::MoveAtomNodes(std::weak_ptr<iRASPAObject> frameRef,
             if (node)
                 tree->insertSelectionIndexPath(node->indexPath());
         }
+
+        // The tags the copies and bonds carry were just renumbered; regenerate
+        // them as the undo path (RestoreAtomNodePositions) and Cocoa do.
+        if (auto viewer = AtomViewerOf(frame))
+            viewer->expandSymmetry();
+        if (auto bonds = std::dynamic_pointer_cast<BondViewer>(frame->object()))
+            bonds->computeBonds();
     }
     catch (...)
     {
@@ -636,13 +665,30 @@ void DocumentController::AtomSelectionToNewMovie(std::weak_ptr<iRASPAObject> fra
         if (auto spaceGroup = std::dynamic_pointer_cast<SpaceGroupViewer>(newFrame->object()))
             spaceGroup->setSpaceGroupHallNumber(hallNumber);
 
-        for (auto const& node : selectedNodes)
+        // A selected group stands for the atoms below it: those are copied (once,
+        // even if some are selected themselves), not the group's placeholder atom.
+        std::set<std::shared_ptr<SKAtomTreeNode>> copied;
+        auto copyLeaf = [&](std::shared_ptr<SKAtomTreeNode> const& leaf)
         {
-            if (!node || !node->representedObject())
-                continue;
-            auto newAtom = std::make_shared<SKAsymmetricAtom>(*node->representedObject());
+            if (!leaf || !leaf->representedObject() || !copied.insert(leaf).second)
+                return;
+            auto newAtom = std::make_shared<SKAsymmetricAtom>(*leaf->representedObject());
             newViewer->atomsTreeController()->appendToRootnodes(
                 std::make_shared<SKAtomTreeNode>(newAtom));
+        };
+        for (auto const& node : selectedNodes)
+        {
+            if (!node)
+                continue;
+            if (node->isGroup())
+            {
+                for (auto const& leaf : node->descendantLeafNodes())
+                    copyLeaf(leaf);
+            }
+            else
+            {
+                copyLeaf(node);
+            }
         }
         newViewer->expandSymmetry();
         newViewer->atomsTreeController()->setTags();

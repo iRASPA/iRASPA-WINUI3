@@ -266,6 +266,8 @@ void PolygonalPrismPrimitive::expandSymmetry()
 std::shared_ptr<Primitive> PolygonalPrismPrimitive::flattenHierarchy() const
 {
   std::shared_ptr<PolygonalPrismPrimitive> polygonalPrism = std::make_shared<PolygonalPrismPrimitive>(static_cast<const PolygonalPrismPrimitive&>(*this));
+  // the Primitive copy constructor deep-copies the atoms; the flattened atoms replace them
+  polygonalPrism->atomsTreeController()->setRootNodes({});
 
   const std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
 
@@ -287,6 +289,40 @@ std::shared_ptr<Primitive> PolygonalPrismPrimitive::flattenHierarchy() const
   polygonalPrism->atomsTreeController()->setTags();
   polygonalPrism->reComputeBoundingBox();
  // polygonalPrism->computeBonds();
+
+  return polygonalPrism;
+}
+
+std::shared_ptr<Primitive> PolygonalPrismPrimitive::appliedCellContentShift() const
+{
+  // use the copy constructor
+  std::shared_ptr<PolygonalPrismPrimitive> polygonalPrism = std::make_shared<PolygonalPrismPrimitive>(static_cast<const PolygonalPrismPrimitive&>(*this));
+  polygonalPrism->_spaceGroup = this->_spaceGroup;
+
+  double3 contentShift = _cell->contentShift();
+  bool3 contentFlip = _cell->contentFlip();
+
+  BinaryArchive stream;
+  stream << _atomsTreeController;
+  BinaryArchive streamRead(stream.buffer());
+  streamRead >> polygonalPrism->_atomsTreeController;
+  const std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = polygonalPrism->atomsTreeController()->flattenedLeafNodes();
+
+  for(const std::shared_ptr<SKAtomTreeNode> &node: asymmetricAtomNodes)
+  {
+    if(const std::shared_ptr<SKAsymmetricAtom> asymmetricAtom = node->representedObject())
+    {
+      double3 position = double3::flip(asymmetricAtom->position(), contentFlip, double3(0.0,0.0,0.0)) + contentShift;
+      asymmetricAtom->setPosition(position);
+    }
+  }
+
+  polygonalPrism->expandSymmetry();
+  polygonalPrism->setCell(std::make_shared<SKCell>(*_cell));
+  polygonalPrism->cell()->setContentFlip(bool3(false,false,false));
+  polygonalPrism->cell()->setContentShift(double3(0.0,0.0,0.0));
+  polygonalPrism->atomsTreeController()->setTags();
+  polygonalPrism->reComputeBoundingBox();
 
   return polygonalPrism;
 }
@@ -458,7 +494,7 @@ std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> PolygonalPris
 
 std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> PolygonalPrismPrimitive::translatedPositionsSelectionBodyFrame(std::vector<std::shared_ptr<SKAsymmetricAtom>> atoms, double3 translation) const
 {
-  double3 translationBodyFrame = double3x3::inverse(_selectionBodyFixedBasis) * translation;
+  double3 translationBodyFrame = _selectionBodyFixedBasis * translation;
 
   std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> translatedPositions{};
 

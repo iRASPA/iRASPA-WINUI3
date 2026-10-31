@@ -43,8 +43,9 @@ RKString SKCIFWriter::string()
   outputString += RKString("_cell_angle_beta %1\n").arg(_cell->beta() * 180.0 / M_PI, 12, 'f', 8, ' ');
   outputString += RKString("_cell_angle_gamma %1\n\n").arg(_cell->gamma() * 180.0 / M_PI, 12, 'f', 8, ' ');
 
-  outputString += RKString("_symmetry_space_group_name_Hall %1\n").arg(_spaceGroup.spaceGroupSetting().HallString());
-  outputString += RKString("_symmetry_space_group_name_H-M %1\n").arg(_spaceGroup.spaceGroupSetting().HMString());
+  // Space-group symbols contain spaces (e.g. "P 21/c"), so they must be quoted to be a single CIF value.
+  outputString += RKString("_symmetry_space_group_name_Hall '%1'\n").arg(_spaceGroup.spaceGroupSetting().HallString());
+  outputString += RKString("_symmetry_space_group_name_H-M '%1'\n").arg(_spaceGroup.spaceGroupSetting().HMString());
   outputString += RKString("_symmetry_Int_Tables_number %1\n\n").arg(RKString::number(_spaceGroup.spaceGroupSetting().number()));
 
   // write structure atom data

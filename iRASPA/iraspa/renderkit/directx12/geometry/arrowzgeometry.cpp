@@ -30,12 +30,13 @@ ArrowZGeometry::ArrowZGeometry(double offset, double arrowHeight, double arrowRa
 
   // bottom cap arrow
   size_t ref_cap_1 = _vertices.size();
-  _vertices.push_back(RKPrimitiveVertex(float4(0.0,0.0,offset,0.0), float4(0.0,0.0,1.0,0.0), arrowColor, float2(0.5,0.5)));
+  // faces away from the shaft (-z), and is squeezed along x like the shaft it closes
+  _vertices.push_back(RKPrimitiveVertex(float4(0.0,0.0,offset,0.0), float4(0.0,0.0,-1.0,0.0), arrowColor, float2(0.5,0.5)));
   for(int i=0;i<sectorCount;i++)
   {
     double sectorAngle = i * sectorStep + 0.25 * M_PI;
-    float4 position = float4(cos(sectorAngle) * arrowRadius, sin(sectorAngle) * arrowRadius / aspectRatio, offset, 0.0);
-    float4 normal = float4(0.0, 0.0, 1.0, 0.0);
+    float4 position = float4(cos(sectorAngle) * arrowRadius / aspectRatio, sin(sectorAngle) * arrowRadius, offset, 0.0);
+    float4 normal = float4(0.0, 0.0, -1.0, 0.0);
     _vertices.push_back(RKPrimitiveVertex(position, normal, arrowColor, float2()));
   }
 

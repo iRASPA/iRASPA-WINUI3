@@ -1024,7 +1024,8 @@ double3 VASPDensityVolume::bondVector(std::shared_ptr<SKBond> bond) const
   ds.x -= floor(ds.x + 0.5);
   ds.y -= floor(ds.y + 0.5);
   ds.z -= floor(ds.z + 0.5);
-  return ds;
+  // callers combine this with Cartesian positions, so return a Cartesian vector
+  return _cell->unitCell() * ds;
 }
 
 std::pair<double3, double3> VASPDensityVolume::computeChangedBondLength(std::shared_ptr<SKBond> bond, double bondLength) const

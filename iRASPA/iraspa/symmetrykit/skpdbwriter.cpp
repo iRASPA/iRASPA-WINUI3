@@ -60,13 +60,15 @@ RKString SKPDBWriter::string()
     RKString atomRecordName = "ATOM  ";
     RKString atomSerialNumber = RKString::number(counter).rightJustified(5, ' ', true);
     RKString atomName = elementSymbol;
-    RKString remotenessIndicator = RKString(atom->remotenessIndicator());
-    RKString branchIndicator = RKString(atom->branchDesignator());
+    // Blank single-character fields are stored as '\0'; PDB columns must be a space, not a NUL byte.
+    auto columnChar = [](char16_t c) { return RKString((c == u'\0' || c > 0x7F) ? ' ' : static_cast<char>(c)); };
+    RKString remotenessIndicator = columnChar(atom->remotenessIndicator());
+    RKString branchIndicator = columnChar(atom->branchDesignator());
     RKString alternateLocationIndicator = RKString(" ");
     RKString residueName = atom->residueName().rightJustified(3, ' ', true);
-    RKString chainIdentifier = RKString(atom->chainIdentifier());
+    RKString chainIdentifier = columnChar(atom->chainIdentifier());
     RKString residueSequenceNumber = RKString::number(atom->residueSequenceNumber()).rightJustified(4, ' ', true);
-    RKString codeForInsertionOfResidues = RKString(atom->codeForInsertionOfResidues());
+    RKString codeForInsertionOfResidues = columnChar(atom->codeForInsertionOfResidues());
     RKString orthogonalCoordinatesForX =  RKString("%1").arg(atom->position().x - _origin.x, 8, 'f', 3, ' ');
     RKString orthogonalCoordinatesForY =  RKString("%1").arg(atom->position().y - _origin.y, 8, 'f', 3, ' ');
     RKString orthogonalCoordinatesForZ =  RKString("%1").arg(atom->position().z - _origin.z, 8, 'f', 3, ' ');

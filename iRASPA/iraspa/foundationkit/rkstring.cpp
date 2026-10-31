@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
@@ -301,11 +303,29 @@ RKString &RKString::replace(std::string_view before, std::string_view after)
   return *this;
 }
 
+namespace
+{
+  // Like QString::toInt/toDouble: leading and trailing whitespace is ignored, anything
+  // else after the number makes the conversion fail.
+  inline bool onlyTrailingWhitespace(const char *end)
+  {
+    while (*end != '\0')
+    {
+      if (!std::isspace(static_cast<unsigned char>(*end)))
+        return false;
+      ++end;
+    }
+    return true;
+  }
+}
+
 int RKString::toInt(bool *ok) const
 {
   char *end = nullptr;
+  errno = 0;
   const long v = std::strtol(_utf8.c_str(), &end, 10);
-  const bool good = end != _utf8.c_str() && end && *end == '\0';
+  const bool good = end != _utf8.c_str() && end && onlyTrailingWhitespace(end) &&
+                    errno != ERANGE && v >= INT_MIN && v <= INT_MAX;
   if (ok)
     *ok = good;
   return good ? static_cast<int>(v) : 0;
@@ -315,7 +335,7 @@ double RKString::toDouble(bool *ok) const
 {
   char *end = nullptr;
   const double v = std::strtod(_utf8.c_str(), &end);
-  const bool good = end != _utf8.c_str() && end && *end == '\0';
+  const bool good = end != _utf8.c_str() && end && onlyTrailingWhitespace(end);
   if (ok)
     *ok = good;
   return good ? v : 0.0;
@@ -355,21 +375,13 @@ std::vector<RKString> RKString::splitWhitespace(SplitBehavior behavior) const
     if (std::isspace(c))
     {
       if (!cur.empty() || behavior == KeepEmptyParts)
-      {
-        if (!cur.empty() || behavior == KeepEmptyParts)
-        {
-          if (!cur.empty())
-          {
-            out.emplace_back(cur);
-            cur.clear();
-          }
-        }
-      }
+        out.emplace_back(cur);
+      cur.clear();
     }
     else
       cur.push_back(static_cast<char>(c));
   }
-  if (!cur.empty())
+  if (!cur.empty() || behavior == KeepEmptyParts)
     out.emplace_back(cur);
   return out;
 }

@@ -127,6 +127,7 @@ void DirectXBlurShader::createTargets(ID3D12Device *device, int width, int heigh
   srvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
   srvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
   device->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&_srvHeap));
+  _glowSrvResource = nullptr; // fresh heap: the glow SRV must be written again
 
   const UINT rtvInc = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
   const UINT srvInc = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -255,13 +256,19 @@ void DirectXBlurShader::paint(ID3D12GraphicsCommandList *commandList,
   srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
   srvDesc.Texture2D.MipLevels = 1;
 
-  // Recreate glow SRV each frame (glow may be recreated on resize).
-  ID3D12Device *device = nullptr;
-  glowTexture->GetDevice(IID_PPV_ARGS(&device));
-  if (device)
+  // Only (re)create the glow SRV when the glow texture changes (e.g. on resize, which
+  // waits for the GPU to go idle). Rewriting a shader-visible descriptor every frame
+  // while the previous in-flight frame may still read it is undefined behaviour.
+  if (_glowSrvResource != glowTexture)
   {
-    device->CreateShaderResourceView(glowTexture, &srvDesc, _glowSrvCpu);
-    device->Release();
+    ID3D12Device *device = nullptr;
+    glowTexture->GetDevice(IID_PPV_ARGS(&device));
+    if (device)
+    {
+      device->CreateShaderResourceView(glowTexture, &srvDesc, _glowSrvCpu);
+      device->Release();
+      _glowSrvResource = glowTexture;
+    }
   }
 
   auto transition = [&](ID3D12Resource *res, D3D12_RESOURCE_STATES &state, D3D12_RESOURCE_STATES after) {

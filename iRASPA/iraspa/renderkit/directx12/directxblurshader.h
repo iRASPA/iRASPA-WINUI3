@@ -69,6 +69,7 @@ private:
 
   // Temporary glow SRV slot (index 3 in srv heap): down=0, horiz=1, vert=2, glowInput=3
   D3D12_CPU_DESCRIPTOR_HANDLE _glowSrvCpu{};
+  ID3D12Resource *_glowSrvResource{nullptr}; // resource the glow SRV currently describes
   D3D12_GPU_DESCRIPTOR_HANDLE _glowSrvGpu{};
 
   static const std::string _fullscreenVertexShaderSource;

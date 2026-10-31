@@ -262,6 +262,7 @@ void DirectXEnergySurface::initializeVertexBuffers(ID3D12Device *device)
       }
       bufs.numberOfIndices = triangleData.size() / (3 * 3);
       bufs.vertexCount = static_cast<UINT>(3 * bufs.numberOfIndices);
+      source->setAdsorptionSurfaceNumberOfTriangles(static_cast<int64_t>(bufs.numberOfIndices));
 
       const size_t vbBytes = triangleData.size() * sizeof(float4);
       bufs.vertexBuffer = DirectXDeviceHelpers::createUploadBuffer(device, std::max<size_t>(vbBytes, 1));
@@ -313,6 +314,7 @@ void DirectXEnergySurface::paintOpaque(ID3D12GraphicsCommandList *commandList,
       if (renderStructure && source
           && renderStructure->isVisible()
           && source->drawAdsorptionSurface()
+          && isTriangulated(source->adsorptionSurfaceRenderingMethod())
           && source->adsorptionSurfaceOpacity() > 0.99999
           && bufs.numberOfIndices > 0
           && bufs.instanceCount > 0

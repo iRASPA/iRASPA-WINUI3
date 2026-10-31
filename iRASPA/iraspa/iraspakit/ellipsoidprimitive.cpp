@@ -267,6 +267,8 @@ void EllipsoidPrimitive::expandSymmetry()
 std::shared_ptr<Primitive> EllipsoidPrimitive::flattenHierarchy() const
 {
   std::shared_ptr<EllipsoidPrimitive> ellipsoid = std::make_shared<EllipsoidPrimitive>(static_cast<const EllipsoidPrimitive&>(*this));
+  // the Primitive copy constructor deep-copies the atoms; the flattened atoms replace them
+  ellipsoid->atomsTreeController()->setRootNodes({});
 
   const std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
 
@@ -494,7 +496,7 @@ std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> EllipsoidPrim
 
 std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> EllipsoidPrimitive::translatedPositionsSelectionBodyFrame(std::vector<std::shared_ptr<SKAsymmetricAtom>> atoms, double3 translation) const
 {
-  double3 translationBodyFrame = double3x3::inverse(_selectionBodyFixedBasis) * translation;
+  double3 translationBodyFrame = _selectionBodyFixedBasis * translation;
 
   std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> translatedPositions{};
 

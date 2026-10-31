@@ -33,77 +33,99 @@ SKXYZParser::SKXYZParser(const std::filesystem::path &path, bool proteinOnlyAsym
   _frame->displayName = _scanner.displayName();
 }
 
+namespace
+{
+  // Extended-XYZ comment line: Lattice="ax ay az bx by bz cx cy cz" may appear anywhere on the line.
+  std::optional<double3x3> parseLatticeFromCommentLine(const RKString &commentLine)
+  {
+    const std::string lower = commentLine.toLower().utf8();
+    const std::string key = "lattice=";
+    const size_t keyPos = lower.find(key);
+    if(keyPos == std::string::npos) return std::nullopt;
+
+    size_t start = keyPos + key.size();
+    size_t end = std::string::npos;
+    if(start < lower.size() && (lower[start] == '"' || lower[start] == '\''))
+    {
+      const char quote = lower[start];
+      start += 1;
+      end = lower.find(quote, start);
+    }
+    if(end == std::string::npos) end = lower.size();
+
+    const std::vector<RKString> terms = RKString(commentLine.utf8().substr(start, end - start)).splitWhitespace();
+    if(terms.size() < 9) return std::nullopt;
+
+    double values[9];
+    for(size_t i=0;i<9;i++)
+    {
+      bool succes = false;
+      values[i] = terms[i].toDouble(&succes);
+      if(!succes) {throw std::runtime_error("Could not parse the lattice in the XYZ comment line");}
+    }
+
+    double3x3 unitCell{};
+    unitCell.ax = values[0]; unitCell.ay = values[1]; unitCell.az = values[2];
+    unitCell.bx = values[3]; unitCell.by = values[4]; unitCell.bz = values[5];
+    unitCell.cx = values[6]; unitCell.cy = values[7]; unitCell.cz = values[8];
+    return unitCell;
+  }
+
+  bool isAtomCountLine(const std::vector<RKString> &terms)
+  {
+    if(terms.size() != 1) return false;
+    bool succes = false;
+    const int count = terms[0].toInt(&succes);
+    return succes && count >= 0;
+  }
+}
+
 void SKXYZParser::startParsing() noexcept(false)
 {
   int lineNumber = 0;
   int numberOfAtoms = 0;
   RKString scannedLine;
-  double3x3 unitCell{};
+  std::vector<std::shared_ptr<SKStructure>> frames{};
 
-  // skip first line
+  // A frame starts with an atom-count line followed by a comment line (optionally carrying a lattice).
+  auto beginFrame = [this](std::shared_ptr<SKStructure> frame, const RKString &commentLine)
+  {
+    frame->kind = SKStructure::Kind::molecule;
+    frame->displayName = _scanner.displayName();
+    frame->drawUnitCell = false;
+    if(std::optional<double3x3> unitCell = parseLatticeFromCommentLine(commentLine))
+    {
+      if(!_asMolecule)
+      {
+        frame->kind = SKStructure::Kind::molecularCrystal;
+        frame->drawUnitCell = true;
+      }
+      frame->cell = std::make_shared<SKCell>(*unitCell);
+    }
+  };
+
+  auto finishFrame = [this, &frames](const std::shared_ptr<SKStructure> &frame)
+  {
+    const bool periodic = frame->kind == SKStructure::Kind::molecularCrystal;
+    frame->applyInferredMaterialType({}, periodic ? std::optional<SKStructure::Kind>(SKStructure::Kind::crystal) : std::nullopt);
+    frames.push_back(frame);
+  };
+
+  // skip first line (atom count)
   _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
   if(scannedLine.empty()) {throw std::runtime_error("Empty file");}
 
-  // scan second line
+  // scan second line (comment, possibly with a lattice)
   _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
   if(scannedLine.empty()) {throw std::runtime_error("XYZ file near empty");}
 
-  RKString simplifiedLine = scannedLine.simplified().toLower();
-  if(simplifiedLine.startsWith("lattice=\""))
-  {
-    simplifiedLine.remove(0,RKString("lattice=\"").size());
-    simplifiedLine.replace('\"',' ');
-
-    // read lattice vectors
-    std::vector<RKString> termsScannedLined = simplifiedLine.splitWhitespace();
-
-    if(termsScannedLined.size()>=9)
-    {
-      double3x3 cell;
-      bool succes = false;
-
-      unitCell.ax = termsScannedLined[0].toDouble(&succes);
-      if(!succes) {throw std::runtime_error("Count not parse the ax-cell coordinate");}
-
-      unitCell.ay = termsScannedLined[1].toDouble(&succes);
-      if(!succes) {throw std::runtime_error("Count not parse the ay-cell coordinate");}
-
-      unitCell.az = termsScannedLined[2].toDouble(&succes);
-      if(!succes) {throw std::runtime_error("Count not parse the az-cell coordinate");}
-
-      unitCell.bx = termsScannedLined[3].toDouble(&succes);
-      if(!succes) {throw std::runtime_error("Count not parse the bx-cell coordinate");}
-
-      unitCell.by = termsScannedLined[4].toDouble(&succes);
-      if(!succes) {throw std::runtime_error("Count not parse the by-cell coordinate");}
-
-      unitCell.bz = termsScannedLined[5].toDouble(&succes);
-      if(!succes) {throw std::runtime_error("Count not parse the bz-cell coordinate");}
-
-      unitCell.cx = termsScannedLined[6].toDouble(&succes);
-      if(!succes) {throw std::runtime_error("Count not parse the cx-cell coordinate");}
-
-      unitCell.cy = termsScannedLined[7].toDouble(&succes);
-      if(!succes) {throw std::runtime_error("Count not parse the cy-cell coordinate");}
-
-      unitCell.cz = termsScannedLined[8].toDouble(&succes);
-      if(!succes) {throw std::runtime_error("Count not parse the cz-cell coordinate");}
-
-      _frame->drawUnitCell = false;
-      if(!_asMolecule)
-      {
-        _frame->kind = SKStructure::Kind::molecularCrystal;
-        _frame->drawUnitCell = true;
-      }
-      _frame->cell = std::make_shared<SKCell>(unitCell);
-    }
-  }
+  beginFrame(_frame, scannedLine);
 
   while(!_scanner.isAtEnd())
   {
     // scan to first keyword
     _previousScanLocation = _scanner.scanLocation();
-    if (_scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine) && !scannedLine.empty())
+    if (_scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine) && !scannedLine.simplified().empty())
     {
       lineNumber += 1;
 
@@ -112,6 +134,27 @@ void SKXYZParser::startParsing() noexcept(false)
 
       // read chemical element, and x,y,z position
       std::vector<RKString> termsScannedLined = scannedLine.splitWhitespace();
+
+      // A lone integer starts the next frame of a multi-frame (trajectory) XYZ file.
+      if(isAtomCountLine(termsScannedLined))
+      {
+        finishFrame(_frame);
+        _frame = std::make_shared<SKStructure>();
+
+        // The scanner stopped at the newline ending the count line; step over exactly that one
+        // line ending so an empty comment line is not skipped.
+        const std::string &text = _scanner.string().utf8();
+        auto location = _scanner.scanLocation();
+        if(location < text.cend() && *location == '\r') ++location;
+        if(location < text.cend() && *location == '\n') ++location;
+        _scanner.setScanLocation(location);
+
+        RKString commentLine;
+        _scanner.scanLine(commentLine);
+        beginFrame(_frame, commentLine);
+        continue;
+      }
+
       if(termsScannedLined.size()<4) {throw std::runtime_error("Missing data");}
 
       numberOfAtoms += 1;
@@ -146,7 +189,6 @@ void SKXYZParser::startParsing() noexcept(false)
       _frame->atoms.push_back(atom);
     }
   }
-  const bool periodic = _frame->kind == SKStructure::Kind::molecularCrystal;
-  _frame->applyInferredMaterialType({}, periodic ? std::optional<SKStructure::Kind>(SKStructure::Kind::crystal) : std::nullopt);
-  _movies.push_back({_frame});
+  finishFrame(_frame);
+  _movies.push_back(frames);
 }

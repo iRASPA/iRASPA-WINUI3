@@ -129,8 +129,11 @@ namespace winrt::iRASPA_WinUI::implementation
             ConfigureNumber(box, -100.0, 100.0, 1.0, 0);
 
         ConfigureNumber(RotationDelta(), 0.1, 180.0, 0.5, 4);
-        for (auto const& box : m_eulerBoxes)
-            ConfigureNumber(box, -180.0, 180.0, 1.0, 6);
+        // The middle Euler angle (attitude) comes out of asin and so only ever reads
+        // back in [-90, 90]; a wider range would flip the other two by 180 degrees.
+        ConfigureNumber(EulerX(), -180.0, 180.0, 1.0, 6);
+        ConfigureNumber(EulerY(), -90.0, 90.0, 1.0, 6);
+        ConfigureNumber(EulerZ(), -180.0, 180.0, 1.0, 6);
         for (auto const& box : m_originBoxes)
             ConfigureNumber(box, -100000.0, 100000.0, 0.1, 6);
         for (auto const& box : m_shiftBoxes)
@@ -974,6 +977,12 @@ namespace winrt::iRASPA_WinUI::implementation
             if (auto cell = object.cell())
             {
                 apply(*cell, which);
+                // A new cell moves the symmetry copies and changes the distances
+                // the bonds were found by, so both are regenerated (as Cocoa does).
+                if (auto atoms = dynamic_cast<AtomViewer*>(&object))
+                    atoms->expandSymmetry();
+                if (auto bonds = dynamic_cast<BondViewer*>(&object))
+                    bonds->computeBonds();
                 object.reComputeBoundingBox();
             }
         }, DocumentController::CellReload::CameraAndRenderer);
@@ -1268,17 +1277,19 @@ namespace winrt::iRASPA_WinUI::implementation
     {
         if (!m_controller || !m_controller->Document())
             return;
-        auto& forceFieldSets = m_controller->Document()->forceFieldSets();
+        std::vector<std::pair<std::shared_ptr<AtomStructureEditor>, RKString>> assignments;
         for (auto const& target : m_controller->TargetStructures())
         {
             auto editor = target ? std::dynamic_pointer_cast<AtomStructureEditor>(target->object()) : nullptr;
             if (!editor)
                 continue;
-            editor->setAtomForceFieldIdentifier(name, forceFieldSets);
-            editor->recheckRepresentationStyle();
+            assignments.emplace_back(editor, name);
         }
-        // Cocoa invalidates the energy surface: Lennard-Jones parameters drive the grid.
-        m_controller->ReloadRendererInvalidatingIsosurfaces();
+        if (assignments.empty())
+            return;
+        // Undoable, and the controller reloads the renderer (the Lennard-Jones
+        // parameters drive the energy grid) and this pane.
+        m_controller->ApplyForceFieldIdentifiers(assignments);
     }
 
     void CellDetailView::OnStructuralChanged(NumberBox const& sender,
@@ -1328,6 +1339,13 @@ namespace winrt::iRASPA_WinUI::implementation
     {
         // Same path as the other structural NumberBoxes; regenerates the probe enum from ε/σ.
         OnStructuralChanged(sender, e);
+        if (m_suppressEvents || !m_controller)
+            return;
+        // The probe-molecule popup follows the parameters (it reads "custom" when
+        // they match no preset), so the group is shown again.
+        m_suppressEvents = true;
+        ReloadStructural();
+        m_suppressEvents = false;
     }
 
     void CellDetailView::OnComputeVoidFraction(IInspectable const&, RoutedEventArgs const&)

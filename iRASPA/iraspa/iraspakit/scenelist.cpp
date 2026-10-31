@@ -107,6 +107,7 @@ void SceneList::setSelectedFrameIndex(size_t frameIndex)
 void SceneList::setSelectedScene(std::shared_ptr<Scene> scene)
 {
   _selectedScene = scene;
+  _selectedScenes.clear();
   if(_selectedScene)
   {
     _selectedScenes.insert(_selectedScene);

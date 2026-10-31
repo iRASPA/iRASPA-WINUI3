@@ -159,7 +159,7 @@ void SKPOSCARLegacyParser::startParsing() noexcept(false)
       // read atom
       _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
       termsScannedLined = scannedLine.splitWhitespace();
-      if(termsScannedLined.empty()) {throw std::runtime_error("Error reading atoms");}
+      if(termsScannedLined.size() < 3) {throw std::runtime_error("Error reading atoms");}
 
       atom->setElementIdentifier(k+1);
       atom->setDisplayName(RKString::number(k+1));

@@ -18,6 +18,7 @@
 #include <zlib.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -919,10 +920,12 @@ void ZipWriter::close()
 extern "C" void *lz_alloc(void *opaque, size_t nmemb, size_t size)
 {
     (void)opaque;
-    (void)nmemb;
+    // liblzma's allocator contract is calloc-style: allocate nmemb * size bytes.
+    if (nmemb != 0 && size > SIZE_MAX / nmemb)
+        return nullptr;
     try
     {
-        return new char[size];
+        return new char[nmemb * size];
     }
     catch (const std::bad_alloc &)
     {
@@ -965,11 +968,11 @@ RKByteArray ZipWriter::xzCompress(const RKByteArray &data)
 
         const size_t out_len = OUT_BUF_MAX - strm.avail_out;
         arr.insert(arr.end(), out_buf.data(), out_buf.data() + out_len);
-        out_buf[0] = 0;
-    } while (strm.avail_out == 0);
+    } while (codeRet == LZMA_OK && strm.avail_out == 0);
 
     lzma_end(&strm);
-    (void)codeRet;
+    if (codeRet != LZMA_STREAM_END)
+        return {};
     return arr;
 }
 
@@ -997,11 +1000,11 @@ RKByteArray ZipReader::xzUncompress(const RKByteArray &data)
 
         const size_t out_len = OUT_BUF_MAX - strm.avail_out;
         arr.insert(arr.end(), out_buf.data(), out_buf.data() + out_len);
-        out_buf[0] = 0;
-    } while (strm.avail_out == 0);
+    } while (codeRet == LZMA_OK && strm.avail_out == 0);
 
     lzma_end(&strm);
-    (void)codeRet;
+    if (codeRet != LZMA_STREAM_END)
+        return {};
     return arr;
 }
 

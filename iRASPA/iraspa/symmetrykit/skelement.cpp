@@ -190,7 +190,6 @@ std::set<RKString> PredefinedElements::residueDefinitions =
   RKString("GLU"),
   RKString("GLY"),
   RKString("HIS"),
-  RKString("HOH"),
   RKString("ILE"),
   RKString("LEU"),
   RKString("LYS"),
@@ -355,7 +354,7 @@ std::map<RKString, RKString> PredefinedElements::residueDefinitionsElement =
   {RKString("HIS+HD2")  ,"H"},
   {RKString("HIS+HE1")  ,"H"},
 
-  {RKString("HOH+O")    ,"C"},
+  {RKString("HOH+O")    ,"O"},
   {RKString("HOH+H")    ,"H"},
 
   {RKString("ILE+C")    ,"C"},

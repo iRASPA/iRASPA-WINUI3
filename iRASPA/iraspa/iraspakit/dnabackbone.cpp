@@ -130,7 +130,7 @@ std::shared_ptr<SKAsymmetricAtom> DNABackboneResidue::ribbonCenterAtom() const
 std::vector<std::shared_ptr<SKAsymmetricAtom>> DNABackboneResidue::backboneAtoms() const
 {
   std::vector<std::shared_ptr<SKAsymmetricAtom>> atoms;
-  for (const std::shared_ptr<SKAsymmetricAtom> &atom : {phosphate, o5Prime, c5Prime, c4Prime, o4Prime, c1Prime, c3Prime, o3Prime})
+  for (const std::shared_ptr<SKAsymmetricAtom> &atom : {phosphate, o5Prime, c5Prime, c4Prime, o4Prime, c1Prime, c2Prime, c3Prime, o3Prime})
   {
     if (atom) atoms.push_back(atom);
   }

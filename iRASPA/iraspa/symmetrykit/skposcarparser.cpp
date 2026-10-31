@@ -26,7 +26,7 @@
 #include "rkstring.h"
 #include <cmath>
 #include <algorithm>
-#include <cmath>
+#include <optional>
 #include "symmetrykitprotocols.h"
 #include "skasymmetricatom.h"
 #include "skelement.h"
@@ -57,6 +57,7 @@ void SKPOSCARParser::startParsing() noexcept(false)
 
   bool succes = false;
   double scaleFactor = 1.0;
+  std::optional<double> targetVolume;   // a negative scaling factor is the desired cell volume
   termsScannedLined = scannedLine.splitWhitespace();
   if(!termsScannedLined.empty())
   {
@@ -64,6 +65,10 @@ void SKPOSCARParser::startParsing() noexcept(false)
     if(succes && parsedScale > 0.0)
     {
       scaleFactor = parsedScale;
+    }
+    else if(succes && parsedScale < 0.0)
+    {
+      targetVolume = -parsedScale;
     }
   }
 
@@ -108,6 +113,14 @@ void SKPOSCARParser::startParsing() noexcept(false)
   unitCell.cz = termsScannedLined[2].toDouble(&succes);
   if(!succes) {throw std::runtime_error("Could not parse the z-coordinate of third lattice vector");}
 
+  if(targetVolume)
+  {
+    const double volume = std::fabs(unitCell.determinant());
+    if(volume > 0.0)
+    {
+      scaleFactor = std::cbrt(*targetVolume / volume);
+    }
+  }
   unitCell = scaleFactor * unitCell;
 
   _frame->cell = std::make_shared<SKCell>(unitCell);
@@ -152,9 +165,10 @@ void SKPOSCARParser::startParsing() noexcept(false)
       // read atom
       _scanner.scanUpToCharacters(CharacterSet::newlineCharacterSet(), scannedLine);
       termsScannedLined = scannedLine.splitWhitespace();
-      if(termsScannedLined.empty()) {throw std::runtime_error("Error reading atoms");}
+      if(termsScannedLined.size() < 3) {throw std::runtime_error("Error reading atoms");}
 
       RKString chemicalElement = chemicalElementString.simplified().toLower();
+      if(chemicalElement.empty()) {throw std::runtime_error("Empty element symbol in POSCAR");}
       chemicalElement.replace(0, 1, RKString(static_cast<char>(std::toupper(static_cast<unsigned char>(chemicalElement[0])))));
       if (std::map<RKString,int>::iterator index = PredefinedElements::atomicNumberData.find(chemicalElement); index != PredefinedElements::atomicNumberData.end())
       {

@@ -222,7 +222,7 @@ protected:
 
   inline float Images(const std::vector<float4> &data, size_t x,size_t y,size_t z)
   {
-    size_t index = modulo(x,_dimensions.x)+modulo(y,_dimensions.y)*_dimensions.y+modulo(z,_dimensions.z)*_dimensions.x*_dimensions.y;
+    size_t index = modulo(x,_dimensions.x)+modulo(y,_dimensions.y)*_dimensions.x+modulo(z,_dimensions.z)*_dimensions.x*_dimensions.y;
 
     return data[index].x;
   }

@@ -286,14 +286,22 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<SKBondSetContro
   // older gallery proteins do, leaves tags behind that name nothing.
   std::vector<std::shared_ptr<SKAsymmetricBond>> restoredBonds;
   restoredBonds.reserve(controller->_arrangedObjects.size());
-  for(std::shared_ptr<SKAsymmetricBond> &bond: controller->_arrangedObjects)
+  // The selection stores positions in _arrangedObjects; dropping bonds shifts those positions, so
+  // remap the selection onto the surviving bonds (and drop entries for removed bonds).
+  BondSelectionIndexSet restoredSelection;
+  for(size_t originalIndex = 0; originalIndex < controller->_arrangedObjects.size(); originalIndex++)
   {
+    std::shared_ptr<SKAsymmetricBond> &bond = controller->_arrangedObjects[originalIndex];
     const int64_t atom1Tag = bond->getTag1();
     const int64_t atom2Tag = bond->getTag2();
     if(atom1Tag < 0 || size_t(atom1Tag) >= asymmetricAtoms.size() ||
        atom2Tag < 0 || size_t(atom2Tag) >= asymmetricAtoms.size())
     {
       continue;
+    }
+    if(controller->_selectedIndexSet.find(static_cast<int64_t>(originalIndex)) != controller->_selectedIndexSet.end())
+    {
+      restoredSelection.insert(static_cast<int64_t>(restoredBonds.size()));
     }
     bond->setAtom1(asymmetricAtoms[size_t(atom1Tag)]);
     bond->setAtom2(asymmetricAtoms[size_t(atom2Tag)]);
@@ -316,6 +324,7 @@ BinaryArchive &operator>>(BinaryArchive &stream, std::shared_ptr<SKBondSetContro
     restoredBonds.push_back(bond);
   }
   controller->_arrangedObjects = restoredBonds;
+  controller->_selectedIndexSet = restoredSelection;
 
   return stream;
 }

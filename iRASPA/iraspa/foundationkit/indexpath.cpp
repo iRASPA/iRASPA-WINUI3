@@ -91,86 +91,20 @@ const IndexPath IndexPath::operator+(const IndexPath& rhs)
 
 bool IndexPath::operator<( const IndexPath& otherObject ) const
 {
-  size_t l1 = _path.size();
-  size_t l2 = otherObject._path.size();
-  for(size_t pos=0;pos<std::min(l1,l2); pos++)
-  {
-    size_t i1 = _path[pos];
-    size_t i2 = otherObject._path[pos];
-    if (i1 < i2)
-    {
-      return true;
-    }
-    else if (i1 > i2)
-    {
-      return false;
-    }
-  }
-  if (l1 < l2)
-  {
-    return true;
-  }
-  else if (l1 > l2)
-  {
-    return false;
-  }
-  return false;
+  // Lexicographical comparison on the signed element type; a shorter path that is a
+  // prefix of a longer one sorts first (e.g. [0] < [0, 0]).
+  return std::lexicographical_compare(_path.begin(), _path.end(),
+                                      otherObject._path.begin(), otherObject._path.end());
 }
 
 bool IndexPath::operator>( const IndexPath& otherObject ) const
 {
-  size_t l1 = _path.size();
-  size_t l2 = otherObject._path.size();
-  for(size_t pos=0;pos<std::min(l1,l2); pos++)
-  {
-    size_t i1 = _path[pos];
-    size_t i2 = otherObject._path[pos];
-    if (i1 < i2)
-    {
-      return false;
-    }
-    else if (i1 > i2)
-    {
-      return true;
-    }
-  }
-  if (l1 < l2)
-  {
-    return false;
-  }
-  else if (l1 > l2)
-  {
-    return true;
-  }
-  return false;
+  return otherObject < *this;
 }
 
 bool IndexPath::operator==( const IndexPath& otherObject ) const
 {
-  size_t l1 = _path.size();
-  size_t l2 = otherObject._path.size();
-  for(size_t pos=0;pos<std::min(l1,l2); pos++)
-  {
-    size_t i1 = _path[pos];
-    size_t i2 = otherObject._path[pos];
-    if (i1 < i2)
-    {
-      return false;
-    }
-    else if (i1 > i2)
-    {
-      return false;
-    }
-  }
-  if (l1 < l2)
-  {
-    return false;
-  }
-  else if (l1 > l2)
-  {
-    return false;
-  }
-  return false;
+  return _path == otherObject._path;
 }
 
 BinaryArchive &operator<<(BinaryArchive & stream, const std::vector<IndexPath>& val)
@@ -186,7 +120,11 @@ BinaryArchive &operator>>(BinaryArchive & stream, std::vector<IndexPath>& val)
   int32_t vecSize;
   val.clear();
   stream >> vecSize;
-  val.reserve(vecSize);
+  if (vecSize < 0)
+  {
+    throw BinaryArchiveError("IndexPath vector: negative element count");
+  }
+  val.reserve(static_cast<size_t>(vecSize));
 
   while(vecSize--)
   {
@@ -210,7 +148,11 @@ BinaryArchive &operator>>(BinaryArchive &stream, IndexPath &indexPath)
   int32_t vecSize;
   indexPath._path.clear();
   stream >> vecSize;
-  indexPath._path.reserve(vecSize);
+  if (vecSize < 0)
+  {
+    throw BinaryArchiveError("IndexPath: negative element count");
+  }
+  indexPath._path.reserve(static_cast<size_t>(vecSize));
 
   while(vecSize--)
   {

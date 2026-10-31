@@ -1597,6 +1597,18 @@ namespace winrt::iRASPA_WinUI::implementation
         if (!combo || combo.SelectedIndex() < 0 || !project)
             return;
         project->setImageDPI(static_cast<RKImageDPI>(combo.SelectedIndex()));
+        // Physical size and pixel count are tied together through the DPI: whichever
+        // one the user is not editing follows (as in the original).
+        const double dpi = project->imageDotsPerInchValue();
+        if (project->imageDimensions() == RKImageDimensions::physical)
+            project->setImageNumberOfPixels(
+                (std::max)(1, static_cast<int>(std::lround(project->renderImagePhysicalSizeInInches() * dpi))));
+        else
+            project->setImagePhysicalSizeInInches(
+                static_cast<double>(project->renderImageNumberOfPixels()) / dpi);
+        m_suppressEvents = true;
+        ReloadPictures();
+        m_suppressEvents = false;
     }
 
     void CameraDetailView::OnImageQualityChanged(IInspectable const& sender, SelectionChangedEventArgs const&)
@@ -1620,6 +1632,9 @@ namespace winrt::iRASPA_WinUI::implementation
             return;
         const double unitFactor = (project->imageUnits() == RKImageUnits::cm) ? 2.54 : 1.0;
         project->setImagePhysicalSizeInInches(value / unitFactor);
+        // The export renders the pixel count, so it has to follow the physical size.
+        project->setImageNumberOfPixels((std::max)(1,
+            static_cast<int>(std::lround((value / unitFactor) * project->imageDotsPerInchValue()))));
         m_suppressEvents = true;
         ReloadPictures();
         m_suppressEvents = false;
@@ -1634,6 +1649,7 @@ namespace winrt::iRASPA_WinUI::implementation
         if (!std::isfinite(value) || !project)
             return;
         project->setImageNumberOfPixels(static_cast<int>(value));
+        project->setImagePhysicalSizeInInches(value / project->imageDotsPerInchValue());
         m_suppressEvents = true;
         ReloadPictures();
         m_suppressEvents = false;
@@ -1959,7 +1975,15 @@ namespace winrt::iRASPA_WinUI::implementation
         }
 
         BeginExport(L"Rendering", false);
-        co_await RunExportJob(std::move(request), L"Picture");
+        // An exception escaping a fire_and_forget terminates the process; the one that
+        // can happen here is the dispatcher queue shutting down mid-export.
+        try
+        {
+            co_await RunExportJob(std::move(request), L"Picture");
+        }
+        catch (...)
+        {
+        }
     }
 
     winrt::fire_and_forget CameraDetailView::RunMovieExport(ExportSettings settings, MovieWriter::Format format)
@@ -1995,7 +2019,13 @@ namespace winrt::iRASPA_WinUI::implementation
         }
 
         BeginExport(L"Encoding", true);
-        co_await RunExportJob(std::move(request), L"Movie");
+        try
+        {
+            co_await RunExportJob(std::move(request), L"Movie");
+        }
+        catch (...)
+        {
+        }
     }
 
     void CameraDetailView::OnMakePicture(IInspectable const&, RoutedEventArgs const&)

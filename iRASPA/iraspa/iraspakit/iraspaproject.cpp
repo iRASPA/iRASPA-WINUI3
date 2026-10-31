@@ -73,6 +73,11 @@ iRASPAProject::iRASPAProject(std::shared_ptr<ProjectGroup> project):
 
 }
 
+void iRASPAProject::regenerateFileNameUUID()
+{
+  _fileNameUUID = generateUuidString();
+}
+
 void iRASPAProject::readData(ZipReader& reader)
 {
   const RKByteArray bytes = reader.fileData(

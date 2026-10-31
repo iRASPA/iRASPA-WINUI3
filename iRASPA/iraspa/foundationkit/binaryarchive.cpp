@@ -5,6 +5,7 @@
 
 #include "binaryarchive.h"
 
+#include <algorithm>
 #include <cstring>
 
 namespace
@@ -178,7 +179,8 @@ void BinaryArchive::writeBytes(const void *src, std::size_t n)
 
 void BinaryArchive::readBytes(void *dst, std::size_t n)
 {
-  if (_pos + n > _data.size())
+  // Written as a subtraction so a huge n cannot wrap _pos + n around size_t.
+  if (_pos > _data.size() || n > _data.size() - _pos)
   {
     _status = Status::ReadPastEnd;
     throw BinaryArchiveError("BinaryArchive: premature end of data");
@@ -434,6 +436,11 @@ BinaryArchive &BinaryArchive::operator>>(std::string &v)
     v.clear();
     return *this;
   }
+  if (count > _data.size() - std::min(_pos, _data.size()))
+  {
+    _status = Status::ReadPastEnd;
+    throw BinaryArchiveError("BinaryArchive: string length exceeds remaining data");
+  }
   std::vector<uint8_t> bytes(count);
   if (count)
     readBytes(bytes.data(), count);
@@ -462,6 +469,13 @@ BinaryArchive &BinaryArchive::operator>>(std::vector<uint8_t> &v)
   v.clear();
   if (count == kNullLength)
     return *this;
+  // Verify the bytes exist before allocating, so a corrupt length cannot trigger a
+  // multi-gigabyte allocation.
+  if (count > _data.size() - std::min(_pos, _data.size()))
+  {
+    _status = Status::ReadPastEnd;
+    throw BinaryArchiveError("BinaryArchive: byte array length exceeds remaining data");
+  }
   v.resize(count);
   if (count)
     readBytes(v.data(), count);

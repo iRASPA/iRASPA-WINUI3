@@ -357,7 +357,8 @@ public:
 protected:
   SKAtomTreeController &ribbonAtomTreeController() override { return *_atomsTreeController; }
   const SKAtomTreeController &ribbonAtomTreeController() const override { return *_atomsTreeController; }
-  double3 ribbonContentShift() const override { return _cell->contentShift(); }
+  // atoms of a protein crystal are shifted by a fractional contentShift; the ribbon works in Cartesian space
+  double3 ribbonContentShift() const override { return _cell->unitCell() * _cell->contentShift(); }
   simd_quatd ribbonOrientation() const override { return _orientation; }
   double3 ribbonBoundingBoxCenter() const override { return boundingBox().center(); }
   double3 ribbonOrigin() const override { return _origin; }

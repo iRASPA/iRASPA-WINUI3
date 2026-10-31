@@ -18,6 +18,13 @@ public:
   Scanner(const RKString &content, CharacterSet charactersToBeSkipped);
   Scanner(std::string content, CharacterSet charactersToBeSkipped);
 
+  // _scanLocation is an iterator into _string's buffer, so copying/moving must rebase it
+  // onto the new object's buffer instead of leaving it dangling into the source.
+  Scanner(const Scanner &other);
+  Scanner(Scanner &&other) noexcept;
+  Scanner &operator=(const Scanner &other);
+  Scanner &operator=(Scanner &&other) noexcept;
+
   const RKString &string() const { return _string; }
   std::string::const_iterator scanLocation() const { return _scanLocation; }
   void setScanLocation(std::string::const_iterator location) { _scanLocation = location; }

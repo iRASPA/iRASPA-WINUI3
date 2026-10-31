@@ -125,6 +125,11 @@
     <Content Include="..\iRASPA\iraspa\datafiles\iraspa.iconset\icon_512x512.png">
       <Link>Assets\AppIcon.png</Link>
     </Content>
+    <!-- About > Acknowledgements opens this next to the exe (DeployAcknowledgedLicenses
+         puts it there for the loose build). -->
+    <Content Include="..\iRASPA\iraspa\datafiles\acknowledgedlicenses.pdf">
+      <Link>AcknowledgedLicenses.pdf</Link>
+    </Content>
     <!-- Embeddable CPython, picked for the architecture currently being built. Each
          platform of the bundle is a separate pass over this project, so $(Platform)
          selects the matching runtime and an ARM64 package never carries x64 binaries.

@@ -655,8 +655,7 @@ std::tuple<RingMatrix, RingMatrix, RingMatrix> RingMatrix::SmithNormalForm()
       Smith_Theorem5(AA, UU, VV, i);
     }
 
-    // Insert AA
-    AA = AA.transposed();
+    // Insert AA (undo the transpose applied before the transposed Phase One)
     A.assignSubmatrix(beg, beg, AA.transposed());
 
    // Insert transformations

@@ -54,6 +54,7 @@
 #include "skspacegroup.h"
 #include "skxyzwriter.h"
 #include "rkrenderuniforms.h"
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <optional>
@@ -296,6 +297,9 @@ namespace winrt::iRASPA_WinUI::implementation
         // controller, which has to be able to reach back here already.
         m_controller.SetHost(this);
         BuildUi();
+        // Always hook Closed: it tears down the DX12 host, the secondary windows and
+        // Python, and must run regardless of whether a Mica backdrop is available.
+        m_backdropClosedRevoker = Closed(auto_revoke, { this, &MainWindow::Window_Closed });
         TrySetMicaBackdrop();
         Content().as<FrameworkElement>().Loaded({ this, &MainWindow::MainWindow_Loaded });
     }
@@ -309,7 +313,6 @@ namespace winrt::iRASPA_WinUI::implementation
         {
             m_backdropConfiguration = SystemBackdropConfiguration();
             m_backdropActivatedRevoker = Activated(auto_revoke, { this, &MainWindow::Window_Activated });
-            m_backdropClosedRevoker = Closed(auto_revoke, { this, &MainWindow::Window_Closed });
             m_backdropConfiguration.IsInputActive(true);
             SetConfigurationSourceTheme();
 
@@ -378,6 +381,22 @@ namespace winrt::iRASPA_WinUI::implementation
         {
             m_renderHost->Shutdown();
             m_renderHost.reset();
+        }
+
+        // The info-panel timer and the secondary windows hold callbacks into this
+        // object; stop/close them before it goes away.
+        if (m_infoPanelTimer)
+        {
+            m_infoPanelTimer.Stop();
+            m_infoPanelTimer = nullptr;
+        }
+        if (auto about = std::exchange(m_aboutWindow, nullptr))
+        {
+            try { about.Close(); } catch (...) {}
+        }
+        if (auto help = std::exchange(m_helpWindow, nullptr))
+        {
+            try { help.Close(); } catch (...) {}
         }
 
         m_backdropActivatedRevoker.revoke();
@@ -996,7 +1015,16 @@ namespace winrt::iRASPA_WinUI::implementation
                     std::wstring baseName = sanitize(displayName.toStdWString());
                     if (baseName.empty())
                         baseName = L"structure-" + std::to_wstring(++counter);
-                    const auto path = tempDir / (baseName + extension);
+                    // Frames of a movie share their display name: number the
+                    // repeats, or each file would overwrite the one before it.
+                    auto path = tempDir / (baseName + extension);
+                    for (int duplicate = 2;
+                         std::find(m_shareFilePaths.begin(), m_shareFilePaths.end(), path.wstring())
+                             != m_shareFilePaths.end();
+                         ++duplicate)
+                    {
+                        path = tempDir / (baseName + L"-" + std::to_wstring(duplicate) + extension);
+                    }
 
                     // UTF-8 on disk, like the file-export path.
                     const std::wstring wide = out.toStdWString();

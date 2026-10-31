@@ -531,6 +531,8 @@ std::shared_ptr<Primitive> CrystalPolygonalPrismPrimitive::superCell() const
 
   // use the copy constructor
   std::shared_ptr<CrystalPolygonalPrismPrimitive> crystal = std::make_shared<CrystalPolygonalPrismPrimitive>(static_cast<const CrystalPolygonalPrismPrimitive&>(*this));
+  // the Primitive copy constructor deep-copies the atoms; the super-cell atoms replace them
+  crystal->atomsTreeController()->setRootNodes({});
 
   int minimumReplicaX = _cell->minimumReplicaX();
   int minimumReplicaY = _cell->minimumReplicaY();
@@ -588,6 +590,8 @@ std::shared_ptr<Primitive> CrystalPolygonalPrismPrimitive::superCell() const
 std::shared_ptr<Primitive> CrystalPolygonalPrismPrimitive::flattenHierarchy() const
 {
   std::shared_ptr<CrystalPolygonalPrismPrimitive> polygonalPrismCrystal = std::make_shared<CrystalPolygonalPrismPrimitive>(static_cast<const CrystalPolygonalPrismPrimitive&>(*this));
+  // the Primitive copy constructor deep-copies the atoms; the flattened atoms replace them
+  polygonalPrismCrystal->atomsTreeController()->setRootNodes({});
 
   const std::vector<std::shared_ptr<SKAtomTreeNode>> asymmetricAtomNodes = _atomsTreeController->flattenedLeafNodes();
 
@@ -755,6 +759,9 @@ std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> CrystalPolygo
                  [this,comFrac,rotationMatrix](std::shared_ptr<SKAsymmetricAtom> atom) -> std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>
                  {
                    double3 ds = double3::fract(atom->position()) - comFrac;
+                   ds.x -= std::rint(ds.x);
+                   ds.y -= std::rint(ds.y);
+                   ds.z -= std::rint(ds.z);
                    double3 translatedPositionCartesian = _cell->convertToCartesian(ds);
                    double3 position = rotationMatrix * translatedPositionCartesian;
                    return std::make_pair(atom, _cell->convertToFractional(position) + comFrac);
@@ -774,6 +781,9 @@ std::vector<std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>> CrystalPolygo
                  [this,comFrac,rotationMatrix](std::shared_ptr<SKAsymmetricAtom> atom) -> std::pair<std::shared_ptr<SKAsymmetricAtom>, double3>
                  {
                    double3 ds = double3::fract(atom->position()) - comFrac;
+                   ds.x -= std::rint(ds.x);
+                   ds.y -= std::rint(ds.y);
+                   ds.z -= std::rint(ds.z);
                    double3 translatedPositionCartesian = _cell->convertToCartesian(ds);
                    double3 position = rotationMatrix * translatedPositionCartesian;
                    return std::make_pair(atom, _cell->convertToFractional(position) + comFrac);

@@ -501,15 +501,21 @@ void DocumentController::RemoveProjectNode(std::shared_ptr<ProjectTreeNode> cons
     RegisterUndo(&m_documentUndoStack, L"Remove Projects",
                  [this, node, parent, index]() { AddProjectNode(node, parent, index); });
 
-    // A removed project must not stay loaded in the renderer.
-    if (auto iraspa = node->representedObject())
+    // A removed project must not stay loaded in the renderer; the one shown may
+    // sit anywhere below a removed group.
+    if (m_project)
     {
-        if (auto structure = std::dynamic_pointer_cast<ProjectStructure>(iraspa->project());
-            structure && structure == m_project)
+        bool removesActive = false;
+        for (auto const& iraspa : node->flattenedObjects())
         {
-            if (m_host)
-                m_host->ClearRenderer();
+            if (iraspa && iraspa->project() == m_project)
+            {
+                removesActive = true;
+                break;
+            }
         }
+        if (removesActive && m_host)
+            m_host->ClearRenderer();
     }
 
     if (m_projectList)
@@ -954,12 +960,30 @@ std::shared_ptr<ProjectTreeNode> DocumentController::ApplyProjectDrop(
     }
     else
     {
-        // Gallery/cloud source: Cocoa copies into local.
-        auto copy = node->shallowClone();
+        // Gallery/cloud source: Cocoa copies into local. shallowClone() copies the
+        // node without its children, so a group is copied recursively here;
+        // otherwise a dropped gallery group would arrive empty.
+        std::function<std::shared_ptr<ProjectTreeNode>(std::shared_ptr<ProjectTreeNode> const&)> cloneTree;
+        cloneTree = [&cloneTree](std::shared_ptr<ProjectTreeNode> const& source)
+            -> std::shared_ptr<ProjectTreeNode>
+        {
+            auto cloned = source->shallowClone();
+            if (!cloned)
+                return nullptr;
+            cloned->setIsEditable(true);
+            cloned->setIsDropEnabled(NodeIsGroup(cloned));
+            for (auto const& child : source->childNodes())
+            {
+                if (!child)
+                    continue;
+                if (auto clonedChild = cloneTree(child))
+                    cloned->insertChild(cloned->childCount(), clonedChild);
+            }
+            return cloned;
+        };
+        auto copy = cloneTree(node);
         if (!copy)
             return nullptr;
-        copy->setIsEditable(true);
-        copy->setIsDropEnabled(NodeIsGroup(copy));
         controller->insertNodeInParent(copy, newParent, newIndex);
         inserted = copy;
         RegisterUndo(&m_documentUndoStack, L"Add Projects",
@@ -967,6 +991,7 @@ std::shared_ptr<ProjectTreeNode> DocumentController::ApplyProjectDrop(
     }
 
     // Select the moved/copied node.
+    auto previousPrimary = controller->selectedTreeNode();
     controller->clearSelection();
     try
     {
@@ -976,6 +1001,12 @@ std::shared_ptr<ProjectTreeNode> DocumentController::ApplyProjectDrop(
     catch (...)
     {
     }
+    // The renderer follows the selection; a drop that changed it has to load the
+    // dropped project the way a click on its row would.
+    if (inserted != previousPrimary)
+        ApplyPrimaryProjectIfNeeded(inserted);
+    if (m_host)
+        m_host->RefreshEditMenuLabels();
 
     outParent = newParent;
     return inserted;

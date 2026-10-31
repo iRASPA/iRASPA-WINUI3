@@ -50,10 +50,12 @@ public:
   struct KeyEqual {
    bool operator()(const std::shared_ptr<SKAsymmetricBond>& lhs, const std::shared_ptr<SKAsymmetricBond>& rhs) const
    {
-       return lhs->atom1().get() == rhs->atom1().get() && lhs->atom2().get() == rhs->atom2().get();
+       // Order-independent, consistent with KeyHash and operator==.
+       return (lhs->atom1().get() == rhs->atom1().get() && lhs->atom2().get() == rhs->atom2().get()) ||
+              (lhs->atom1().get() == rhs->atom2().get() && lhs->atom2().get() == rhs->atom1().get());
    }
   };
-  SKAsymmetricBond() {}
+  SKAsymmetricBond(): _isVisible(true), _bondType(SKBondType::singleBond) {}
   SKAsymmetricBond(std::shared_ptr<SKAsymmetricAtom> a, std::shared_ptr<SKAsymmetricAtom> b);
   bool operator==(SKAsymmetricBond const& rhs) const;
   inline std::shared_ptr<SKAsymmetricAtom> atom1() const {return this->_atom1.lock();}

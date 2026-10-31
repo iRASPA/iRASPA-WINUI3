@@ -257,6 +257,8 @@ std::optional<SKPointGroup> SKPointGroup::findPointGroup(double3x3 unitCell, std
 {
   std::vector<std::tuple<double3, int, double> > reducedAtoms{};
 
+  if(atoms.empty()) return std::nullopt;
+
   if(allowPartialOccupancies)
   {
     reducedAtoms = atoms;
@@ -330,8 +332,9 @@ const std::optional<SKTransformationMatrix> SKPointGroup::constructAxes(std::vec
         return a.length_squared() < b.length_squared();
     });
 
-    assert(!orthogonalAxes.empty());
-    if(orthogonalAxes.empty()) return std::nullopt;
+    // two orthogonal axes are needed below
+    assert(orthogonalAxes.size() >= 2);
+    if(orthogonalAxes.size() < 2) return std::nullopt;
 
     // the second and thirs axis are the shortest orthogonal axes
     axes[0] = orthogonalAxes[0];
@@ -451,7 +454,11 @@ BinaryArchive &operator>>(BinaryArchive &stream, SKPointGroup &pointGroup)
 {
   int64_t pointGroupNumber;
   stream >> pointGroupNumber;
-  pointGroup = SKPointGroup::pointGroupData[pointGroupNumber];
+  if(pointGroupNumber < 0 || pointGroupNumber >= static_cast<int64_t>(SKPointGroup::pointGroupData.size()))
+  {
+    throw BinaryArchiveError("SKPointGroup: point group number out of range");
+  }
+  pointGroup = SKPointGroup::pointGroupData[static_cast<size_t>(pointGroupNumber)];
   return stream;
 }
 

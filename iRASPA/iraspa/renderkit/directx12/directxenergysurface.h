@@ -74,12 +74,14 @@ private:
   std::vector<std::vector<std::shared_ptr<RKRenderObject>>> _renderStructures;
   std::vector<std::vector<MeshBuffers>> _buffers;
 
-  std::array<RKCache<RKRenderObject *, std::vector<float>>, 9> _caches;
+  // Indices 1..9 cover sizes 2..512 (2^powerOfTwo); the slot is the grid size, so each
+  // selectable size needs its own slot or two sizes would hand each other's buffer out.
+  std::array<RKCache<RKRenderObject *, std::vector<float>>, 10> _caches;
   /// The well surface reads a three-floats-per-point (energy, Apollonius distance, medial
   /// reliability) field rather than the energy grid; cached apart so that switching rendering
   /// methods cannot hand one builder the other's data. Like the energy grid it depends on the probe
   /// and the force field, and is purged by the same invalidateIsosurface calls.
-  std::array<RKCache<RKRenderObject *, std::vector<float>>, 9> _wellFieldCaches;
+  std::array<RKCache<RKRenderObject *, std::vector<float>>, 10> _wellFieldCaches;
 
   static const std::string _vertexShaderSource;
   static const std::string _pixelShaderSource;

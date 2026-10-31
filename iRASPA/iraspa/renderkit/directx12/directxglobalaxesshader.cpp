@@ -337,7 +337,7 @@ void DirectXGlobalAxesShader::setAxesViewport(ID3D12GraphicsCommandList *command
   case RKGlobalAxes::Position::bottomLeft:
     glX = border; glY = border; break;
   case RKGlobalAxes::Position::midLeft:
-    glX = border; glY = 0.5 * minSize - 0.5 * size; break;
+    glX = border; glY = 0.5 * height - 0.5 * size; break;
   case RKGlobalAxes::Position::topLeft:
     glX = border; glY = height - (border + size); break;
   case RKGlobalAxes::Position::midTop:
@@ -345,13 +345,13 @@ void DirectXGlobalAxesShader::setAxesViewport(ID3D12GraphicsCommandList *command
   case RKGlobalAxes::Position::topRight:
     glX = width - (border + size); glY = height - (border + size); break;
   case RKGlobalAxes::Position::midRight:
-    glX = width - (border + size); glY = 0.5 * minSize - 0.5 * size; break;
+    glX = width - (border + size); glY = 0.5 * height - 0.5 * size; break;
   case RKGlobalAxes::Position::bottomRight:
     glX = width - (border + size); glY = border; break;
   case RKGlobalAxes::Position::midBottom:
     glX = 0.5 * width - 0.5 * size; glY = border; break;
   case RKGlobalAxes::Position::center:
-    glX = 0.5 * width - 0.5 * size; glY = 0.5 * minSize - 0.5 * size; break;
+    glX = 0.5 * width - 0.5 * size; glY = 0.5 * height - 0.5 * size; break;
   }
 
   D3D12_VIEWPORT viewport = {};

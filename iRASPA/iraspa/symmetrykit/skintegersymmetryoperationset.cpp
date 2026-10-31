@@ -42,7 +42,8 @@ SKIntegerSymmetryOperationSet::SKIntegerSymmetryOperationSet(std::vector<SKSeitz
 
 SKIntegerSymmetryOperationSet SKIntegerSymmetryOperationSet::fullSeitzMatrices()
 {
-  return SKIntegerSymmetryOperationSet();
+  // The operation set already holds the full group (see SKSpaceGroupSetting::fullSeitzMatrices).
+  return *this;
 }
 
 std::vector<std::tuple<double3, int, double>>  SKIntegerSymmetryOperationSet::symmetrize(double3x3 lattice, std::vector<std::tuple<double3, int, double>> atoms, double symmetryPrecision = 1e-2)
@@ -67,6 +68,13 @@ std::vector<std::tuple<double3, int, double>>  SKIntegerSymmetryOperationSet::sy
         averageTranslation += translation - double3::rint(position - std::get<0>(atoms[i]));
         count = count + 1;
       }
+    }
+
+    if(count == 0)
+    {
+      // No operation (not even the identity) maps the atom onto itself: nothing to average.
+      symmetrizedAtoms.push_back(atoms[i]);
+      continue;
     }
 
     double3x3 averagedRotation = double3x3(averageRotation.int3x3) / double(count);

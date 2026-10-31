@@ -319,7 +319,8 @@
                                            Style="{StaticResource Num}" Margin="0,2,4,2"
                                            ValueChanged="OnEulerBoxChanged"/>
                                 <Slider x:Name="SliderY" Grid.Row="2" Grid.Column="4"
-                                        Style="{StaticResource AxisSlider}" ValueChanged="OnEulerSliderChanged"/>
+                                        Style="{StaticResource AxisSlider}" Minimum="-90" Maximum="90"
+                                        ValueChanged="OnEulerSliderChanged"/>
 
                                 <Button x:Name="RotatePlusZ" Grid.Row="3" Grid.Column="0"
                                         Style="{StaticResource RotateButton}" Click="OnRotateClick"/>

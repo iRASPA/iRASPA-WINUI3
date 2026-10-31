@@ -356,6 +356,9 @@ void SKPDBParser::startParsing() noexcept(false)
         if(success)
         {
           _frame = std::make_shared<SKStructure>();
+          _frame->displayName = _scanner.displayName();
+          _frame->kind = SKStructure::Kind::molecule;
+          _residues.clear();
           currentFrame = std::max(0, integerValue-1);
           currentFrame = modelNumber;
           modelNumber += 1;

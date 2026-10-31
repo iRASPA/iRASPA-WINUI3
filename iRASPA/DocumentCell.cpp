@@ -2,8 +2,10 @@
 #include "DocumentController.h"
 #include "StructureTypeTable.h"
 
+#include "atomstructureviewer.h"
 #include "atomviewer.h"
 #include "bondviewer.h"
+#include "forcefieldsets.h"
 #include "iraspaobject.h"
 #include "primitive.h"
 #include "spacegroupviewer.h"
@@ -131,14 +133,20 @@ void DocumentController::RestoreCellStates(std::wstring const& actionName,
             continue;
         inverse.push_back(SnapshotCellState(object));
 
+        bool cellChanged = false;
         if (state.cell)
+        {
+            auto current = object->cell();
+            cellChanged = !current || !(current->unitCell() == state.cell->unitCell());
             object->setCell(std::make_shared<SKCell>(*state.cell));
+        }
         object->setOrientation(state.orientation);
         object->setRotationDelta(state.rotationDelta);
         object->setOrigin(state.origin);
 
         // The space group is only re-imposed when it actually differs, because
         // that regenerates the symmetry copies and the bonds.
+        bool regenerate = cellChanged;
         if (state.hallNumber)
         {
             if (auto spaceGroup = std::dynamic_pointer_cast<SpaceGroupViewer>(object);
@@ -146,11 +154,17 @@ void DocumentController::RestoreCellStates(std::wstring const& actionName,
                 static_cast<int>(spaceGroup->spaceGroup().spaceGroupSetting().HallNumber()) != *state.hallNumber)
             {
                 spaceGroup->setSpaceGroupHallNumber(*state.hallNumber);
-                if (auto atoms = std::dynamic_pointer_cast<AtomViewer>(object))
-                    atoms->expandSymmetry();
-                if (auto bonds = std::dynamic_pointer_cast<BondViewer>(object))
-                    bonds->computeBonds();
+                regenerate = true;
             }
+        }
+        // A different unit cell (undoing a cell edit) also moves the copies and
+        // changes the bond distances, so the same regeneration applies.
+        if (regenerate)
+        {
+            if (auto atoms = std::dynamic_pointer_cast<AtomViewer>(object))
+                atoms->expandSymmetry();
+            if (auto bonds = std::dynamic_pointer_cast<BondViewer>(object))
+                bonds->computeBonds();
         }
 
         if (state.structural)
@@ -270,6 +284,33 @@ void DocumentController::ReloadAfterCellEdit(CellReload reload)
         m_host->ReloadAfterCellEdit();
         break;
     }
+}
+
+void DocumentController::ApplyForceFieldIdentifiers(
+    std::vector<std::pair<std::shared_ptr<AtomStructureEditor>, RKString>> const& assignments)
+{
+    if (!m_document)
+        return;
+    auto& forceFieldSets = m_document->forceFieldSets();
+
+    std::vector<std::pair<std::shared_ptr<AtomStructureEditor>, RKString>> inverse;
+    for (auto const& [editor, name] : assignments)
+    {
+        if (!editor)
+            continue;
+        inverse.emplace_back(editor, editor->atomForceFieldIdentifier());
+        editor->setAtomForceFieldIdentifier(name, forceFieldSets);
+        editor->recheckRepresentationStyle();
+    }
+    if (inverse.empty())
+        return;
+
+    RegisterUndo(ObjectUndoStack(), L"Change Force Field",
+                 [this, inverse]() { ApplyForceFieldIdentifiers(inverse); });
+    // Cocoa invalidates the energy surface: Lennard-Jones parameters drive the grid.
+    ReloadRendererInvalidatingIsosurfaces();
+    if (m_cellPane)
+        m_cellPane->Reload();
 }
 
 void DocumentController::SetSpaceGroupHallNumber(int hall)

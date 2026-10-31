@@ -951,6 +951,9 @@ void DirectXRenderer::reloadData()
 
   ID3D12Device *dev = m_device.device();
   pushStructuresToShaders();
+  // The acceleration structures bake the atoms, bonds and ribbons as they were; a reload means
+  // those changed, so the next traced frame has to repack them.
+  m_pathTracerGeometry.invalidate();
   m_backgroundShader.reload(m_dataSource);
   m_atomShader.reloadData(dev);
   m_bondShader.reloadData(dev);
@@ -1021,6 +1024,8 @@ void DirectXRenderer::reloadSelectionData()
   // Which ribbon ranges are selected is worked out here too, rather than per frame, since it comes
   // from the atom tree and only changes when the selection does.
   m_ribbonSelectionShader.reloadData(m_device.device());
+  // The selection shells are packed into the traced geometry, so a new selection is new geometry.
+  m_pathTracerGeometry.invalidate();
   markNeedsDisplay();
 }
 
@@ -1143,6 +1148,26 @@ void DirectXRenderer::onPointerReleased(const Dx12Input::PointerEvent &e)
   m_camera->setWorldRotation(trackBallRotation * worldRotation);
   m_camera->setTrackBallRotation(simd_quatd(1.0, double3(0.0, 0.0, 0.0)));
   m_tracking = Tracking::none;
+  markNeedsDisplay();
+  notifyCameraChanged();
+}
+
+void DirectXRenderer::onPointerCanceled()
+{
+  const Tracking tracking = m_tracking;
+  m_tracking = Tracking::none;
+  if (tracking == Tracking::none || tracking == Tracking::backgroundClick)
+    return;
+
+  // A rotation in progress keeps what it had reached; pan/truck already moved
+  // the camera as the pointer went. Either way the camera has changed.
+  if (tracking == Tracking::rotating && m_camera)
+  {
+    simd_quatd trackBallRotation = m_camera->trackBallRotation();
+    simd_quatd worldRotation = m_camera->worldRotation();
+    m_camera->setWorldRotation(trackBallRotation * worldRotation);
+    m_camera->setTrackBallRotation(simd_quatd(1.0, double3(0.0, 0.0, 0.0)));
+  }
   markNeedsDisplay();
   notifyCameraChanged();
 }

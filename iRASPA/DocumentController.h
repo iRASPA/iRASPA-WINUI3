@@ -23,6 +23,7 @@
 #include <variant>
 #include <vector>
 
+class AtomStructureEditor;
 class iRASPAObject;
 class SKAsymmetricBond;
 class SKAtomTreeController;
@@ -564,6 +565,11 @@ public:
     // Cocoa setSpaceGroup: re-imposing symmetry regenerates the copies and the
     // bonds, so it does not go through EditCells.
     void SetSpaceGroupHallNumber(int hall);
+    // Writes one force-field name per structure (the material-type and force-field
+    // popups). Each structure keeps the name it had, so the registered inverse puts
+    // every structure's former name back, and its own inverse is the redo.
+    void ApplyForceFieldIdentifiers(
+        std::vector<std::pair<std::shared_ptr<AtomStructureEditor>, RKString>> const& assignments);
     // The recompute buttons in the structural group. The nitrogen area is the one
     // over the probe-accessible energy iso-surface; the well area is the one over
     // the locus of energy minima the well surface is drawn on. Geometric areas use
@@ -625,6 +631,10 @@ public:
     // come through here.
     void SetAtomField(std::shared_ptr<SKAtomTreeNode> const& node, AtomField field,
                       AtomFieldValue const& value);
+    // An element edit also renames the atom and its force-field type; one closure
+    // restores all three and re-registers itself, so undo/redo round-trip exactly.
+    void SetAtomElement(std::shared_ptr<SKAtomTreeNode> const& node, int atomicNumber,
+                        RKString const& displayName, RKString const& forceFieldType);
     // A moved atom regenerates the symmetry copies and the bonds before the
     // renderer reloads, as Cocoa does after a position edit.
     void AfterAtomGeometryEdit(std::weak_ptr<iRASPAObject> frameRef);

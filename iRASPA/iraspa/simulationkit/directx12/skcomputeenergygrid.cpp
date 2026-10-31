@@ -398,6 +398,10 @@ std::vector<float> SKComputeEnergyGrid::computeEnergyGridGPUImplementation(
   readbackBuffer(outBuf.Get(), outputData.data(), outputData.size() * sizeof(float),
                  D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
   outputData.resize(static_cast<size_t>(temp));
+  // The kernel caps each atom batch at the overlap energy; with more than one batch the sum can
+  // exceed it, where the CPU implementation caps the total. Capped here so both agree.
+  for (float &value : outputData)
+    value = std::min(value, float(overlapEnergy));
   return outputData;
 }
 

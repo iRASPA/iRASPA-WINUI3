@@ -23,14 +23,16 @@
 
 #include "binaryarchive.h"
 
-class bool3
+union bool3
 {
-  public:
   bool b[3];
   struct {bool x, y, z;};
 
   bool3();
   bool3(bool x, bool y, bool z): x(x), y(y), z(z) {};
+
+  inline bool & operator [] (int i) { return b[i]; }
+  inline const bool & operator [] (int i) const { return b[i]; }
 
   friend BinaryArchive &operator<<(BinaryArchive &, const bool3 &);
   friend BinaryArchive &operator>>(BinaryArchive &, bool3 &);

@@ -147,8 +147,8 @@ RASPADensityVolume::RASPADensityVolume(std::shared_ptr<SKStructure> frame): Grid
     sumSquared += dataPoint * dataPoint;
   }
 
-  _average = sum / (numberOfElements);
-  _variance = sumSquared / (numberOfElements - 1);
+  _average = numberOfElements > 0 ? sum / double(numberOfElements) : 0.0;
+  _variance = numberOfElements > 1 ? (sumSquared - double(numberOfElements) * _average * _average) / double(numberOfElements - 1) : 0.0;
 
   _range = std::pair<double,double>(minimumValue, maximumValue);
   _adsorptionSurfaceIsoValue = _average;

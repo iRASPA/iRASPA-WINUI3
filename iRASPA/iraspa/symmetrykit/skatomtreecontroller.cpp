@@ -48,7 +48,7 @@ void SKAtomTreeController::insertNodeInParent(std::shared_ptr<SKAtomTreeNode> no
   else
   {
     _hiddenRootNode->_childNodes.insert(_hiddenRootNode->_childNodes.begin() + index, node);
-    node->_parent = parent;
+    node->_parent = _hiddenRootNode;   // not the expired 'parent': the node now lives under the hidden root
     _hiddenRootNode->updateFilteredChildren(this->_filterPredicate);
   }
   skInvalidateAtomVisibilityGeneration();
@@ -278,6 +278,7 @@ AtomSelectionNodesAndIndexPaths SKAtomTreeController::selectionNodesAndIndexPath
 
 void SKAtomTreeController::setSelectionIndexPaths(AtomSelectionNodesAndIndexPaths selection)
 {
+  _selectionIndexPath = selection.first.second;
   _selectionIndexPaths.clear();
   std::transform(selection.second.begin(), selection.second.end(), std::inserter(_selectionIndexPaths, _selectionIndexPaths.begin()),
                  [](std::pair<std::shared_ptr<SKAtomTreeNode>, IndexPath> pair) -> IndexPath

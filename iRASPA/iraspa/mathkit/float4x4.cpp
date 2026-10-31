@@ -88,8 +88,8 @@ float4x4 const float4x4::transpose(void)
 
   res.m11=m11; res.m12=m21; res.m13=m31; res.m14=m41;
   res.m21=m12; res.m22=m22; res.m23=m32; res.m24=m42;
-  res.m31=m13; res.m32=m32; res.m33=m33; res.m34=m43;
-  res.m41=m14; res.m42=m42; res.m43=m34; res.m44=m44;
+  res.m31=m13; res.m32=m23; res.m33=m33; res.m34=m43;
+  res.m41=m14; res.m42=m24; res.m43=m34; res.m44=m44;
 
   return res;
 }

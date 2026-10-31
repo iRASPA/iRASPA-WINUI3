@@ -56,6 +56,8 @@ public:
   bool isLeaf() {return _nodeType == NodeType::leaf;}
   bool isGroup() {return _nodeType == NodeType::group;}
   void setIsGroup(bool value) {_nodeType = value ? NodeType::group : NodeType::leaf;}
+  /// The UUID names this project's entry in a saved document; a copy of a project needs its own.
+  void regenerateFileNameUUID();
   inline const std::shared_ptr<Project> project() const {return _project;}
   std::shared_ptr<Project> project() {return _project;}
   ~iRASPAProject() {}

@@ -159,6 +159,9 @@ double3 ProteinCatmullRomSpline::catmullRomPoint(const double3 &p0,
 
 std::vector<double> ProteinCatmullRomSpline::buildArcLengthCache(const std::vector<double3> &controlPoints)
 {
+  // runs from the constructor's initializer list, i.e. before the size check in the constructor body
+  if (controlPoints.size() < 2) return {};
+
   const int numberOfSamples = std::max(64, static_cast<int>(controlPoints.size()) * 8);
   std::vector<double> cache = {0.0};
   const double dt = 1.0 / static_cast<double>(numberOfSamples);

@@ -26,14 +26,16 @@
 
 int3x3::int3x3()
 {
-
+  m11 = 0; m21 = 0; m31 = 0;
+  m12 = 0; m22 = 0; m32 = 0;
+  m13 = 0; m23 = 0; m33 = 0;
 }
 
 int3x3::int3x3(int value)
 {
-  m11 = value;
-  m22 = value;
-  m33 = value;
+  m11 = value; m21 = 0;     m31 = 0;
+  m12 = 0;     m22 = value; m32 = 0;
+  m13 = 0;     m23 = 0;     m33 = value;
 }
 
 int3x3::int3x3(int3 v1, int3 v2, int3 v3)

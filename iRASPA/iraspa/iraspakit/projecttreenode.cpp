@@ -340,8 +340,7 @@ void ProjectTreeNode::updateFilteredChildren(std::function<bool(std::shared_ptr<
 {
   for(const std::shared_ptr<ProjectTreeNode> &child : this->_childNodes)
   {
-    child->_matchesFilter = true;
-    child->_matchesFilter = predicate(shared_from_this());
+    child->_matchesFilter = predicate(child);
   }
 
   this->_filteredAndSortedNodes.clear();
@@ -423,6 +422,13 @@ std::shared_ptr<ProjectTreeNode> ProjectTreeNode::shallowClone()
   BinaryArchive streamRead(stream.buffer());
   std::shared_ptr<ProjectTreeNode> projectTreeNode = std::make_shared<ProjectTreeNode>();
   streamRead >>= projectTreeNode;
+
+  // The clone is a new project: it must not share the original's file-name UUID, or
+  // both would be written to the same entry of a saved document.
+  if(projectTreeNode->_representedObject)
+  {
+    projectTreeNode->_representedObject->regenerateFileNameUUID();
+  }
 
   return projectTreeNode;
 }

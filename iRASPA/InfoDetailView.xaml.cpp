@@ -19,22 +19,36 @@ namespace winrt::iRASPA_WinUI::implementation
     namespace
     {
         // RKDate <-> WinRT DateTime for the CalendarDatePickers.
+        // Through FILETIME rather than time_t: the UCRT's _mkgmtime/gmtime_s reject
+        // dates before 1970, and the literature a structure cites is often older.
+        // WinRT's DateTime is itself a FILETIME (100 ns ticks since 1601).
         DateTime DateTimeFromRKDate(RKDate const& d)
         {
-            std::tm tm{};
-            tm.tm_year = d.year() - 1900;
-            tm.tm_mon = d.month() - 1;
-            tm.tm_mday = d.day() > 0 ? d.day() : 1;
-            tm.tm_hour = 12; // noon keeps the calendar date stable across zones
-            return winrt::clock::from_time_t(_mkgmtime(&tm));
+            SYSTEMTIME st{};
+            st.wYear = static_cast<WORD>(d.year());
+            st.wMonth = static_cast<WORD>(std::clamp(d.month(), 1, 12));
+            st.wDay = static_cast<WORD>(d.day() > 0 ? d.day() : 1);
+            st.wHour = 12; // noon keeps the calendar date stable across zones
+            FILETIME ft{};
+            if (!SystemTimeToFileTime(&st, &ft))
+                return DateTime{};
+            ULARGE_INTEGER ticks{};
+            ticks.LowPart = ft.dwLowDateTime;
+            ticks.HighPart = ft.dwHighDateTime;
+            return DateTime{ TimeSpan{ static_cast<int64_t>(ticks.QuadPart) } };
         }
 
         RKDate RKDateFromDateTime(DateTime const& dt)
         {
-            const time_t t = winrt::clock::to_time_t(dt);
-            std::tm tm{};
-            gmtime_s(&tm, &t);
-            return RKDate(tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday);
+            ULARGE_INTEGER ticks{};
+            ticks.QuadPart = static_cast<uint64_t>(dt.time_since_epoch().count());
+            FILETIME ft{};
+            ft.dwLowDateTime = ticks.LowPart;
+            ft.dwHighDateTime = ticks.HighPart;
+            SYSTEMTIME st{};
+            if (!FileTimeToSystemTime(&ft, &st))
+                return RKDate(1970, 1, 1);
+            return RKDate(st.wYear, st.wMonth, st.wDay);
         }
 
         BOOL CALLBACK CountryEnumProc(PWSTR geoName, LPARAM lParam)

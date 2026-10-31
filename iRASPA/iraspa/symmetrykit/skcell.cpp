@@ -265,9 +265,10 @@ int3 SKCell::replicaFromIndex(int index)
   int dz = _maximumReplica.z - _minimumReplica.z + 1;
   int n = dx * dy * dz;
 
-  int k1 = ( (index % n) / (dz * dy) ) + _minimumReplica.x;
-  int k2 = ( (index % n) / dz ) % dy + _minimumReplica.y;
-  int k3 = (index % n) % dz + _minimumReplica.z;
+  // Same ordering as renderTranslationVectors(): x fastest, then y, then z.
+  int k1 = (index % n) % dx + _minimumReplica.x;
+  int k2 = ( (index % n) / dx ) % dy + _minimumReplica.y;
+  int k3 = ( (index % n) / (dx * dy) ) + _minimumReplica.z;
 
    return int3(k1, k2, k3);
 }
@@ -511,7 +512,7 @@ double SKCell::alpha() const
   double length2 = column2.length();
   double length3 = column3.length();
 
-  return acos(double3::dot(column2, column3) / (length2 * length3));
+  return acos(std::clamp(double3::dot(column2, column3) / (length2 * length3), -1.0, 1.0));
 }
 void SKCell::alpha(const double& newValue)
 {
@@ -549,7 +550,7 @@ double SKCell::beta() const
   double length1 = column1.length();
   double length3 = column3.length();
 
-  return acos(double3::dot(column1, column3) / (length1 * length3));
+  return acos(std::clamp(double3::dot(column1, column3) / (length1 * length3), -1.0, 1.0));
 }
 
 
@@ -588,7 +589,7 @@ double SKCell::gamma() const
   double length1 = column1.length();
   double length2 = column2.length();
 
-  return acos(double3::dot(column1, column2) / (length1 * length2));
+  return acos(std::clamp(double3::dot(column1, column2) / (length1 * length2), -1.0, 1.0));
 }
 
 void SKCell::setGammaAngle(double value)

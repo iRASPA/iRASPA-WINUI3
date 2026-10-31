@@ -40,14 +40,14 @@ struct SKSeitzIntegerMatrix
   static std::vector<SKSeitzIntegerMatrix> SeitzMatrices(std::string encoding);
   static std::vector<SKSeitzIntegerMatrix> SeitzMatricesFromGenerators(std::string encoding);
 
-  int3 normalizedTranslation() const {return int3(translation.x%24, translation.y%24, translation.z%24);}
+  // Translation modulo 24, always in [0, 24) (C++ '%' keeps the sign of the dividend).
+  static inline int mod24(int v) {int r = v % 24; return r < 0 ? r + 24 : r;}
+  int3 normalizedTranslation() const {return int3(mod24(translation.x), mod24(translation.y), mod24(translation.z));}
 
   bool operator==(SKSeitzIntegerMatrix const& rhs) const
   {
       return (this->rotation == rhs.rotation) &&
-             ((this->translation.x%24) == (rhs.translation.x%24)) &&
-             ((this->translation.y%24) == (rhs.translation.y%24)) &&
-             ((this->translation.z%24) == (rhs.translation.z%24));
+             (this->normalizedTranslation() == rhs.normalizedTranslation());
   }
 
   static std::vector<SKOneThirdSeitzMatrix> SeitzData;
@@ -73,9 +73,10 @@ namespace std
   {
     size_t operator()(const SKSeitzIntegerMatrix& k) const
     {
+      // Must be consistent with operator==, which compares translations modulo 24.
       std::size_t h=0;
       hash_combine(h, k.rotation);
-      hash_combine(h, k.translation);
+      hash_combine(h, k.normalizedTranslation());
       return h;
     }
   };

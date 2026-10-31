@@ -168,7 +168,7 @@ ProjectSelectionNodesAndIndexPaths ProjectTreeController::selectionEditableNodes
 
   std::copy_if(nodesAndIndexPaths.second.begin(), nodesAndIndexPaths.second.end(), std::inserter(editableNodesAndIndexPaths.second, editableNodesAndIndexPaths.second.begin()),
                  [](std::pair<std::shared_ptr<ProjectTreeNode>, IndexPath> pair) -> bool
-                 {return pair.first->isEditable();});
+                 {return pair.first && pair.first->isEditable();});
   return editableNodesAndIndexPaths;
 }
 
@@ -224,9 +224,13 @@ ProjectSelectionIndexPaths ProjectTreeController::updateIndexPathsFromNodes(Proj
     updatedSelection.first = selection.first.first->indexPath();
   }
 
-  std::transform(selection.second.begin(), selection.second.end(), std::inserter(updatedSelection.second, updatedSelection.second.begin()),
-                 [](std::pair<std::shared_ptr<ProjectTreeNode>, IndexPath> pair) -> IndexPath
-                 {return pair.first->indexPath();});
+  for(const std::pair<std::shared_ptr<ProjectTreeNode>, IndexPath> &pair : selection.second)
+  {
+    if(pair.first)
+    {
+      updatedSelection.second.insert(pair.first->indexPath());
+    }
+  }
 
   return updatedSelection;
 }

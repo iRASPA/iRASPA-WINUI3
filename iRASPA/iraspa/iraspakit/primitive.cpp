@@ -101,6 +101,11 @@ Primitive::Primitive(const std::shared_ptr<Object> object): Object(object), _ato
     _atomsTreeController->setTags();
   }
 
+  if (std::shared_ptr<SpaceGroupViewer> spaceGroupViewer = std::dynamic_pointer_cast<SpaceGroupViewer>(object))
+  {
+    _spaceGroup = spaceGroupViewer->spaceGroup();
+  }
+
   if (std::shared_ptr<PrimitiveViewer> primitiveViewer = std::dynamic_pointer_cast<PrimitiveViewer>(object))
   {
     _primitiveOrientation  = primitiveViewer->primitiveOrientation();

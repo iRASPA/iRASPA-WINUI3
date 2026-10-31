@@ -65,7 +65,7 @@ public:
   // ===============================================================================================
   std::shared_ptr<SKAtomTreeController> &atomsTreeController() override {return Structure::atomsTreeController();}
   void setAtomTreeController(std::shared_ptr<SKAtomTreeController> controller) override {Structure::setAtomTreeController(controller);}
-  bool isFractional() override final {return true;}
+  bool isFractional() override final {return false;}   // Protein stores Cartesian coordinates (like Molecule/ProteinCrystal)
   void expandSymmetry() override final;
   void expandSymmetry(std::shared_ptr<SKAsymmetricAtom> asymmetricAtom);
   std::set<int> filterCartesianAtomPositions(std::function<bool(double3)> &) override final;

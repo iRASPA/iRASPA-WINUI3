@@ -270,6 +270,18 @@ void SKDx12::readbackBuffer(ID3D12Resource *defaultBuffer, void *dst, UINT64 siz
     _commandList->ResourceBarrier(1, &barrier);
   }
   _commandList->CopyBufferRegion(readback.Get(), 0, defaultBuffer, 0, size);
+  if (currentState != D3D12_RESOURCE_STATE_COPY_SOURCE)
+  {
+    // Leave the buffer in the state the caller tracks: it may be bound again afterwards
+    // (the top histopyramid level is read back and then traversed as a shader resource).
+    D3D12_RESOURCE_BARRIER barrier{};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = defaultBuffer;
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    barrier.Transition.StateAfter = currentState;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    _commandList->ResourceBarrier(1, &barrier);
+  }
   executeAndWait();
 
   void *mapped = nullptr;

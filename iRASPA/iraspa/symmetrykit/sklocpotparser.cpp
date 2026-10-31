@@ -237,8 +237,8 @@ void SKLOCPOTParser::startParsing() noexcept(false)
   }
   _frame->dimensions = dimensions;
   _frame->range = std::pair(minimumValue, maximumValue);
-  _frame->average = sum / (numberOfElements);
-  _frame->variance = sumSquared / (numberOfElements - 1);
+  _frame->average = numberOfElements > 0 ? sum / double(numberOfElements) : 0.0;
+  _frame->variance = numberOfElements > 1 ? (sumSquared - double(numberOfElements) * _frame->average * _frame->average) / double(numberOfElements - 1) : 0.0;
   _frame->byteData = RKByteArray(reinterpret_cast<const uint8_t*>(dataPoints.data()), reinterpret_cast<const uint8_t*>(dataPoints.data()) + dataPoints.size() * sizeof(float));
 
   _movies.push_back({_frame});

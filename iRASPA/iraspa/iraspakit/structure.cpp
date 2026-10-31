@@ -160,6 +160,7 @@ Structure::Structure(const std::shared_ptr<Object> object): Object(object), _ato
   if (std::shared_ptr<Structure> structure = std::dynamic_pointer_cast<Structure>(object))
   {
     _atomEdgeCueing = structure->_atomEdgeCueing;
+    _encompassingPowerOfTwoCubicGridSize = structure->_encompassingPowerOfTwoCubicGridSize;
 
     _blockingPockets = structure->_blockingPockets;
     _drawBlockingPockets = structure->_drawBlockingPockets;
@@ -248,6 +249,9 @@ Structure::Structure(const Structure &structure): Object(structure),  _atomsTree
   std::cerr << "Base-class Copy constructor";
 
   _minimumGridEnergyValue = structure._minimumGridEnergyValue;
+  // Volumes size their grid buffers from this; a clone that keeps _dimensions/_data of the
+  // derived class but resets this to 7 (128^3) would write a 256^3 grid into a 128^3 buffer.
+  _encompassingPowerOfTwoCubicGridSize = structure._encompassingPowerOfTwoCubicGridSize;
 
   _selectionCOMTranslation = structure._selectionCOMTranslation;
   _selectionRotationIndex = structure._selectionRotationIndex;

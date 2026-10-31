@@ -91,7 +91,11 @@ template<class T> BinaryArchive &operator>>(BinaryArchive& stream, std::unordere
   int32_t vecSize;
   val.clear();
   stream >> vecSize;
-  val.reserve(vecSize);
+  if (vecSize < 0)
+  {
+    throw BinaryArchiveError("unordered_set: negative element count");
+  }
+  val.reserve(static_cast<size_t>(vecSize));
   T tempVal;
   while(vecSize--)
   {
@@ -114,6 +118,10 @@ template<class T> BinaryArchive &operator>>(BinaryArchive& stream, std::set<T>& 
   int32_t vecSize;
   val.clear();
   stream >> vecSize;
+  if (vecSize < 0)
+  {
+    throw BinaryArchiveError("set: negative element count");
+  }
   T tempVal;
   while(vecSize--)
   {

@@ -125,7 +125,8 @@ void SKCIFParser::startParsing() noexcept(false)
       }
       else if(keyword.startsWith("data_"))
       {
-        parseName(keyword);
+        // Keep the original case of the data block name (keyword is lower-cased).
+        parseName(tempString);
       }
       else if(keyword.startsWith("loop_"))
       {
@@ -548,7 +549,12 @@ void SKCIFParser::appendAtomSite(const std::map<RKString, RKString> &dictionary,
   auto elementIt = PredefinedElements::residueDefinitionsElement.find(residueLookup);
   if (elementIt != PredefinedElements::residueDefinitionsElement.end())
   {
-    _numberOfAminoAcidAtoms += 1;
+    // Water (HOH) atoms are in the residue tables for element/type lookup but are not
+    // amino-acid atoms; counting them would misclassify hydrated crystals as proteins.
+    if (!isWaterResidue(residueName))
+    {
+      _numberOfAminoAcidAtoms += 1;
+    }
     auto typeIt = PredefinedElements::residueDefinitionsType.find(residueLookup);
     if (typeIt != PredefinedElements::residueDefinitionsType.end())
     {

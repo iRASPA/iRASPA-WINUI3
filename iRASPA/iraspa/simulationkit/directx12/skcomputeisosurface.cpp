@@ -470,6 +470,23 @@ std::vector<float4> SKComputeIsosurface::computeIsosurfaceCPUImplementation(int3
   }
   size_t size = pow(2, powerOfTwo);
 
+  if (!voxels || dimensions.x <= 0 || dimensions.y <= 0 || dimensions.z <= 0)
+    return {};
+
+  // The grids are normally padded to the encompassing power-of-two cube (the GPU layout); a buffer
+  // that only holds dimensions.x*y*z values is laid out tightly instead. Anything else cannot be
+  // read without running past the end of the buffer.
+  size_t strideY = size;
+  size_t strideZ = size * size;
+  const size_t tightCount = static_cast<size_t>(dimensions.x) * dimensions.y * dimensions.z;
+  if (voxels->size() < size * size * size)
+  {
+    if (voxels->size() < tightCount)
+      return {};
+    strideY = static_cast<size_t>(dimensions.x);
+    strideZ = static_cast<size_t>(dimensions.x) * dimensions.y;
+  }
+
   MarchingCubes cube(dimensions.x, dimensions.y, dimensions.z);
   cube.init_all();
 
@@ -479,7 +496,7 @@ std::vector<float4> SKComputeIsosurface::computeIsosurfaceCPUImplementation(int3
     {
       for (int k = 0; k < dimensions.z; k++)
       {
-        double value = (*voxels)[i + size * j + k * size * size];
+        double value = (*voxels)[i + strideY * j + k * strideZ];
         cube.set_data(value, i, j, k);
       }
     }

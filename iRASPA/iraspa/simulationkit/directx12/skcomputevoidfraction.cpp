@@ -116,7 +116,7 @@ double SKComputeVoidFraction::computeVoidFractionCPU(std::vector<float> *voxels)
   double fraction = 0.0;
   for (float value : *voxels)
     fraction += std::exp(-(1.0 / 298.0) * double(value));
-  return fraction / (128.0 * 128.0 * 128.0);
+  return fraction / double(voxels->size());
 }
 
 double SKComputeVoidFraction::computeVoidFractionGPU(std::vector<float> *voxels)
@@ -166,7 +166,7 @@ double SKComputeVoidFraction::computeVoidFractionGPU(std::vector<float> *voxels)
   double fraction = 0.0;
   for (float v : partialSums)
     fraction += double(v);
-  return fraction / (128.0 * 128.0 * 128.0);
+  return fraction / double(inputCount);
 }
 
 const std::string SKComputeVoidFraction::_voidFractionKernel = R"foo(

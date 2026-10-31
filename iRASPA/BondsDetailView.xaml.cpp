@@ -515,8 +515,17 @@ namespace winrt::iRASPA_WinUI::implementation
                 item->Raise(L"IdText");
                 item->Raise(L"Tag1");
                 item->Raise(L"Tag2");
-                item->Raise(L"Atom1Id");
-                item->Raise(L"Atom2Id");
+                // The bound names of the row (there is no Atom1Id/Atom2Id property).
+                item->Raise(L"ElA");
+                item->Raise(L"ElB");
+                item->Raise(L"A1FixedX");
+                item->Raise(L"A1FixedY");
+                item->Raise(L"A1FixedZ");
+                item->Raise(L"A2FixedX");
+                item->Raise(L"A2FixedY");
+                item->Raise(L"A2FixedZ");
+                item->Raise(L"Visible");
+                item->Raise(L"TypeIndex");
                 item->RaiseLengthChanged();
             }
         }

@@ -21,7 +21,7 @@
 
 #include "bool3.h"
 
-bool3::bool3()
+bool3::bool3(): x(false), y(false), z(false)
 {
 
 }

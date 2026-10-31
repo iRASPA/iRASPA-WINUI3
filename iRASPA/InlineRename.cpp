@@ -150,6 +150,19 @@ bool InlineRenameController::Begin(FrameworkElement const& row,
         m_releaseHandler = box_value(PointerEventHandler(
             [this](IInspectable const&, PointerRoutedEventArgs const&)
             {
+                // One release only: the one that opened the editor. Staying hooked
+                // would re-select the whole text on every later click or drag the
+                // user makes inside the editor to place the caret.
+                if (m_releaseTarget && m_releaseHandler)
+                {
+                    try
+                    {
+                        m_releaseTarget.RemoveHandler(UIElement::PointerReleasedEvent(), m_releaseHandler);
+                    }
+                    catch (...)
+                    {
+                    }
+                }
                 auto weakBox = make_weak(m_editor);
                 m_queue.TryEnqueue([weakBox]()
                 {

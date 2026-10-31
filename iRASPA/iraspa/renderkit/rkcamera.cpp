@@ -571,7 +571,7 @@ double3 RKCamera::myGluUnProject(double3 position, double4x4 mMatrix, RKRect vie
 
   // Map x and y from window coordinates
   inVector.x = (position.x - double(viewPort.left())) / double(viewPort.width());
-  inVector.y = (position.y - double(viewPort.bottom())) / double(viewPort.height());
+  inVector.y = (position.y - double(viewPort.top())) / double(viewPort.height());
   inVector.z = double(position.z);
   inVector.w = 1.0;
 
@@ -617,7 +617,7 @@ double3 RKCamera::myGluProject(double3 position, RKRect viewPort)
 
   // Map x, y to range 0-1
   finalVector.x = (0.5*outVector.x + 0.5) * double(viewPort.width()) + double(viewPort.left());
-  finalVector.y = (0.5*outVector.y + 0.5) * double(viewPort.height()) + double(viewPort.bottom());
+  finalVector.y = (0.5*outVector.y + 0.5) * double(viewPort.height()) + double(viewPort.top());
   finalVector.z = 0.5*outVector.z + 0.5 ;   // Between 0 and 1, this is only correct when glDepthRange(0.0, 1.0)
 
   return finalVector;

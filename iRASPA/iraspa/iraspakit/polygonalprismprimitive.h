@@ -56,6 +56,7 @@ public:
   bool isFractional() override final {return false;}
   void expandSymmetry() override final;
   std::shared_ptr<Primitive> flattenHierarchy() const override final;
+  std::shared_ptr<Primitive> appliedCellContentShift() const override final;
   std::set<int> filterCartesianAtomPositions(std::function<bool(double3)> &) override final;
   std::vector<std::shared_ptr<SKAsymmetricAtom>> asymmetricAtomsCopiedAndTransformedToFractionalPositions() override final;
   std::vector<std::shared_ptr<SKAsymmetricAtom>> asymmetricAtomsCopiedAndTransformedToCartesianPositions() override final;
