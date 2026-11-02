@@ -11,6 +11,7 @@
 #include "skasymmetricbond.h"
 #include <algorithm>
 #include <cstddef>
+#include <cstdio>
 #include <type_traits>
 
 namespace
@@ -53,6 +54,18 @@ const char *kImposterShading = R"foo(
 )foo";
 }
 
+
+namespace
+{
+  // 0x%08X of an HRESULT, for the log line a failed pipeline leaves behind.
+  std::string hexOf(HRESULT hr)
+  {
+    char text[16];
+    std::snprintf(text, sizeof(text), "%08lX", static_cast<unsigned long>(hr));
+    return std::string(text);
+  }
+}
+
 void DirectXBondShader::loadShader(ID3D12Device * /*device*/)
 {
 }
@@ -61,6 +74,12 @@ void DirectXBondShader::initializeImposterPSO(ID3D12Device *device, ID3D12RootSi
                                               DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat,
                                               bool external, bool perSample)
 {
+  // A single-sampled scene has no sample rate to shade at: the selection passes never build that
+  // pipeline, and running the atoms through a sample-frequency pixel shader with SV_Depth on a 1x
+  // target is a driver path few cards ever take. paint() falls through to the per-pixel one.
+  if (perSample && DirectXDeviceHelpers::sceneSampleCount() <= 1)
+    return;
+
   ComPtr<ID3DBlob> vs = compileShader(_imposterVertexShaderSource, "VSMain", "vs_5_0");
   ComPtr<ID3DBlob> ps = compileShader(imposterPixelShaderSource(external, perSample), "PSMain", "ps_5_0");
   if (!vs || !ps)
@@ -95,10 +114,13 @@ void DirectXBondShader::initializeImposterPSO(ID3D12Device *device, ID3D12RootSi
   bool &ready = external ? (perSample ? _externalImposterPsoReady : _externalImposterPerPixelPsoReady)
                          : (perSample ? _imposterPsoReady : _imposterPerPixelPsoReady);
 
-  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso))))
+  const HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso));
+  if (FAILED(hr))
   {
-    std::cerr << "DirectXBondShader: failed to create " << (external ? "external " : "")
-              << (perSample ? "per-sample" : "per-pixel") << " imposter PSO";
+    logBlobErrors(nullptr, RKString("DirectXBondShader: failed to create %1%2 imposter PSO (hr=0x%3)")
+                               .arg(external ? "external " : "")
+                               .arg(perSample ? "per-sample" : "per-pixel")
+                               .arg(RKString(hexOf(hr))));
     return;
   }
   ready = true;
@@ -371,7 +393,10 @@ VSOutput VSMain(VSInput input)
   // Bond visibility is encoded in position.w (±1), same as atoms; collapse the whole hull.
   if (pos1.w < 0.0 || pos2.w < 0.0)
   {
-    output.position = float4(0.0, 0.0, 0.0, 0.0);
+    // Outside the clip volume with w = 1, so x/y clipping removes the primitive on every GPU.
+    // A w of 0 passes the -w <= x <= w test and then divides 0/0: some hardware drops the
+    // triangle, some rasterizes a full-screen smear through the depth and stencil buffers.
+    output.position = float4(2.0, 2.0, 0.5, 1.0);
   }
   return output;
 }

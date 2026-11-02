@@ -16,6 +16,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <cwchar>
 #include <type_traits>
 
 namespace
@@ -146,6 +147,15 @@ void DirectXRenderer::createConstantBuffers()
   RKGeometricSurfaceClip clipFallback;
   m_geometricClipFallback = DirectXDeviceHelpers::createUploadBuffer(dev, sizeof(clipFallback));
   DirectXDeviceHelpers::writeUploadBuffer(m_geometricClipFallback.Get(), &clipFallback, sizeof(clipFallback));
+
+  // Satisfies register t1 (the shadow mask) for every draw, in the same way. The atom, bond and
+  // ribbon pixel shaders are the only ones that read it, which makes an unset t1 the one binding
+  // fault that takes the atoms off the screen and leaves the unit cell up. The shadow-mask shader
+  // keeps a fallback of its own, but that one lives and dies with the ray tracer; this one is
+  // owned here so the root view is bound whether or not tracing ever initialised.
+  const uint32_t allLit = 0xFFu;
+  m_shadowMaskFallback = DirectXDeviceHelpers::createUploadBuffer(dev, sizeof(allLit));
+  DirectXDeviceHelpers::writeUploadBuffer(m_shadowMaskFallback.Get(), &allLit, sizeof(allLit));
 }
 
 void DirectXRenderer::pushStructuresToShaders()
@@ -176,6 +186,7 @@ void DirectXRenderer::createGlowTarget(ID3D12Device *device, int width, int heig
   m_glowHeight = (std::max)(1, height);
   m_glowTexture.Reset();
   m_glowMsaaTexture.Reset();
+  m_blurShader.invalidateGlowSrv();
 
   // Slot 0 is the resolved glow the blur reads, slot 1 the multisampled one drawn into.
   D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc = {};
@@ -304,6 +315,7 @@ void DirectXRenderer::resetSceneResources()
   m_blockingPocketCBVStride = 0;
   m_blockingPocketCBVCapacity = 0;
   m_geometricClipFallback.Reset();
+  m_shadowMaskFallback.Reset();
 
   m_glowTexture.Reset();
   m_glowMsaaTexture.Reset();
@@ -779,8 +791,9 @@ void DirectXRenderer::bindShadowMask()
   // (t1), the blocking-pocket constant buffer (b4) and the geometric clip spheres (t2) were added
   // after that; only the two shader-resource views were filled in here, so b4 was still unset
   // when the background and the atoms drew.
-  ID3D12Resource *mask = (m_shadowMaskWidth > 0) ? m_shadowMaskShader.maskBuffer()
-                                                 : m_shadowMaskShader.allLitBuffer();
+  ID3D12Resource *mask = (m_shadowMaskWidth > 0) ? m_shadowMaskShader.maskBuffer() : nullptr;
+  if (!mask)
+    mask = m_shadowMaskFallback ? m_shadowMaskFallback.Get() : m_shadowMaskShader.allLitBuffer();
   if (mask)
   {
     m_commandList->SetGraphicsRootShaderResourceView(DirectXDeviceHelpers::kShadowMaskRootParameter,
@@ -867,7 +880,20 @@ void DirectXRenderer::resize(UINT width, UINT height)
   if (!m_ready)
     return;
   m_device.waitForGPU(m_fence);
-  m_device.resize(width, height);
+  if (!m_device.resize(width, height))
+  {
+    // The context has already let go of its render targets, so a frame recorded now would clear
+    // and barrier resources that no longer exist. Stop drawing until the next successful resize
+    // rather than remove the device; say why in the status line.
+    m_ready = false;
+    wchar_t text[96];
+    const HRESULT removed = m_device.device() ? m_device.device()->GetDeviceRemovedReason() : S_OK;
+    std::swprintf(text, sizeof(text) / sizeof(text[0]),
+                  L"Failed to resize the swap chain (device removed reason 0x%08lX)",
+                  static_cast<unsigned long>(removed));
+    m_status = text;
+    return;
+  }
   if (m_camera)
     m_camera->updateCameraForWindowResize(width, height);
   if (m_sceneReady)
@@ -2175,6 +2201,25 @@ void DirectXRenderer::recordSelectionGlow(D3D12_CPU_DESCRIPTOR_HANDLE destRtv,
   m_commandList->RSSetScissorRects(1, &scissor);
   m_commandList->OMSetRenderTargets(1, &destRtv, FALSE, nullptr);
 
+  // The shells draw with scene pipelines, and whatever ran last (the edge cues, the traced
+  // present) may have left its own root signature set: a draw whose root signature does not match
+  // its pipeline is a debug-layer error and, on hardware, reads garbage root arguments. So the
+  // scene root signature, with every one of its parameters, goes on first.
+  m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+  {
+    ID3D12DescriptorHeap *sceneHeaps[] = {m_srvHeap.Get()};
+    m_commandList->SetDescriptorHeaps(1, sceneHeaps);
+  }
+  m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
+  m_commandList->SetGraphicsRootConstantBufferView(1, structureCB()->GetGPUVirtualAddress());
+  m_commandList->SetGraphicsRootConstantBufferView(2, lightsCB()->GetGPUVirtualAddress());
+  m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
+  bindShadowMask();
+  if (isosurfaceCB())
+    m_commandList->SetGraphicsRootConstantBufferView(4, isosurfaceCB()->GetGPUVirtualAddress());
+  if (globalAxesCB())
+    m_commandList->SetGraphicsRootConstantBufferView(5, globalAxesCB()->GetGPUVirtualAddress());
+
   if (m_glowTexture && m_glowRtvHeap)
   {
     // The shells clear their own atom by a thousandth of a radius and test against it, so they are
@@ -2182,6 +2227,14 @@ void DirectXRenderer::recordSelectionGlow(D3D12_CPU_DESCRIPTOR_HANDLE destRtv,
     // pixel's samples to one value, which beats so slight a clearance wherever the sphere is steep
     // and leaves the glow showing only over the flat centre of an atom.
     const bool multisampled = m_glowMsaaTexture && m_glowSampleCount > 1;
+
+    // The shell pipelines are built for the scene's sample count, so without a multisampled glow
+    // target of that count there is nothing legal to draw them into: a 1x target with the
+    // multisampled scene depth is a sample-count mismatch the debug layer rejects. Better no halo
+    // than an undefined draw.
+    if (!multisampled && m_device.sceneSampleCount() > 1)
+      return;
+
     ID3D12Resource *glowTarget = multisampled ? m_glowMsaaTexture.Get() : m_glowTexture.Get();
     D3D12_RESOURCE_STATES &glowTargetState = multisampled ? m_glowMsaaState : m_glowState;
 

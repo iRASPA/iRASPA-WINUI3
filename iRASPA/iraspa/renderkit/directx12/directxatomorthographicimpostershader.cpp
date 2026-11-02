@@ -11,6 +11,19 @@
 #include "directxuniformstringliterals.h"
 #include "geometry/quadgeometry.h"
 #include <cstddef>
+#include <cstdio>
+
+
+namespace
+{
+  // 0x%08X of an HRESULT, for the log line a failed pipeline leaves behind.
+  std::string hexOf(HRESULT hr)
+  {
+    char text[16];
+    std::snprintf(text, sizeof(text), "%08lX", static_cast<unsigned long>(hr));
+    return std::string(text);
+  }
+}
 
 DirectXAtomOrthographicImposterShader::DirectXAtomOrthographicImposterShader(DirectXAtomSphereShader &atomSphereShader)
   : _atomSphereShader(atomSphereShader)
@@ -32,6 +45,12 @@ void DirectXAtomOrthographicImposterShader::initializePSO(ID3D12Device *device, 
                                                           DXGI_FORMAT rtvFormat, DXGI_FORMAT dsvFormat,
                                                           bool perSample)
 {
+  // A single-sampled scene has no sample rate to shade at: the selection passes never build that
+  // pipeline, and running the atoms through a sample-frequency pixel shader with SV_Depth on a 1x
+  // target is a driver path few cards ever take. paint() falls through to the per-pixel one.
+  if (perSample && DirectXDeviceHelpers::sceneSampleCount() <= 1)
+    return;
+
   ComPtr<ID3DBlob> vs = compileShader(_vertexShaderSource, "VSMain", "vs_5_0");
   ComPtr<ID3DBlob> ps = compileShader(pixelShaderSource(perSample), "PSMain", "ps_5_0");
   if (!vs || !ps)
@@ -79,10 +98,14 @@ void DirectXAtomOrthographicImposterShader::initializePSO(ID3D12Device *device, 
 
   ComPtr<ID3D12PipelineState> &pso = perSample ? _pso : _perPixelPso;
   bool &ready = perSample ? _psoReady : _perPixelPsoReady;
-  if (FAILED(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso))))
+  const HRESULT hr = device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&pso));
+  if (FAILED(hr))
   {
-    std::cerr << "DirectXAtomOrthographicImposterShader: failed to create "
-              << (perSample ? "per-sample" : "per-pixel") << " PSO";
+    // Into the log file as well as stderr: a packaged app shows no stderr, and a missing atom
+    // pipeline is exactly the "unit cell up, atoms gone" report that then cannot be diagnosed.
+    logBlobErrors(nullptr, RKString("DirectXAtomOrthographicImposterShader: failed to create %1 PSO (hr=0x%2)")
+                               .arg(perSample ? "per-sample" : "per-pixel")
+                               .arg(RKString(hexOf(hr))));
     return;
   }
   ready = true;
@@ -165,7 +188,10 @@ void DirectXAtomOrthographicImposterShader::paint(ID3D12GraphicsCommandList *com
 
         commandList->OMSetStencilRef(RKEdgeCueingParameters::stencilValue(source->atomEdgeCueing()));
 
-        if (aoShader)
+        // Only with a heap to point into: without one aoSrv() hands back a zero handle, and a
+        // table bound to a handle in no heap is a debug-layer error and a GPU fault on the draw.
+        // The renderer then leaves the window heap bound, whose single view is valid.
+        if (aoShader && aoShader->srvHeap())
           commandList->SetGraphicsRootDescriptorTable(3, aoShader->aoSrv(i, j));
 
         D3D12_VERTEX_BUFFER_VIEW instanceVbv = _atomSphereShader.instanceVbv(i, j);
@@ -262,7 +288,10 @@ VSOutput VSMain(VSInput input)
   // Cocoa encodes atom visibility in instancePosition.w (±1). Negative w must not rasterize.
   if (input.instancePosition.w < 0.0)
   {
-    output.position = float4(0.0, 0.0, 0.0, 0.0);
+    // Outside the clip volume with w = 1, so x/y clipping removes the primitive on every GPU.
+    // A w of 0 passes the -w <= x <= w test and then divides 0/0: some hardware drops the
+    // triangle, some rasterizes a full-screen smear through the depth and stencil buffers.
+    output.position = float4(2.0, 2.0, 0.5, 1.0);
   }
   return output;
 }

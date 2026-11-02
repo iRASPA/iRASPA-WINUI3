@@ -144,6 +144,7 @@ void DirectXShadowMaskShader::release()
   m_rootSignature.Reset();
   m_pipelineState.Reset();
   m_maskBuffer.Reset();
+  m_retiredMaskBuffer.Reset();
   m_allLitBuffer.Reset();
   for (UINT i = 0; i < Dx12DeviceContext::kInflightFrameCount; ++i)
     m_uniformBuffers[i].Reset();
@@ -255,8 +256,14 @@ bool DirectXShadowMaskShader::ensureMaskBuffer(ID3D12Device *device, UINT width,
   // every size along the way. The buffer is only ever indexed by the size it was traced at.
   const UINT capacity = (std::max)(needed, m_maskCapacity);
 
-  // Created in the state the raster passes read it in, so that a frame which fails before the
-  // dispatch still leaves the resource in the state the next transition expects.
+  // The frame before this one may still be reading the buffer being replaced through the raster
+  // root view (two frames are in flight), so it is retired rather than released: it goes when the
+  // buffer after it is retired, by which time the frame that read it has long completed.
+  m_retiredMaskBuffer = std::move(m_maskBuffer);
+
+  // Created in COMMON: a buffer in COMMON is promoted to the state of its first use, so the first
+  // dispatch needs no barrier at all, and declaring one from UNORDERED_ACCESS was a before-state
+  // mismatch the debug layer reports.
   m_maskBuffer = createUnorderedAccessBuffer(device, UINT64(capacity) * sizeof(uint32_t),
                                              D3D12_RESOURCE_STATE_COMMON);
   if (!m_maskBuffer)
@@ -303,10 +310,13 @@ bool DirectXShadowMaskShader::encode(ID3D12GraphicsCommandList4 *commandList,
   uniforms.rayEpsilon = 1.0e-4f * geometry.sceneRadius();
   DirectXDeviceHelpers::writeUploadBuffer(uniformBuffer, &uniforms, sizeof(uniforms));
 
-  transition(commandList, m_maskBuffer.Get(),
-             m_maskReadable ? D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-                            : D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-             D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+  // Fresh buffers start in COMMON and promote to UNORDERED_ACCESS on the dispatch; only a buffer
+  // the raster passes have read since needs an explicit transition back.
+  if (m_maskReadable)
+  {
+    transition(commandList, m_maskBuffer.Get(), D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+               D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+  }
 
   commandList->SetComputeRootSignature(m_rootSignature.Get());
   commandList->SetPipelineState(m_pipelineState.Get());

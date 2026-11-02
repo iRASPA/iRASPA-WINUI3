@@ -79,6 +79,8 @@ private:
 
   ComPtr<ID3D12Resource> m_maskBuffer;
   ComPtr<ID3D12Resource> m_allLitBuffer;
+  /// The mask buffer last replaced on growth, kept one replacement longer (see ensureMaskBuffer).
+  ComPtr<ID3D12Resource> m_retiredMaskBuffer;
   ComPtr<ID3D12Resource> m_uniformBuffers[Dx12DeviceContext::kInflightFrameCount];
 
   /// What the mask buffer can hold, which is kept at the high-water mark so that resizing a window

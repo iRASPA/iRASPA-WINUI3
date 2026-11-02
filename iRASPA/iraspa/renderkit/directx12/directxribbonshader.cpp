@@ -176,7 +176,8 @@ void DirectXRibbonShader::paintOpaque(ID3D12GraphicsCommandList *commandList,
 
         commandList->OMSetStencilRef(RKEdgeCueingParameters::stencilValue(ribbon->ribbonEdgeCueing()));
 
-        if (aoShader)
+        // Only with a heap to point into (see the atom imposters): a zero handle is not a binding.
+        if (aoShader && aoShader->srvHeap())
           commandList->SetGraphicsRootDescriptorTable(3, aoShader->aoSrv(i, j));
 
         commandList->IASetVertexBuffers(0, 1, &bufs.vbv);

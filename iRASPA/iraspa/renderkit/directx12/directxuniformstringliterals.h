@@ -359,8 +359,16 @@ uint shadowMaskAtFragment(float4 windowPosition)
   int2 maxPixel = max(int2(width - 1, height - 1), int2(0, 0));
   int2 pixel = clamp(int2(windowPosition.xy), int2(0, 0), maxPixel);
   uint index = (width > 0 && height > 0) ? uint(pixel.y * width + pixel.x) : 0u;
-  uint mask = shadowMaskBuffer[index];
-  return (width <= 0 || height <= 0) ? allLightsVisible : mask;
+  // A real branch, so that with no mask traced the buffer at t1 is never read at all: a root
+  // shader-resource view is unchecked, and what an unexpected read of it returns differs from one
+  // GPU to the next.
+  uint mask = allLightsVisible;
+  [branch]
+  if (width > 0 && height > 0)
+  {
+    mask = shadowMaskBuffer[index];
+  }
+  return mask;
 }
 
 struct LightingWeights

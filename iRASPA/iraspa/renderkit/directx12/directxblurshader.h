@@ -17,6 +17,10 @@ public:
   void loadShader(ID3D12Device *device) override;
   void initialize(ID3D12Device *device, DXGI_FORMAT rtvFormat);
   void resize(ID3D12Device *device, int width, int height);
+  /// Forget which glow texture the SRV was last written for. The renderer calls this whenever it
+  /// recreates the glow target: a new texture of the same size often lands at the address the old
+  /// one had, and comparing pointers alone would then keep the SRV on the destroyed resource.
+  void invalidateGlowSrv() { _glowSrvResource = nullptr; }
   void paint(ID3D12GraphicsCommandList *commandList,
              ID3D12Resource *glowTexture,
              D3D12_RESOURCE_STATES &glowState);

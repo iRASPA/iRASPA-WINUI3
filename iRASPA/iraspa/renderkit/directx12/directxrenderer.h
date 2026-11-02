@@ -279,6 +279,8 @@ private:
   // One clip sphere so root parameter t2 is never unbound. A root shader-resource view has no
   // null binding; the geometric-surface pass replaces this when a structure actually has clips.
   ComPtr<ID3D12Resource> m_geometricClipFallback;
+  /// All-lit shadow mask bound at t1 whenever no mask has been traced (see createConstantBuffers).
+  ComPtr<ID3D12Resource> m_shadowMaskFallback;
   UINT m_structureCBVStride = 0;
   UINT m_structureCBVCapacity = 0;
   UINT m_isosurfaceCBVStride = 0;

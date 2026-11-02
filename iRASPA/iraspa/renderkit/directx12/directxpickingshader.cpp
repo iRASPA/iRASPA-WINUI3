@@ -687,7 +687,10 @@ VSOutput VSMain(VSInput input)
 
   if (input.instancePosition.w < 0.0)
   {
-    output.position = float4(0.0, 0.0, 0.0, 0.0);
+    // Outside the clip volume with w = 1, so x/y clipping removes the primitive on every GPU.
+    // A w of 0 passes the -w <= x <= w test and then divides 0/0: some hardware drops the
+    // triangle, some rasterizes a full-screen smear through the depth and stencil buffers.
+    output.position = float4(2.0, 2.0, 0.5, 1.0);
   }
   return output;
 }
@@ -783,7 +786,10 @@ VSOutput VSMain(VSInput input)
   // Bond visibility is encoded in position.w (±1); collapse the whole hull.
   if (pos1.w < 0.0 || pos2.w < 0.0)
   {
-    output.position = float4(0.0, 0.0, 0.0, 0.0);
+    // Outside the clip volume with w = 1, so x/y clipping removes the primitive on every GPU.
+    // A w of 0 passes the -w <= x <= w test and then divides 0/0: some hardware drops the
+    // triangle, some rasterizes a full-screen smear through the depth and stencil buffers.
+    output.position = float4(2.0, 2.0, 0.5, 1.0);
   }
   return output;
 }

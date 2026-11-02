@@ -394,7 +394,10 @@ void DirectXAmbientOcclusionShadowMapShader::ensureTransientShadowResources(ID3D
     srv.Texture2D.MipLevels = 1;
     device->CreateShaderResourceView(_shadowDepthTexture.Get(), &srv, _shadowSrvCpu);
 
-    if (_whiteTexture)
+    // The second slot of the table the shadow pass binds. No shader reads it, but on resource
+    // binding tier 1 hardware every descriptor of a bound range has to be a valid one, so it is
+    // always written: the white texture when there is one, a null view otherwise (this runs from
+    // initialize() before the white texture exists, so "otherwise" is the usual case).
     {
       const UINT srvStep = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
       D3D12_CPU_DESCRIPTOR_HANDLE dummyCpu = _shadowSrvCpu;
@@ -404,7 +407,7 @@ void DirectXAmbientOcclusionShadowMapShader::ensureTransientShadowResources(ID3D
       whiteSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
       whiteSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
       whiteSrv.Texture2D.MipLevels = 1;
-      device->CreateShaderResourceView(_whiteTexture.Get(), &whiteSrv, dummyCpu);
+      device->CreateShaderResourceView(_whiteTexture ? _whiteTexture.Get() : nullptr, &whiteSrv, dummyCpu);
     }
   }
 }
@@ -525,17 +528,18 @@ void DirectXAmbientOcclusionShadowMapShader::adjustAmbientOcclusionTextureSize(I
     return;
   }
 
-  // Rebind white fallback at slot 0
+  // Rebind white fallback at slot 0. Every structure without an occlusion bake samples through
+  // this slot (the branch that reads it is not taken, but tier 1 hardware still needs the
+  // descriptor to be valid), so a null view goes in when the white texture is missing.
   _whiteSrvCpu = _srvHeap->GetCPUDescriptorHandleForHeapStart();
   _whiteSrvGpu = _srvHeap->GetGPUDescriptorHandleForHeapStart();
-  if (_whiteTexture)
   {
     D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
     srv.Format = DXGI_FORMAT_R16_FLOAT;
     srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
     srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srv.Texture2D.MipLevels = 1;
-    device->CreateShaderResourceView(_whiteTexture.Get(), &srv, _whiteSrvCpu);
+    device->CreateShaderResourceView(_whiteTexture ? _whiteTexture.Get() : nullptr, &srv, _whiteSrvCpu);
   }
 
   D3D12_DESCRIPTOR_HEAP_DESC rtvDesc = {};
@@ -1314,7 +1318,10 @@ VSOutput VSMain(VSInput input)
 
   if (input.instancePosition.w < 0.0)
   {
-    output.position = float4(0.0, 0.0, 0.0, 0.0);
+    // Outside the clip volume with w = 1, so x/y clipping removes the primitive on every GPU.
+    // A w of 0 passes the -w <= x <= w test and then divides 0/0: some hardware drops the
+    // triangle, some rasterizes a full-screen smear through the depth and stencil buffers.
+    output.position = float4(2.0, 2.0, 0.5, 1.0);
   }
   return output;
 }

@@ -62,8 +62,27 @@ namespace
     ComPtr<IDXGIAdapter1> fallback;
     ComPtr<IDXGIAdapter1> withoutRaytracing;
     ComPtr<IDXGIAdapter1> adapter;
-    for (UINT i = 0; factory->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i)
+
+    // In order of performance where the factory can rank them (Windows 10 1803 and later), so that
+    // a laptop with two GPUs renders on the discrete one. Plain enumeration order puts the
+    // integrated GPU first, and since the composition swap chain works across adapters nothing
+    // looks wrong except whatever that driver gets wrong. Older factories fall back to the plain
+    // order.
+    ComPtr<IDXGIFactory6> factory6;
+    const bool ranked = SUCCEEDED(factory->QueryInterface(IID_PPV_ARGS(&factory6))) && factory6;
+    auto nextAdapter = [&](UINT i) -> bool
     {
+      adapter.Reset();
+      if (ranked)
+        return factory6->EnumAdapterByGpuPreference(i, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
+                                                    IID_PPV_ARGS(&adapter)) != DXGI_ERROR_NOT_FOUND;
+      return factory->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND;
+    };
+
+    for (UINT i = 0; nextAdapter(i); ++i)
+    {
+      if (!adapter)
+        continue;
       DXGI_ADAPTER_DESC1 desc = {};
       adapter->GetDesc1(&desc);
       if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
@@ -120,11 +139,22 @@ bool Dx12DeviceContext::createDeviceAndQueues(const LUID *avoidAdapter, bool req
   // simply fails. Deploying the Agility SDK changes that, since d3d12SDKLayers.dll travels with
   // it, so leaving this on would hand every user the validating runtime and the frame rate that
   // comes with it.
-#ifndef NDEBUG
-  ComPtr<ID3D12Debug> debugController;
-  if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
-    debugController->EnableDebugLayer();
+  //
+  // A release build turns it on when IRASPA_D3D12_DEBUG is set, so that a machine on which the
+  // atoms do not draw can be asked for the layer's messages (takeDebugMessages()) without a debug
+  // build of the application; the layer is only present where the Agility SDK or the Graphics
+  // Tools put d3d12SDKLayers.dll, and the call just fails elsewhere.
+#ifdef NDEBUG
+  const bool wantDebugLayer = GetEnvironmentVariableW(L"IRASPA_D3D12_DEBUG", nullptr, 0) != 0;
+#else
+  const bool wantDebugLayer = true;
 #endif
+  if (wantDebugLayer)
+  {
+    ComPtr<ID3D12Debug> debugController;
+    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
+      debugController->EnableDebugLayer();
+  }
 
   if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&m_factory))))
     return false;
