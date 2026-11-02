@@ -350,13 +350,17 @@ uint shadowMaskAtFragment(float4 windowPosition)
 {
   int width = int(frameUniforms.shadowMaskWidth);
   int height = int(frameUniforms.shadowMaskHeight);
-  if (width <= 0 || height <= 0)
-    return allLightsVisible;
 
   // A mask traced at a different size than the pass being shaded would otherwise read out of
-  // bounds; clamping costs nothing and keeps the two independent.
-  int2 pixel = clamp(int2(windowPosition.xy), int2(0, 0), int2(width - 1, height - 1));
-  return shadowMaskBuffer[pixel.y * width + pixel.x];
+  // bounds; clamping costs nothing and keeps the two independent. FXC flattens an early return here
+  // into an unconditional StructuredBuffer load before a conditional move, so clamp the upper bound
+  // with max(..., 0) to ensure index 0 of the fallback buffer is read rather than -1 when no mask
+  // has been traced (width <= 0 || height <= 0).
+  int2 maxPixel = max(int2(width - 1, height - 1), int2(0, 0));
+  int2 pixel = clamp(int2(windowPosition.xy), int2(0, 0), maxPixel);
+  uint index = (width > 0 && height > 0) ? uint(pixel.y * width + pixel.x) : 0u;
+  uint mask = shadowMaskBuffer[index];
+  return (width <= 0 || height <= 0) ? allLightsVisible : mask;
 }
 
 struct LightingWeights

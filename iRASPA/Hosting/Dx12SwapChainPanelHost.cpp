@@ -125,6 +125,7 @@ void Dx12SwapChainPanelHost::InitializeAsync(std::function<void()> onReady,
     std::thread([this, alive, dispatcher, width, height, scaleX, scaleY,
                  onReady = std::move(onReady), onError = std::move(onError)]() mutable
     {
+        winrt::init_apartment(winrt::apartment_type::multi_threaded);
         std::unique_ptr<DirectXRenderer> bgRenderer;
         std::wstring errorMsg;
         try
@@ -225,7 +226,10 @@ void Dx12SwapChainPanelHost::InitializeAsync(std::function<void()> onReady,
 
                 // Apply any panel resize that happened while shaders were compiling.
                 if (HasValidPanelSize())
+                {
                     ResizeFromPanel();
+                    RequestRedraw();
+                }
 
                 if (onReady)
                     onReady();

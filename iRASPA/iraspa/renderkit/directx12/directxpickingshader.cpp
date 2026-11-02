@@ -310,8 +310,11 @@ void DirectXPickingShader::createPickTargets(ID3D12Device *device, int width, in
     desc.SampleDesc.Count = 1;
     desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
+    D3D12_CLEAR_VALUE pickClear = {};
+    pickClear.Format = DXGI_FORMAT_R32G32B32A32_UINT;
+
     if (FAILED(device->CreateCommittedResource(&heapProp, D3D12_HEAP_FLAG_NONE, &desc,
-                                               D3D12_RESOURCE_STATE_COMMON, nullptr,
+                                               D3D12_RESOURCE_STATE_COMMON, &pickClear,
                                                IID_PPV_ARGS(&_pickColor))))
     {
       std::cerr << "DirectXPickingShader: failed to create pick color target";

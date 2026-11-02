@@ -658,6 +658,12 @@ void DirectXRenderer::presentTracedFrame(D3D12_CPU_DESCRIPTOR_HANDLE destRtv, in
   // have to be put back before anything draws again. bindShadowMask also fills the root views that
   // were added after 2.3.6; setting the signature clears them.
   m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+  if (m_srvHeap)
+  {
+    ID3D12DescriptorHeap *heaps[] = { m_srvHeap.Get() };
+    m_commandList->SetDescriptorHeaps(1, heaps);
+    m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
+  }
   m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
   m_commandList->SetGraphicsRootConstantBufferView(1, structureCB()->GetGPUVirtualAddress());
   m_commandList->SetGraphicsRootConstantBufferView(2, lightsCB()->GetGPUVirtualAddress());
@@ -1925,6 +1931,7 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
   m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
   m_commandList->SetGraphicsRootConstantBufferView(1, structureCB()->GetGPUVirtualAddress());
   m_commandList->SetGraphicsRootConstantBufferView(2, lightsCB()->GetGPUVirtualAddress());
+  m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
   bindShadowMask();
   if (isosurfaceCB())
     m_commandList->SetGraphicsRootConstantBufferView(4, isosurfaceCB()->GetGPUVirtualAddress());
@@ -1958,16 +1965,19 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
       {
         ID3D12DescriptorHeap *aoHeaps[] = {aoHeap};
         m_commandList->SetDescriptorHeaps(1, aoHeaps);
+        m_commandList->SetGraphicsRootDescriptorTable(3, aoHeap->GetGPUDescriptorHandleForHeapStart());
       }
       m_atomShader.paint(m_commandList.Get(), structureCB()->GetGPUVirtualAddress(), m_structureCBVStride,
                          m_camera);
 
       m_commandList->SetDescriptorHeaps(1, windowHeaps);
+      m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
 
       m_bondShader.paint(m_commandList.Get(), structureCB()->GetGPUVirtualAddress(), m_structureCBVStride);
     }
 
     m_commandList->SetDescriptorHeaps(1, windowHeaps);
+    m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
 
     m_objectShader.paintOpaque(m_commandList.Get(), structureCB()->GetGPUVirtualAddress(), m_structureCBVStride);
     m_unitCellShader.paint(m_commandList.Get(), structureCB()->GetGPUVirtualAddress(), m_structureCBVStride);
@@ -1981,10 +1991,12 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
       {
         ID3D12DescriptorHeap *ribbonAoHeaps[] = {ribbonAoHeap};
         m_commandList->SetDescriptorHeaps(1, ribbonAoHeaps);
+        m_commandList->SetGraphicsRootDescriptorTable(3, ribbonAoHeap->GetGPUDescriptorHandleForHeapStart());
       }
       m_ribbonShader.paintOpaque(m_commandList.Get(), structureCB()->GetGPUVirtualAddress(),
                                  m_structureCBVStride, &m_ribbonAmbientOcclusionShader);
       m_commandList->SetDescriptorHeaps(1, windowHeaps);
+      m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
     }
 
     m_boundingBoxShader.paint(m_commandList.Get());
@@ -2027,6 +2039,7 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
       m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
       m_commandList->SetGraphicsRootConstantBufferView(1, structureCB()->GetGPUVirtualAddress());
       m_commandList->SetGraphicsRootConstantBufferView(2, lightsCB()->GetGPUVirtualAddress());
+      m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
       bindShadowMask();
       if (isosurfaceCB())
         m_commandList->SetGraphicsRootConstantBufferView(4, isosurfaceCB()->GetGPUVirtualAddress());
@@ -2102,10 +2115,14 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
     }
 
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    m_commandList->SetDescriptorHeaps(1, windowHeaps);
     m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
     m_commandList->SetGraphicsRootConstantBufferView(1, structureCB()->GetGPUVirtualAddress());
     m_commandList->SetGraphicsRootConstantBufferView(2, lightsCB()->GetGPUVirtualAddress());
+    m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
     bindShadowMask();
+    if (isosurfaceCB())
+      m_commandList->SetGraphicsRootConstantBufferView(4, isosurfaceCB()->GetGPUVirtualAddress());
     if (globalAxesCB())
       m_commandList->SetGraphicsRootConstantBufferView(5, globalAxesCB()->GetGPUVirtualAddress());
     m_textShader.paint(m_commandList.Get(), structureCB()->GetGPUVirtualAddress(), m_structureCBVStride);
@@ -2116,9 +2133,14 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
   }
 
   m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+  m_commandList->SetDescriptorHeaps(1, heaps);
   m_commandList->SetGraphicsRootConstantBufferView(0, frameCB()->GetGPUVirtualAddress());
+  m_commandList->SetGraphicsRootConstantBufferView(1, structureCB()->GetGPUVirtualAddress());
   m_commandList->SetGraphicsRootConstantBufferView(2, lightsCB()->GetGPUVirtualAddress());
+  m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
   bindShadowMask();
+  if (isosurfaceCB())
+    m_commandList->SetGraphicsRootConstantBufferView(4, isosurfaceCB()->GetGPUVirtualAddress());
   if (globalAxesCB())
     m_commandList->SetGraphicsRootConstantBufferView(5, globalAxesCB()->GetGPUVirtualAddress());
   m_globalAxesShader.paint(m_commandList.Get(),
@@ -2129,6 +2151,7 @@ void DirectXRenderer::recordScenePass(D3D12_CPU_DESCRIPTOR_HANDLE sceneRtv,
   m_commandList->RSSetViewports(1, &viewport);
   m_commandList->RSSetScissorRects(1, &scissor);
   m_commandList->SetDescriptorHeaps(1, heaps);
+  m_commandList->SetGraphicsRootDescriptorTable(3, m_srvHeap->GetGPUDescriptorHandleForHeapStart());
 }
 
 /// Selection glow → blur → composite onto \a destRtv, which already holds the resolved
@@ -2216,6 +2239,8 @@ void DirectXRenderer::recordSelectionGlow(D3D12_CPU_DESCRIPTOR_HANDLE destRtv,
     bindShadowMask();
     if (isosurfaceCB())
       m_commandList->SetGraphicsRootConstantBufferView(4, isosurfaceCB()->GetGPUVirtualAddress());
+    if (globalAxesCB())
+      m_commandList->SetGraphicsRootConstantBufferView(5, globalAxesCB()->GetGPUVirtualAddress());
 
     if (ID3D12DescriptorHeap *blurHeap = m_blurShader.srvHeap())
     {

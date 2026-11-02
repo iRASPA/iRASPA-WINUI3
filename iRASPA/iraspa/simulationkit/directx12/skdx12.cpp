@@ -138,7 +138,7 @@ ComPtr<ID3D12Resource> SKDx12::createUploadBuffer(ID3D12Device *device, UINT64 s
 }
 
 ComPtr<ID3D12Resource> SKDx12::createDefaultBuffer(ID3D12Device *device, UINT64 sizeInBytes,
-                                                   D3D12_RESOURCE_STATES initialState)
+                                                   D3D12_RESOURCE_STATES /*initialState*/)
 {
   ComPtr<ID3D12Resource> buffer;
   D3D12_HEAP_PROPERTIES heapProp{};
@@ -153,7 +153,7 @@ ComPtr<ID3D12Resource> SKDx12::createDefaultBuffer(ID3D12Device *device, UINT64 
   desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
   desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
   if (FAILED(device->CreateCommittedResource(&heapProp, D3D12_HEAP_FLAG_NONE, &desc,
-                                             initialState, nullptr, IID_PPV_ARGS(&buffer))))
+                                             D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&buffer))))
     return nullptr;
   return buffer;
 }

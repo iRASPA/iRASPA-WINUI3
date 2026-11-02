@@ -258,7 +258,7 @@ bool DirectXShadowMaskShader::ensureMaskBuffer(ID3D12Device *device, UINT width,
   // Created in the state the raster passes read it in, so that a frame which fails before the
   // dispatch still leaves the resource in the state the next transition expects.
   m_maskBuffer = createUnorderedAccessBuffer(device, UINT64(capacity) * sizeof(uint32_t),
-                                             D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+                                             D3D12_RESOURCE_STATE_COMMON);
   if (!m_maskBuffer)
   {
     m_maskCapacity = 0;

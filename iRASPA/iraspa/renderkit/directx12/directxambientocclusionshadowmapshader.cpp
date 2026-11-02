@@ -329,10 +329,10 @@ void DirectXAmbientOcclusionShadowMapShader::createGenerationPipelines(ID3D12Dev
     }
   }
 
-  // Generation SRV heap (shadow map) + comparison sampler heap
+  // Generation SRV heap (shadow map + dummy SRV for depth-write phase) + comparison sampler heap
   {
     D3D12_DESCRIPTOR_HEAP_DESC srvDesc = {};
-    srvDesc.NumDescriptors = 1;
+    srvDesc.NumDescriptors = 2;
     srvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     srvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     device->CreateDescriptorHeap(&srvDesc, IID_PPV_ARGS(&_genSrvHeap));
@@ -393,6 +393,19 @@ void DirectXAmbientOcclusionShadowMapShader::ensureTransientShadowResources(ID3D
     srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srv.Texture2D.MipLevels = 1;
     device->CreateShaderResourceView(_shadowDepthTexture.Get(), &srv, _shadowSrvCpu);
+
+    if (_whiteTexture)
+    {
+      const UINT srvStep = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+      D3D12_CPU_DESCRIPTOR_HANDLE dummyCpu = _shadowSrvCpu;
+      dummyCpu.ptr += srvStep;
+      D3D12_SHADER_RESOURCE_VIEW_DESC whiteSrv = {};
+      whiteSrv.Format = DXGI_FORMAT_R16_FLOAT;
+      whiteSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+      whiteSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+      whiteSrv.Texture2D.MipLevels = 1;
+      device->CreateShaderResourceView(_whiteTexture.Get(), &whiteSrv, dummyCpu);
+    }
   }
 }
 
@@ -942,7 +955,9 @@ void DirectXAmbientOcclusionShadowMapShader::updateAmbientOcclusionTextures(
 
         ID3D12DescriptorHeap *heaps[] = { _genSrvHeap.Get(), _genSamplerHeap.Get() };
         _commandList->SetDescriptorHeaps(2, heaps);
-        _commandList->SetGraphicsRootDescriptorTable(3, _shadowSrvGpu);
+        D3D12_GPU_DESCRIPTOR_HANDLE dummySrvGpu = _shadowSrvGpu;
+        dummySrvGpu.ptr += device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        _commandList->SetGraphicsRootDescriptorTable(3, dummySrvGpu);
         _commandList->SetGraphicsRootDescriptorTable(4, _genSamplerHeap->GetGPUDescriptorHandleForHeapStart());
 
         D3D12_RESOURCE_STATES shadowState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
@@ -951,6 +966,7 @@ void DirectXAmbientOcclusionShadowMapShader::updateAmbientOcclusionTextures(
         for (int k = kBatch; k < kEnd; ++k)
         {
           // Shadow pass
+          _commandList->SetGraphicsRootDescriptorTable(3, dummySrvGpu);
           if (shadowState != D3D12_RESOURCE_STATE_DEPTH_WRITE)
           {
             transition(_commandList.Get(), _shadowDepthTexture.Get(), shadowState,
@@ -1030,6 +1046,7 @@ void DirectXAmbientOcclusionShadowMapShader::updateAmbientOcclusionTextures(
           transition(_commandList.Get(), _shadowDepthTexture.Get(),
                      D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
           shadowState = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+          _commandList->SetGraphicsRootDescriptorTable(3, _shadowSrvGpu);
 
           const float weight = simd_quatd::ambientOcclusionBlendWeight(k, maxk);
           const D3D12_GPU_VIRTUAL_ADDRESS shadowCBV =
@@ -1080,6 +1097,7 @@ void DirectXAmbientOcclusionShadowMapShader::updateAmbientOcclusionTextures(
 
         if (shadowState != D3D12_RESOURCE_STATE_DEPTH_WRITE)
         {
+          _commandList->SetGraphicsRootDescriptorTable(3, dummySrvGpu);
           transition(_commandList.Get(), _shadowDepthTexture.Get(), shadowState,
                      D3D12_RESOURCE_STATE_DEPTH_WRITE);
         }
@@ -1238,7 +1256,7 @@ float PSMain(PSInput input) : SV_TARGET
   // then matches OpenGL's high-FragCoord→+Y and the ModelN sampling UV math.
   // Flipping Y here wrote +Y occlusion into low-V texels that sampling reads for -Y (and
   // vice versa), making exposed surfaces look dark.
-  int2 impostorSpaceCoordinate = int2(int(input.position.x), int(input.position.y)) % int(patchSize);
+  uint2 impostorSpaceCoordinate = uint2(uint(input.position.x), uint(input.position.y)) % uint(patchSize);
   float2 newImpostorSpaceCoordinate = (2.0 * float2(impostorSpaceCoordinate) / (patchSize - 1.0) - 1.0);
 
   float3 imposterXYZ = normalize(coordinateFromTexturePosition(newImpostorSpaceCoordinate));

@@ -119,7 +119,7 @@ namespace
 
     ComPtr<ID3D12Resource> buffer;
     if (FAILED(device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &desc,
-                                               D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr,
+                                               D3D12_RESOURCE_STATE_COMMON, nullptr,
                                                IID_PPV_ARGS(&buffer))))
     {
       return nullptr;

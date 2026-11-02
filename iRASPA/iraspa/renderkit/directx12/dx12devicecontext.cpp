@@ -392,6 +392,9 @@ bool Dx12DeviceContext::createSceneMsaaTargets()
 
   D3D12_CLEAR_VALUE colorClear = {};
   colorClear.Format = colorFmt;
+  colorClear.Color[0] = 0.12f;
+  colorClear.Color[1] = 0.18f;
+  colorClear.Color[2] = 0.28f;
   colorClear.Color[3] = 1.0f;
 
   D3D12_HEAP_PROPERTIES heap = {};

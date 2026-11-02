@@ -804,7 +804,7 @@ bool DirectXPathTracerGeometry::buildAccelerationStructures(Dx12DeviceContext &c
   // a build only happens when the geometry changes, so serializing them costs nothing that
   // matters.
   ComPtr<ID3D12Resource> scratch =
-      createUnorderedAccessBuffer(device, scratchSize, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+      createUnorderedAccessBuffer(device, scratchSize, D3D12_RESOURCE_STATE_COMMON);
   if (!scratch)
     return fail("could not allocate the acceleration-structure scratch buffer");
 
