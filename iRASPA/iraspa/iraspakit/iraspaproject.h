@@ -53,6 +53,10 @@ public:
   void readData(ZipReader& reader);
   void saveData(ZipWriter& writer);
   void unwrapIfNeeded(LogReporting *logReporter);
+  void setArchiveFileName(const std::string& path) {_archiveFileName = path;}
+  const std::string& archiveFileName() const {return _archiveFileName;}
+  void ensureDataLoaded();
+  bool hasCachedPropertiesLoaded() const {return _cachedPropertiesLoaded;}
   bool isLeaf() {return _nodeType == NodeType::leaf;}
   bool isGroup() {return _nodeType == NodeType::group;}
   void setIsGroup(bool value) {_nodeType = value ? NodeType::group : NodeType::leaf;}
@@ -103,6 +107,7 @@ private:
   StorageType _storageType;
   LazyStatus _lazyStatus;
   RKByteArray _data;
+  std::string _archiveFileName{};
 
   bool _cachedPropertiesLoaded{false};
   double _volumetricSurfaceArea{0.0};

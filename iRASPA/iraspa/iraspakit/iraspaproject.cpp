@@ -86,10 +86,24 @@ void iRASPAProject::readData(ZipReader& reader)
   _data = bytes;
 }
 
+void iRASPAProject::ensureDataLoaded()
+{
+  if(_data.empty() && !_archiveFileName.empty())
+  {
+    ZipReader reader(_archiveFileName);
+    if(reader.exists() && reader.isReadable())
+    {
+      readData(reader);
+    }
+    reader.close();
+  }
+}
+
 void iRASPAProject::unwrapIfNeeded(LogReporting *logReporter)
 {
   if(_lazyStatus == LazyStatus::lazy)
   {
+    ensureDataLoaded();
     const RKByteArray compressed(_data.begin(), _data.end());
     RKByteArray uncompressedData = ZipReader::xzUncompress(compressed);
     BinaryArchive stream(std::move(uncompressedData));
@@ -240,6 +254,7 @@ void iRASPAProject::ensureCachedPropertiesLoaded()
     _cachedPropertiesLoaded = true;
     return;
   }
+  ensureDataLoaded();
   if(_data.empty())
   {
     _cachedPropertiesLoaded = true;
@@ -403,6 +418,7 @@ void iRASPAProject::saveData(ZipWriter& writer)
 
   if(_lazyStatus == LazyStatus::lazy)
   {
+    ensureDataLoaded();
     // lazy projects: write compressed data directly (stored in _data)
     writer.addFile(entryName, RKByteArray(_data.begin(), _data.end()));
   }

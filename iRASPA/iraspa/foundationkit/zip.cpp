@@ -23,6 +23,7 @@
 #include <cstring>
 #include <ctime>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #if defined(_WIN32)
@@ -454,6 +455,7 @@ public:
     bool ownDevice;
     bool dirtyFileTree{true};
     std::vector<FileHeader> fileHeaders;
+    std::unordered_map<std::string, size_t> fileHeaderIndex;
     ByteVec comment;
     uint32_t start_of_directory{0};
 };
@@ -504,6 +506,7 @@ void ZipReaderPrivate::scanFiles()
 
     dirtyFileTree = false;
     fileHeaders.clear();
+    fileHeaderIndex.clear();
 
     uint8_t tmp[4];
     if (device.read(tmp, 4) != 4 || readUInt(tmp) != 0x04034b50u)
@@ -536,6 +539,9 @@ void ZipReaderPrivate::scanFiles()
     if (!device.seek(startDir))
         return;
 
+    fileHeaders.reserve(static_cast<size_t>(num_dir_entries));
+    fileHeaderIndex.reserve(static_cast<size_t>(num_dir_entries));
+
     for (i = 0; i < num_dir_entries; ++i)
     {
         FileHeader header;
@@ -558,6 +564,10 @@ void ZipReaderPrivate::scanFiles()
         if (static_cast<int>(header.file_comment.size()) != l)
             break;
 
+        const size_t idx = fileHeaders.size();
+        fileHeaderIndex.emplace(
+            std::string(reinterpret_cast<const char *>(header.file_name.data()), header.file_name.size()),
+            idx);
         fileHeaders.push_back(std::move(header));
     }
 
@@ -725,18 +735,11 @@ ZipReader::FileInfo ZipReader::entryInfoAt(int index) const
 RKByteArray ZipReader::fileData(const std::string &fileName) const
 {
     d->scanFiles();
-    size_t i = 0;
-    for (; i < d->fileHeaders.size(); ++i)
-    {
-        const auto &name = d->fileHeaders[i].file_name;
-        if (name.size() == fileName.size() &&
-            std::memcmp(name.data(), fileName.data(), fileName.size()) == 0)
-            break;
-    }
-    if (i == d->fileHeaders.size())
+    const auto it = d->fileHeaderIndex.find(fileName);
+    if (it == d->fileHeaderIndex.end())
         return {};
 
-    const FileHeader header = d->fileHeaders[i];
+    const FileHeader &header = d->fileHeaders[it->second];
 
     const int compressed_size = static_cast<int>(readUInt(header.h.compressed_size));
     const int uncompressed_size = static_cast<int>(readUInt(header.h.uncompressed_size));

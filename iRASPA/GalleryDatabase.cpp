@@ -11,6 +11,7 @@
 #include "binaryarchive.h"
 #include <Windows.h>
 #include <atomic>
+#include <future>
 #include <initializer_list>
 #include <string>
 #include <thread>
@@ -91,11 +92,12 @@ namespace winrt::iRASPA_WinUI::implementation
                 return nullptr;
             }
 
-            ZipReader reader(WideToUtf8(path));
+            const std::string archivePathUtf8 = WideToUtf8(path);
+            ZipReader reader(archivePathUtf8);
             RKByteArray data = reader.fileData(std::string("nl.darkwing.iRASPA_projectData"));
+            reader.close();
             if (data.empty())
             {
-                reader.close();
                 reason = L"the archive holds no nl.darkwing.iRASPA_projectData";
                 return nullptr;
             }
@@ -108,14 +110,12 @@ namespace winrt::iRASPA_WinUI::implementation
             }
             catch (std::exception const& ex)
             {
-                reader.close();
                 reason = L"the project tree could not be read: " +
                          std::wstring(winrt::to_hstring(ex.what()));
                 return nullptr;
             }
             catch (...)
             {
-                reader.close();
                 reason = L"the project tree could not be read";
                 return nullptr;
             }
@@ -123,49 +123,48 @@ namespace winrt::iRASPA_WinUI::implementation
             auto local = libraryData->projectTreeController()->localProjects();
             if (!local)
             {
-                reader.close();
                 reason = L"the project tree holds no local projects";
                 return nullptr;
             }
 
-            // One project that will not unwrap costs that project, not the whole database. It used
-            // to cost the whole database: the throw left here and the caller kept nothing.
-            std::wstring failures;
-            int failed = 0;
+            // Cocoa iRASPALoadDatabases.swift: load the ProjectTreeNode proxy hierarchy
+            // from nl.darkwing.iRASPA_projectData at startup, and defer reading individual
+            // nl.darkwing.iRASPA_Project_<UUID> entries on-demand when a structure is unwrapped.
             for (auto const& localNode : local->descendantNodes())
             {
                 if (!localNode || !localNode->representedObject())
                     continue;
-                try
-                {
-                    localNode->representedObject()->readData(reader);
-                }
-                catch (std::exception const& ex)
-                {
-                    if (++failed <= 3)
-                    {
-                        failures += L"\n  " + localNode->displayName().toStdWString() + L": " +
-                                    std::wstring(winrt::to_hstring(ex.what()));
-                    }
-                    continue;
-                }
-                catch (...)
-                {
-                    ++failed;
-                    continue;
-                }
+                localNode->representedObject()->setArchiveFileName(archivePathUtf8);
                 localNode->setType(ProjectTreeNode::Type::gallery);
                 localNode->setIsEditable(false);
             }
-            reader.close();
 
-            // Pre-extract the 14 cached structural properties across background worker threads
-            // so the Directory Viewer can filter and query the database instantaneously.
-            auto const leafNodes = local->descendantLeafNodes();
-            if (!leafNodes.empty())
+            // Pre-extract the 14 cached structural properties only for leaf nodes that do not
+            // already have them serialized in nl.darkwing.iRASPA_projectData (e.g. local gallery).
+            std::vector<std::shared_ptr<ProjectTreeNode>> uncachedLeaves;
+            for (auto const& leaf : local->descendantLeafNodes())
             {
+                if (leaf && leaf->representedObject() && !leaf->representedObject()->hasCachedPropertiesLoaded())
+                    uncachedLeaves.push_back(leaf);
+            }
+            if (!uncachedLeaves.empty())
+            {
+                // Read the compressed project blobs once for the uncached leaves before parallel extraction.
+                ZipReader leafReader(archivePathUtf8);
+                for (auto const& leaf : uncachedLeaves)
+                {
+                    try
+                    {
+                        leaf->representedObject()->readData(leafReader);
+                    }
+                    catch (...)
+                    {
+                    }
+                }
+                leafReader.close();
+
                 const unsigned int hw = std::max(1u, std::thread::hardware_concurrency());
-                const size_t threadCount = std::min<size_t>(hw, leafNodes.size());
+                const size_t threadCount = std::min<size_t>(hw, uncachedLeaves.size());
                 std::atomic<size_t> nextIndex{ 0 };
                 std::vector<std::thread> workers;
                 workers.reserve(threadCount);
@@ -176,9 +175,9 @@ namespace winrt::iRASPA_WinUI::implementation
                         while (true)
                         {
                             const size_t idx = nextIndex.fetch_add(1, std::memory_order_relaxed);
-                            if (idx >= leafNodes.size())
+                            if (idx >= uncachedLeaves.size())
                                 break;
-                            if (auto const& leaf = leafNodes[idx]; leaf && leaf->representedObject())
+                            if (auto const& leaf = uncachedLeaves[idx]; leaf && leaf->representedObject())
                                 leaf->representedObject()->ensureCachedPropertiesLoaded();
                         }
                     });
@@ -187,12 +186,6 @@ namespace winrt::iRASPA_WinUI::implementation
                     w.join();
             }
 
-            if (failed > 0)
-            {
-                reason = std::to_wstring(failed) + L" of " +
-                         std::to_wstring(local->descendantNodes().size()) +
-                         L" projects could not be read:" + failures;
-            }
             return libraryData;
         }
     }
@@ -271,37 +264,55 @@ namespace winrt::iRASPA_WinUI::implementation
         auto dispatcher = DispatcherQueue();
         co_await winrt::resume_background();
 
-        for (auto const& entry : kDatabases)
+        struct LoadedDatabase
         {
             std::shared_ptr<DocumentData> database;
             std::wstring error;
-            const std::wstring label = entry.label;
-            try
-            {
-                const auto path = ResolveDatabasePath({entry.fileName});
-                if (path.empty())
-                    error = label + L" not found (" + entry.fileName + L")";
-                else
-                {
-                    std::wstring reason;
-                    database = ReadDatabaseDocument(path, reason);
-                    if (!database)
-                        error = label + L" failed to load: " +
-                                (reason.empty() ? std::wstring(L"no reason given") : reason);
-                    else if (!reason.empty())
-                        error = label + L" loaded, but " + reason;
-                }
-            }
-            catch (std::exception const& ex)
-            {
-                error = label + L" load error: " + std::wstring(winrt::to_hstring(ex.what()));
-            }
-            catch (...)
-            {
-                error = label + L" load error";
-            }
+            std::wstring label;
+        };
 
-            dispatcher.TryEnqueue([this, lifetime, database, error, label]()
+        std::vector<std::future<LoadedDatabase>> tasks;
+        tasks.reserve(std::size(kDatabases));
+        for (auto const& entry : kDatabases)
+        {
+            tasks.push_back(std::async(std::launch::async, [entry]() -> LoadedDatabase
+            {
+                LoadedDatabase out;
+                out.label = entry.label;
+                try
+                {
+                    const auto path = ResolveDatabasePath({entry.fileName});
+                    if (path.empty())
+                    {
+                        out.error = out.label + L" not found (" + entry.fileName + L")";
+                    }
+                    else
+                    {
+                        std::wstring reason;
+                        out.database = ReadDatabaseDocument(path, reason);
+                        if (!out.database)
+                            out.error = out.label + L" failed to load: " +
+                                        (reason.empty() ? std::wstring(L"no reason given") : reason);
+                        else if (!reason.empty())
+                            out.error = out.label + L" loaded, but " + reason;
+                    }
+                }
+                catch (std::exception const& ex)
+                {
+                    out.error = out.label + L" load error: " + std::wstring(winrt::to_hstring(ex.what()));
+                }
+                catch (...)
+                {
+                    out.error = out.label + L" load error";
+                }
+                return out;
+            }));
+        }
+
+        for (auto& task : tasks)
+        {
+            LoadedDatabase res = task.get();
+            dispatcher.TryEnqueue([this, lifetime, database = res.database, error = res.error, label = res.label]()
             {
                 try
                 {

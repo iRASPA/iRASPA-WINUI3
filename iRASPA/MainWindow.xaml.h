@@ -317,6 +317,8 @@ namespace winrt::iRASPA_WinUI::implementation
         // Collapsible panels (Cocoa toolbar segments at the right: left panel,
         // bottom panel, right panel), plus the saved sizes while hidden.
         winrt::Microsoft::UI::Xaml::Controls::Grid m_leftPanel{ nullptr };
+        winrt::Microsoft::UI::Xaml::Controls::Grid m_leftListsPanel{ nullptr };
+        winrt::Microsoft::UI::Xaml::Controls::Grid m_centerPanel{ nullptr };
         // The Project / Scene / Frame and Camera..Bonds selectors, kept so a
         // selection made elsewhere can be written back to them.
         winrt::Microsoft::UI::Xaml::Controls::SelectorBar m_leftPaneTabs{ nullptr };
@@ -366,6 +368,7 @@ namespace winrt::iRASPA_WinUI::implementation
         DocumentController m_controller;
         std::shared_ptr<DocumentData>& m_document{ m_controller.Document() };
         std::shared_ptr<ProjectStructure>& m_project{ m_controller.Project() };
+        std::wstring m_projectDisplayName;
         // File the document was last saved to; empty means untitled, so Save
         // asks for a location just like Cocoa does.
         std::wstring m_documentPath;

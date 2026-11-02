@@ -2,6 +2,7 @@
 #include "Dx12SwapChainPanelHost.h"
 
 #include <cstdio>
+#include <thread>
 
 #include <microsoft.ui.xaml.media.dxinterop.h>
 
@@ -53,11 +54,12 @@ void Dx12SwapChainPanelHost::SetContextMenuHandler(std::function<void(winrt::Win
 
 void Dx12SwapChainPanelHost::Initialize()
 {
-    if (m_initialized || !m_panel)
+    if (m_initialized || m_initializing || !m_panel)
     {
         return;
     }
 
+    m_dispatcher = DispatcherQueue::GetForCurrentThread();
     m_renderer = std::make_unique<DirectXRenderer>();
 
     const float scaleX = m_panel.CompositionScaleX();
@@ -101,6 +103,147 @@ void Dx12SwapChainPanelHost::Initialize()
         RequestRedraw();
 }
 
+void Dx12SwapChainPanelHost::InitializeAsync(std::function<void()> onReady,
+                                             std::function<void(std::wstring const&)> onError)
+{
+    if (m_initialized || m_initializing || !m_panel)
+    {
+        return;
+    }
+
+    m_initializing = true;
+    m_dispatcher = DispatcherQueue::GetForCurrentThread();
+
+    const float scaleX = m_panel.CompositionScaleX();
+    const float scaleY = m_panel.CompositionScaleY();
+    const UINT width = ToPixelSize(m_panel.ActualWidth(), scaleX);
+    const UINT height = ToPixelSize(m_panel.ActualHeight(), scaleY);
+
+    auto alive = m_alive;
+    auto dispatcher = m_dispatcher;
+
+    std::thread([this, alive, dispatcher, width, height, scaleX, scaleY,
+                 onReady = std::move(onReady), onError = std::move(onError)]() mutable
+    {
+        std::unique_ptr<DirectXRenderer> bgRenderer;
+        std::wstring errorMsg;
+        try
+        {
+            bgRenderer = std::make_unique<DirectXRenderer>();
+            if (!bgRenderer->initializeComposition(width, height))
+            {
+                errorMsg = L"DirectXRenderer::initializeComposition failed";
+                bgRenderer->release();
+                bgRenderer.reset();
+            }
+            else
+            {
+                bgRenderer->deviceContext().setCompositionScale(scaleX, scaleY);
+            }
+        }
+        catch (std::exception const& ex)
+        {
+            errorMsg = winrt::to_hstring(ex.what()).c_str();
+            if (bgRenderer)
+            {
+                bgRenderer->release();
+                bgRenderer.reset();
+            }
+        }
+        catch (...)
+        {
+            errorMsg = L"DirectXRenderer background initialization failed";
+            if (bgRenderer)
+            {
+                bgRenderer->release();
+                bgRenderer.reset();
+            }
+        }
+
+        if (!dispatcher)
+        {
+            if (bgRenderer)
+                bgRenderer->release();
+            return;
+        }
+
+        auto sharedRenderer = std::make_shared<std::unique_ptr<DirectXRenderer>>(std::move(bgRenderer));
+        dispatcher.TryEnqueue([this, alive, sharedRenderer, width, height, errorMsg,
+                               onReady = std::move(onReady), onError = std::move(onError)]() mutable
+        {
+            if (!*alive)
+            {
+                if (*sharedRenderer)
+                {
+                    (*sharedRenderer)->release();
+                    sharedRenderer->reset();
+                }
+                return;
+            }
+
+            m_initializing = false;
+            if (!*sharedRenderer || !m_panel)
+            {
+                if (*sharedRenderer)
+                {
+                    (*sharedRenderer)->release();
+                    sharedRenderer->reset();
+                }
+                if (onError && !errorMsg.empty())
+                    onError(errorMsg);
+                return;
+            }
+
+            try
+            {
+                m_renderer = std::move(*sharedRenderer);
+                m_lastPixelWidth = width;
+                m_lastPixelHeight = height;
+
+                m_renderer->setNeedsDisplayCallback([this]() { RequestRedraw(); });
+
+                winrt::com_ptr<::ISwapChainPanelNative> panelNative;
+                winrt::check_hresult(m_panel.as<::IUnknown>()->QueryInterface(panelNative.put()));
+                HRESULT hr = panelNative->SetSwapChain(m_renderer->deviceContext().swapChain());
+                if (FAILED(hr))
+                {
+                    throw winrt::hresult_error(hr, L"ISwapChainPanelNative::SetSwapChain failed");
+                }
+                m_renderer->deviceContext().setCompositionScale(m_panel.CompositionScaleX(),
+                                                                m_panel.CompositionScaleY());
+
+                m_sizeChangedToken = m_panel.SizeChanged({ this, &Dx12SwapChainPanelHost::OnSizeChanged });
+                m_scaleChangedToken = m_panel.CompositionScaleChanged({ this, &Dx12SwapChainPanelHost::OnCompositionScaleChanged });
+                m_pointerPressedToken = m_panel.PointerPressed({ this, &Dx12SwapChainPanelHost::OnPointerPressed });
+                m_pointerMovedToken = m_panel.PointerMoved({ this, &Dx12SwapChainPanelHost::OnPointerMoved });
+                m_pointerReleasedToken = m_panel.PointerReleased({ this, &Dx12SwapChainPanelHost::OnPointerReleased });
+                m_pointerCanceledToken = m_panel.PointerCanceled({ this, &Dx12SwapChainPanelHost::OnPointerCanceled });
+                m_pointerCaptureLostToken = m_panel.PointerCaptureLost({ this, &Dx12SwapChainPanelHost::OnPointerCaptureLost });
+                m_pointerWheelToken = m_panel.PointerWheelChanged({ this, &Dx12SwapChainPanelHost::OnPointerWheelChanged });
+
+                m_initialized = true;
+
+                // Apply any panel resize that happened while shaders were compiling.
+                if (HasValidPanelSize())
+                    ResizeFromPanel();
+
+                if (onReady)
+                    onReady();
+            }
+            catch (winrt::hresult_error const& ex)
+            {
+                if (onError)
+                    onError(std::wstring(ex.message()));
+            }
+            catch (std::exception const& ex)
+            {
+                if (onError)
+                    onError(winrt::to_hstring(ex.what()).c_str());
+            }
+        });
+    }).detach();
+}
+
 void Dx12SwapChainPanelHost::Shutdown()
 {
     *m_alive = false;
@@ -142,11 +285,13 @@ void Dx12SwapChainPanelHost::Shutdown()
     m_rubberBand = nullptr;
     m_overlayCanvas = nullptr;
     m_panel = nullptr;
+    m_dispatcher = nullptr;
 
     m_redrawQueued = false;
     m_lastPixelWidth = 0;
     m_lastPixelHeight = 0;
     m_initialized = false;
+    m_initializing = false;
 }
 
 void Dx12SwapChainPanelHost::RequestRedraw()
@@ -154,7 +299,7 @@ void Dx12SwapChainPanelHost::RequestRedraw()
     if (!m_initialized || !m_renderer || m_redrawQueued)
         return;
 
-    auto queue = DispatcherQueue::GetForCurrentThread();
+    auto queue = m_dispatcher ? m_dispatcher : DispatcherQueue::GetForCurrentThread();
     if (!queue)
         return;
 

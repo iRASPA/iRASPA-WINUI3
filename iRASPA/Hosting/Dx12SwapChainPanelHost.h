@@ -29,6 +29,8 @@ public:
     /// rubber-band selection rectangle (Cocoa CAShapeLayer overlay equivalent).
     void SetOverlayCanvas(winrt::Microsoft::UI::Xaml::Controls::Canvas const& canvas);
     void Initialize();
+    void InitializeAsync(std::function<void()> onReady = nullptr,
+                         std::function<void(std::wstring const&)> onError = nullptr);
     void Shutdown();
 
     /// Coalesced redraw request (Cocoa setNeedsDisplay). Safe to call often.
@@ -39,7 +41,7 @@ public:
     /// offered once the gesture is known not to be one.
     void SetContextMenuHandler(std::function<void(winrt::Windows::Foundation::Point const&)> handler);
 
-    DirectXRenderer* renderer() const { return m_renderer.get(); }
+    DirectXRenderer* renderer() const { return m_initialized ? m_renderer.get() : nullptr; }
 
 private:
     void OnSizeChanged(winrt::Windows::Foundation::IInspectable const& sender,
@@ -97,8 +99,10 @@ private:
     // Outlives the host in queued dispatcher lambdas; flipped to false in
     // Shutdown so a pending redraw never touches a destroyed host.
     std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
+    winrt::Microsoft::UI::Dispatching::DispatcherQueue m_dispatcher{ nullptr };
 
     bool m_initialized = false;
+    bool m_initializing = false;
     bool m_redrawQueued = false;
     bool m_inResize = false;
     bool m_inRender = false;

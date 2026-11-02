@@ -754,22 +754,13 @@ namespace winrt::iRASPA_WinUI::implementation
 
         // The three panes are XAML UserControls stacked in the same cell, each
         // bringing its own row template and its own [+] [−] bar; the selector above
-        // shows one at a time. Each one is handed the controller and registers
-        // itself with it as the presenter of its part of the document.
+        // shows one at a time. SceneView and FrameView are lazy-loaded when their
+        // tab is first selected so startup only constructs the visible ProjectView.
         auto lists = Grid();
+        m_leftListsPanel = lists;
         m_projectView = winrt::make<ProjectView>();
         ProjectViewImpl()->SetController(&m_controller);
         lists.Children().Append(m_projectView);
-
-        m_sceneView = winrt::make<SceneView>();
-        m_sceneView.Visibility(Visibility::Collapsed);
-        SceneViewImpl()->SetController(&m_controller);
-        lists.Children().Append(m_sceneView);
-
-        m_frameView = winrt::make<FrameView>();
-        m_frameView.Visibility(Visibility::Collapsed);
-        FrameViewImpl()->SetController(&m_controller);
-        lists.Children().Append(m_frameView);
 
         Grid::SetRow(lists, 1);
         left.Children().Append(lists);
@@ -783,6 +774,7 @@ namespace winrt::iRASPA_WinUI::implementation
 
         // Center: render | splitter | bottom
         auto center = Grid();
+        m_centerPanel = center;
         auto centerRows = center.RowDefinitions();
         RowDefinition renderRow;
         renderRow.Height(GridLengthHelper::FromValueAndType(1, GridUnitType::Star));
@@ -807,11 +799,6 @@ namespace winrt::iRASPA_WinUI::implementation
         m_renderOverlay.IsHitTestVisible(false);
         Grid::SetRow(m_renderOverlay, 0);
         center.Children().Append(m_renderOverlay);
-
-        m_directoryCollectionView = winrt::make<DirectoryCollectionView>();
-        m_directoryCollectionView.Visibility(Visibility::Collapsed);
-        Grid::SetRow(m_directoryCollectionView, 0);
-        center.Children().Append(m_directoryCollectionView);
 
         m_bottomSplitter = MakeRowSplitter(logRow, kBottomPanelMinHeight);
         Grid::SetRow(m_bottomSplitter, 1);
@@ -865,6 +852,8 @@ namespace winrt::iRASPA_WinUI::implementation
         tabBar.Margin(ThicknessHelper::FromLengths(0, 0, 0, 4));
         tabBar.SelectionChanged({ this, &MainWindow::OnInspectorSelectionChanged });
         m_inspectorTabs = tabBar;
+        m_inspectorIndex = 0;
+        SyncTabSelection(tabBar, m_inspectorIndex);
         Grid::SetRow(tabBar, 0);
         right.Children().Append(tabBar);
 
@@ -881,49 +870,6 @@ namespace winrt::iRASPA_WinUI::implementation
         m_inspectorHost.Children().Append(m_inspectorScroll);
         Grid::SetRow(m_inspectorHost, 1);
         right.Children().Append(m_inspectorHost);
-        ShowInspector(0);
-
-        m_predicateEditorView = winrt::make<PredicateEditorView>();
-        m_predicateEditorView.Visibility(Visibility::Collapsed);
-        Grid::SetRow(m_predicateEditorView, 0);
-        Grid::SetRowSpan(m_predicateEditorView, 2);
-        right.Children().Append(m_predicateEditorView);
-
-        if (auto* dirView = DirectoryCollectionViewImpl(); dirView && PredicateEditorViewImpl())
-        {
-            dirView->SetPredicateEvaluator([this](std::shared_ptr<iRASPAProject> const& project)
-            {
-                if (auto* predView = PredicateEditorViewImpl())
-                    return predView->Evaluate(project);
-                return true;
-            });
-            dirView->SetNodeActivatedCallback([this](std::shared_ptr<ProjectTreeNode> const& node)
-            {
-                if (!node)
-                    return;
-                if (auto* pv = ProjectViewImpl())
-                    pv->RevealNode(node);
-                m_controller.SetProjectSelection(node, { node }, L"Change Project Selection");
-                if (auto* pv = ProjectViewImpl())
-                    pv->ReloadRowSelection();
-            });
-            dirView->SetNodeDragStartedCallback([this](std::shared_ptr<ProjectTreeNode> const& node)
-            {
-                if (node)
-                {
-                    if (auto* pv = ProjectViewImpl())
-                        pv->SetDragNodes({ node });
-                }
-            });
-            PredicateEditorViewImpl()->SetPredicateChangedCallback([this]()
-            {
-                if (m_directoryBrowserActive)
-                {
-                    if (auto* dir = DirectoryCollectionViewImpl())
-                        dir->ReloadData();
-                }
-            });
-        }
 
         Grid::SetColumn(right, 4);
         body.Children().Append(right);
@@ -2007,6 +1953,50 @@ namespace winrt::iRASPA_WinUI::implementation
     {
         m_directoryBrowserActive = true;
 
+        if (!m_directoryCollectionView && m_centerPanel)
+        {
+            m_directoryCollectionView = winrt::make<DirectoryCollectionView>();
+            Grid::SetRow(m_directoryCollectionView, 0);
+            m_centerPanel.Children().Append(m_directoryCollectionView);
+        }
+        if (!m_predicateEditorView && m_rightPanel)
+        {
+            m_predicateEditorView = winrt::make<PredicateEditorView>();
+            Grid::SetRow(m_predicateEditorView, 0);
+            Grid::SetRowSpan(m_predicateEditorView, 2);
+            m_rightPanel.Children().Append(m_predicateEditorView);
+
+            if (auto* dirView = DirectoryCollectionViewImpl())
+            {
+                if (auto* predView = PredicateEditorViewImpl())
+                {
+                    dirView->SetPredicateEvaluator([predView](std::shared_ptr<iRASPAProject> const& proj) -> bool
+                    {
+                        return predView->Evaluate(proj);
+                    });
+                    dirView->SetNodeActivatedCallback([this](std::shared_ptr<ProjectTreeNode> const& node)
+                    {
+                        if (!node)
+                            return;
+                        if (auto* projView = ProjectViewImpl())
+                            projView->RevealNode(node);
+                        m_controller.SetProjectSelection(node, { node }, L"Change Project Selection");
+                    });
+                    dirView->SetNodeDragStartedCallback([this](std::shared_ptr<ProjectTreeNode> const& node)
+                    {
+                        if (!node)
+                            return;
+                        if (auto* projView = ProjectViewImpl())
+                            projView->SetDragNodes({ node });
+                    });
+                    predView->SetPredicateChangedCallback([dirView]()
+                    {
+                        dirView->ReloadData();
+                    });
+                }
+            }
+        }
+
         if (m_leftPaneTabs && m_leftPaneTabs.Items().Size() >= 3)
         {
             m_leftPaneTabs.Items().GetAt(1).Visibility(Visibility::Collapsed);
@@ -2115,6 +2105,24 @@ namespace winrt::iRASPA_WinUI::implementation
             const bool project = m_leftPaneIndex == 0;
             const bool scene = m_leftPaneIndex == 1;
             const bool frame = m_leftPaneIndex == 2;
+
+            if (scene && !m_sceneView && m_leftListsPanel)
+            {
+                m_sceneView = winrt::make<SceneView>();
+                if (auto* view = SceneViewImpl())
+                    view->SetController(&m_controller);
+                m_leftListsPanel.Children().Append(m_sceneView);
+                m_controller.RefreshSceneAndFrameRows();
+            }
+            if (frame && !m_frameView && m_leftListsPanel)
+            {
+                m_frameView = winrt::make<FrameView>();
+                if (auto* view = FrameViewImpl())
+                    view->SetController(&m_controller);
+                m_leftListsPanel.Children().Append(m_frameView);
+                m_controller.RefreshSceneAndFrameRows();
+            }
+
             if (m_projectView)
                 m_projectView.Visibility(project ? Visibility::Visible : Visibility::Collapsed);
             if (m_sceneView)
@@ -2145,6 +2153,26 @@ namespace winrt::iRASPA_WinUI::implementation
     void MainWindow::MainWindow_Loaded([[maybe_unused]] IInspectable const& sender,
                                        [[maybe_unused]] RoutedEventArgs const& e)
     {
+        WireDocument();
+        UpdateLeftPaneVisibility();
+
+        // Defer initial inspector tab construction to Low priority so the window shell
+        // and project tree paint immediately on startup.
+        if (auto dq = DispatcherQueue())
+        {
+            dq.TryEnqueue(Microsoft::UI::Dispatching::DispatcherQueuePriority::Low, [this]()
+            {
+                if (m_inspectorHost && m_inspectorHost.Children().Size() == 0)
+                    ShowInspector(m_inspectorIndex);
+            });
+        }
+        else
+        {
+            ShowInspector(m_inspectorIndex);
+        }
+
+        // Fix 1: Initialize DirectX 12 device, swapchain, and 22+ HLSL shaders / PSOs on a
+        // background thread so the UI thread is never blocked by shader compilation at startup.
         try
         {
             m_renderHost = std::make_unique<Dx12SwapChainPanelHost>();
@@ -2154,16 +2182,27 @@ namespace winrt::iRASPA_WinUI::implementation
             {
                 ShowRenderContextMenu(position);
             });
-            m_renderHost->Initialize();
-            // 3D pick / rubber-band selection also highlights the atom rows.
-            if (auto *renderer = m_renderHost->renderer())
-            {
-                renderer->setSelectionChangedCallback([this]() { m_controller.ReloadAtomRowSelection(); });
-                // Mouse rotate/pan/zoom in the render view keeps the camera
-                // inspector readouts live (Cocoa CameraDidChangeNotification).
-                renderer->setCameraChangedCallback([this]() { UpdateCameraReadouts(); });
-            }
-            AppendLog(L"DirectX SwapChainPanel host ready");
+            m_renderHost->InitializeAsync(
+                [this]()
+                {
+                    if (auto* renderer = m_renderHost->renderer())
+                    {
+                        // 3D pick / rubber-band selection also highlights the atom rows.
+                        renderer->setSelectionChangedCallback([this]() { m_controller.ReloadAtomRowSelection(); });
+                        // Mouse rotate/pan/zoom in the render view keeps the camera
+                        // inspector readouts live (Cocoa CameraDidChangeNotification).
+                        renderer->setCameraChangedCallback([this]() { UpdateCameraReadouts(); });
+                    }
+                    AppendLog(L"DirectX SwapChainPanel host ready");
+                    if (m_project)
+                    {
+                        ApplyProjectToRenderer(m_project, m_projectDisplayName);
+                    }
+                },
+                [this](std::wstring const& err)
+                {
+                    AppendLog(std::wstring(L"DX host error: ") + err);
+                });
         }
         catch (hresult_error const& ex)
         {
@@ -2173,9 +2212,6 @@ namespace winrt::iRASPA_WinUI::implementation
         {
             AppendLog(std::wstring(L"DX host error: ") + winrt::to_hstring(ex.what()).c_str());
         }
-
-        WireDocument();
-        UpdateLeftPaneVisibility();
     }
 
     // DocumentHost: the parts of the window the document layer reaches into.
@@ -2288,6 +2324,7 @@ namespace winrt::iRASPA_WinUI::implementation
         ClearInspectorVisualState();
 
         m_project = std::move(project);
+        m_projectDisplayName = displayName;
         try
         {
             m_project->setInitialSelectionIfNeeded();
@@ -2388,6 +2425,7 @@ namespace winrt::iRASPA_WinUI::implementation
 
         ClearInspectorVisualState();
         m_project.reset();
+        m_projectDisplayName.clear();
         ++m_projectLoadEpoch;
         m_controller.RefreshSceneAndFrameRows();
 
