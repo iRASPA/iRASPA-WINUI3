@@ -10,8 +10,11 @@
 
 #include "binaryarchive.h"
 #include <Windows.h>
+#include <atomic>
 #include <initializer_list>
 #include <string>
+#include <thread>
+#include <vector>
 
 using namespace winrt;
 
@@ -155,6 +158,34 @@ namespace winrt::iRASPA_WinUI::implementation
                 localNode->setIsEditable(false);
             }
             reader.close();
+
+            // Pre-extract the 14 cached structural properties across background worker threads
+            // so the Directory Viewer can filter and query the database instantaneously.
+            auto const leafNodes = local->descendantLeafNodes();
+            if (!leafNodes.empty())
+            {
+                const unsigned int hw = std::max(1u, std::thread::hardware_concurrency());
+                const size_t threadCount = std::min<size_t>(hw, leafNodes.size());
+                std::atomic<size_t> nextIndex{ 0 };
+                std::vector<std::thread> workers;
+                workers.reserve(threadCount);
+                for (size_t t = 0; t < threadCount; ++t)
+                {
+                    workers.emplace_back([&]()
+                    {
+                        while (true)
+                        {
+                            const size_t idx = nextIndex.fetch_add(1, std::memory_order_relaxed);
+                            if (idx >= leafNodes.size())
+                                break;
+                            if (auto const& leaf = leafNodes[idx]; leaf && leaf->representedObject())
+                                leaf->representedObject()->ensureCachedPropertiesLoaded();
+                        }
+                    });
+                }
+                for (auto& w : workers)
+                    w.join();
+            }
 
             if (failed > 0)
             {

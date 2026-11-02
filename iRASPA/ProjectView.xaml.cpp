@@ -414,7 +414,9 @@ namespace winrt::iRASPA_WinUI::implementation
                 std::wstring name = node->displayName().toStdWString();
                 std::wstring lower = name;
                 std::transform(lower.begin(), lower.end(), lower.begin(), ::towlower);
-                if (!name.empty() && lower.find(needle) != std::wstring::npos)
+                const bool matches = !name.empty() && lower.find(needle) != std::wstring::npos;
+                node->setMatchesFilter(matches);
+                if (matches)
                 {
                     auto item = make_self<ProjectFlatItem>();
                     item->m_node = node;
@@ -445,6 +447,18 @@ namespace winrt::iRASPA_WinUI::implementation
         }
         else
         {
+            std::function<void(std::shared_ptr<ProjectTreeNode> const&)> markAllMatching =
+                [&](std::shared_ptr<ProjectTreeNode> const& node)
+            {
+                if (!node)
+                    return;
+                node->setMatchesFilter(true);
+                for (auto const& child : node->childNodes())
+                    markAllMatching(child);
+            };
+            for (auto const& root : controller->rootNodes())
+                markAllMatching(root);
+
             std::function<void(std::shared_ptr<ProjectTreeNode> const&, int32_t, bool)> append =
                 [&](std::shared_ptr<ProjectTreeNode> const& node, int32_t indent, bool sectionRoot)
             {
@@ -929,6 +943,8 @@ namespace winrt::iRASPA_WinUI::implementation
                 RevealSelected();
             else
                 RefreshRows();
+            if (m_controller)
+                m_controller->NotifyProjectFilterChanged();
         }
     }
 

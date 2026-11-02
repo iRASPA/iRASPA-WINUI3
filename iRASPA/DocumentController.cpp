@@ -263,6 +263,12 @@ void DocumentController::RefreshRows() const
         m_projectList->RefreshRows();
 }
 
+void DocumentController::NotifyProjectFilterChanged()
+{
+    if (m_host)
+        m_host->RefreshDirectoryBrowserIfNeeded();
+}
+
 std::shared_ptr<ProjectTreeController> DocumentController::ProjectTree() const
 {
     return m_document ? m_document->projectTreeController() : nullptr;
@@ -420,6 +426,8 @@ void DocumentController::GraftDatabase(std::shared_ptr<DocumentData> database,
 
     if (m_projectList)
         m_projectList->ExpandSectionRoots();
+    if (m_host)
+        m_host->RefreshDirectoryBrowserIfNeeded();
 
     Log(label + L" loaded (" + std::to_wstring(inserted) + L" items)");
 }
@@ -739,6 +747,7 @@ void DocumentController::ComputePropertiesForProjectSelection()
                 }
             }
         }
+        iraspa->syncCachedPropertiesFromProject();
         if (project == m_project)
             touchedActive = true;
     }
@@ -746,6 +755,9 @@ void DocumentController::ComputePropertiesForProjectSelection()
     Log(L"Computed properties for " + std::to_wstring(computed) + L" structure(s)");
     if (computed == 0)
         return;
+
+    if (m_host)
+        m_host->RefreshDirectoryBrowserIfNeeded();
 
     // Cocoa reloads the detail tab; the fancy style also changes the render.
     if (touchedActive && m_host)
@@ -769,6 +781,7 @@ void DocumentController::ApplyPrimaryProjectIfNeeded(std::shared_ptr<ProjectTree
     // Nothing selected, or a group row: there is no structure to show.
     if (!primary)
     {
+        m_host->ShowStructureVisualisation();
         m_host->ClearRenderer();
         return;
     }
@@ -776,8 +789,14 @@ void DocumentController::ApplyPrimaryProjectIfNeeded(std::shared_ptr<ProjectTree
     if (!iraspa || iraspa->isGroup())
     {
         m_host->ClearRenderer();
+        if (iraspa && iraspa->isGroup())
+            m_host->ShowDirectoryBrowser(primary);
+        else
+            m_host->ShowStructureVisualisation();
         return;
     }
+
+    m_host->ShowStructureVisualisation();
 
     std::shared_ptr<ProjectStructure> structure;
     try

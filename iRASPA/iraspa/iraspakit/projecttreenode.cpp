@@ -468,7 +468,7 @@ BinaryArchive &operator<<(BinaryArchive & stream, const std::shared_ptr<ProjectT
   stream << node->_representedObject;
 
   // legacy thumbnail payload (raw pixels; PNG decode skipped without Qt)
-  stream << node->_thumbnail.pixels();
+  if(!node->_thumbnailData.empty()) { stream << node->_thumbnailData; } else { stream << node->_thumbnail.pixels(); }
 
   stream << node->_childNodes;
 
@@ -493,6 +493,7 @@ BinaryArchive &operator>>(BinaryArchive & stream, std::shared_ptr<ProjectTreeNod
   {
      RKByteArray imageByteArray;
      stream >> imageByteArray;
+     node->_thumbnailData = std::move(imageByteArray);
      node->_thumbnail = RKImage(64, 64, RKImage::Format_RGBA8888);
   }
 
@@ -517,7 +518,7 @@ BinaryArchive &operator<<=(BinaryArchive & stream, const std::shared_ptr<Project
   stream <<= node->_representedObject;
 
   // legacy thumbnail payload (raw pixels; PNG decode skipped without Qt)
-  stream << node->_thumbnail.pixels();
+  if(!node->_thumbnailData.empty()) { stream << node->_thumbnailData; } else { stream << node->_thumbnail.pixels(); }
 
   return stream;
 }
@@ -540,6 +541,7 @@ BinaryArchive &operator>>=(BinaryArchive & stream, std::shared_ptr<ProjectTreeNo
   {
      RKByteArray imageByteArray;
      stream >> imageByteArray;
+     node->_thumbnailData = std::move(imageByteArray);
      node->_thumbnail = RKImage(64, 64, RKImage::Format_RGBA8888);
   }
 

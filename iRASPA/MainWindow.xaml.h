@@ -38,6 +38,8 @@ namespace winrt::iRASPA_WinUI::implementation
     struct ElementsDetailView;
     struct AtomsDetailView;
     struct BondsDetailView;
+    struct DirectoryCollectionView;
+    struct PredicateEditorView;
 
     // The list and detail views are XAML UserControls with their own
     // code-behind; they own their rows and gestures and reach the document
@@ -72,6 +74,9 @@ namespace winrt::iRASPA_WinUI::implementation
         void LoadProjectIntoRenderer(std::shared_ptr<ProjectStructure> const& project,
                                      std::wstring const& displayName) override;
         void ClearRenderer() override { ClearProjectFromRenderer(); }
+        void ShowDirectoryBrowser(std::shared_ptr<ProjectTreeNode> const& proxyProject) override;
+        void ShowStructureVisualisation() override;
+        void RefreshDirectoryBrowserIfNeeded() override;
         void ReloadAfterCellEdit() override { ApplyCellEditAndReload(); }
         void ApplySelectionToRenderer(bool refreshInspector) override
         {
@@ -120,6 +125,8 @@ namespace winrt::iRASPA_WinUI::implementation
         // Same for the scene and frame panes (SceneView.xaml / FrameView.xaml).
         SceneView* SceneViewImpl() const;
         FrameView* FrameViewImpl() const;
+        DirectoryCollectionView* DirectoryCollectionViewImpl() const;
+        PredicateEditorView* PredicateEditorViewImpl() const;
         void ApplySelectedStructuresToRenderer(bool refreshInspector);
         void ClearInspectorVisualState();
         void AppendLog(std::wstring const& message);
@@ -300,6 +307,9 @@ namespace winrt::iRASPA_WinUI::implementation
         winrt::iRASPA_WinUI::ElementsDetailView m_elementsDetailView{ nullptr };
         winrt::iRASPA_WinUI::AtomsDetailView m_atomsDetailView{ nullptr };
         winrt::iRASPA_WinUI::BondsDetailView m_bondsDetailView{ nullptr };
+        winrt::iRASPA_WinUI::DirectoryCollectionView m_directoryCollectionView{ nullptr };
+        winrt::iRASPA_WinUI::PredicateEditorView m_predicateEditorView{ nullptr };
+        bool m_directoryBrowserActive = false;
         uint32_t m_projectLoadEpoch = 0;
 
         winrt::Microsoft::UI::Xaml::Controls::SwapChainPanel m_renderPanel{ nullptr };

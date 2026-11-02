@@ -184,6 +184,8 @@
     <Midl Include="ElementsDetailView.idl" />
     <Midl Include="AtomsDetailView.idl" />
     <Midl Include="BondsDetailView.idl" />
+    <Midl Include="DirectoryCollectionView.idl" />
+    <Midl Include="PredicateEditorView.idl" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
@@ -223,6 +225,12 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="BondsDetailView.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="DirectoryCollectionView.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="PredicateEditorView.xaml">
       <SubType>Designer</SubType>
     </Page>
   </ItemGroup>
@@ -266,6 +274,12 @@
     </ClInclude>
     <ClInclude Include="BondsDetailView.xaml.h">
       <DependentUpon>BondsDetailView.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="DirectoryCollectionView.xaml.h">
+      <DependentUpon>DirectoryCollectionView.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="PredicateEditorView.xaml.h">
+      <DependentUpon>PredicateEditorView.xaml</DependentUpon>
     </ClInclude>
     <ClInclude Include="CameraPaneHost.h" />
     <ClInclude Include="DetailControls.h" />
@@ -320,6 +334,12 @@
     </ClCompile>
     <ClCompile Include="BondsDetailView.xaml.cpp">
       <DependentUpon>BondsDetailView.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="DirectoryCollectionView.xaml.cpp">
+      <DependentUpon>DirectoryCollectionView.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="PredicateEditorView.xaml.cpp">
+      <DependentUpon>PredicateEditorView.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="About.cpp" />
     <ClCompile Include="DocumentSave.cpp" />
@@ -384,13 +404,18 @@
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(_DeployScript)&quot; -OutDir &quot;$(_OutDirTrimmed)&quot; -GenDir &quot;$(_GenDir)&quot;" />
   </Target>
 
-  <!-- Application icon (same artwork as the Cocoa app icon) for the About panel. -->
+  <!-- Application icon (same artwork as the Cocoa app icon) for the About panel,
+       plus SlideCarrier.png and MOF.png for the Directory Viewer. -->
   <Target Name="DeployAppIcon" AfterTargets="Build">
     <PropertyGroup>
       <_OutDirTrimmed>$([System.IO.Path]::GetFullPath('$(OutDir)').TrimEnd('\'))</_OutDirTrimmed>
       <_AppIconSrc>$(IraspaRoot)\datafiles\iraspa.iconset\icon_512x512.png</_AppIconSrc>
+      <_SlideCarrierSrc>$(MSBuildProjectDirectory)\Assets\SlideCarrier.png</_SlideCarrierSrc>
+      <_MofIconSrc>$(MSBuildProjectDirectory)\Assets\MOF.png</_MofIconSrc>
     </PropertyGroup>
     <Copy SourceFiles="$(_AppIconSrc)" DestinationFiles="$(_OutDirTrimmed)\Assets\AppIcon.png" SkipUnchangedFiles="true" Condition="Exists('$(_AppIconSrc)')" />
+    <Copy SourceFiles="$(_SlideCarrierSrc)" DestinationFiles="$(_OutDirTrimmed)\Assets\SlideCarrier.png" SkipUnchangedFiles="true" Condition="Exists('$(_SlideCarrierSrc)')" />
+    <Copy SourceFiles="$(_MofIconSrc)" DestinationFiles="$(_OutDirTrimmed)\Assets\MOF.png" SkipUnchangedFiles="true" Condition="Exists('$(_MofIconSrc)')" />
   </Target>
 
   <!-- Gallery examples and the CoRE MOF / IZA databases next to the exe for startup load. -->

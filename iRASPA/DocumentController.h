@@ -83,6 +83,9 @@ struct DocumentHost
     virtual void LoadProjectIntoRenderer(std::shared_ptr<ProjectStructure> const& project,
                                          std::wstring const& displayName) = 0;
     virtual void ClearRenderer() = 0;
+    virtual void ShowDirectoryBrowser(std::shared_ptr<ProjectTreeNode> const& proxyProject) = 0;
+    virtual void ShowStructureVisualisation() = 0;
+    virtual void RefreshDirectoryBrowserIfNeeded() = 0;
     // A cell edit changes the bounding box, so the camera is refitted to it
     // before the renderer reloads.
     virtual void ReloadAfterCellEdit() = 0;
@@ -207,6 +210,7 @@ public:
     // asks for a menu refresh when its selection changes.
     void Log(std::wstring const& message) const;
     void RefreshEditMenuLabels() const;
+    void NotifyProjectFilterChanged();
     // The appearance pane's edits are not undoable and each ends in a reload,
     // so it asks for one directly rather than going through an edit method.
     void ReloadRenderer() const;

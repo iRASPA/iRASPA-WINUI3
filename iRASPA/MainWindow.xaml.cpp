@@ -13,6 +13,8 @@
 #include "InfoDetailView.xaml.h"
 #include "ProjectView.xaml.h"
 #include "SceneView.xaml.h"
+#include "DirectoryCollectionView.xaml.h"
+#include "PredicateEditorView.xaml.h"
 
 #include <microsoft.ui.xaml.window.h>
 #include <Shobjidl.h>
@@ -806,6 +808,11 @@ namespace winrt::iRASPA_WinUI::implementation
         Grid::SetRow(m_renderOverlay, 0);
         center.Children().Append(m_renderOverlay);
 
+        m_directoryCollectionView = winrt::make<DirectoryCollectionView>();
+        m_directoryCollectionView.Visibility(Visibility::Collapsed);
+        Grid::SetRow(m_directoryCollectionView, 0);
+        center.Children().Append(m_directoryCollectionView);
+
         m_bottomSplitter = MakeRowSplitter(logRow, kBottomPanelMinHeight);
         Grid::SetRow(m_bottomSplitter, 1);
         center.Children().Append(m_bottomSplitter);
@@ -875,6 +882,48 @@ namespace winrt::iRASPA_WinUI::implementation
         Grid::SetRow(m_inspectorHost, 1);
         right.Children().Append(m_inspectorHost);
         ShowInspector(0);
+
+        m_predicateEditorView = winrt::make<PredicateEditorView>();
+        m_predicateEditorView.Visibility(Visibility::Collapsed);
+        Grid::SetRow(m_predicateEditorView, 0);
+        Grid::SetRowSpan(m_predicateEditorView, 2);
+        right.Children().Append(m_predicateEditorView);
+
+        if (auto* dirView = DirectoryCollectionViewImpl(); dirView && PredicateEditorViewImpl())
+        {
+            dirView->SetPredicateEvaluator([this](std::shared_ptr<iRASPAProject> const& project)
+            {
+                if (auto* predView = PredicateEditorViewImpl())
+                    return predView->Evaluate(project);
+                return true;
+            });
+            dirView->SetNodeActivatedCallback([this](std::shared_ptr<ProjectTreeNode> const& node)
+            {
+                if (!node)
+                    return;
+                if (auto* pv = ProjectViewImpl())
+                    pv->RevealNode(node);
+                m_controller.SetProjectSelection(node, { node }, L"Change Project Selection");
+                if (auto* pv = ProjectViewImpl())
+                    pv->ReloadRowSelection();
+            });
+            dirView->SetNodeDragStartedCallback([this](std::shared_ptr<ProjectTreeNode> const& node)
+            {
+                if (node)
+                {
+                    if (auto* pv = ProjectViewImpl())
+                        pv->SetDragNodes({ node });
+                }
+            });
+            PredicateEditorViewImpl()->SetPredicateChangedCallback([this]()
+            {
+                if (m_directoryBrowserActive)
+                {
+                    if (auto* dir = DirectoryCollectionViewImpl())
+                        dir->ReloadData();
+                }
+            });
+        }
 
         Grid::SetColumn(right, 4);
         body.Children().Append(right);
@@ -1935,6 +1984,94 @@ namespace winrt::iRASPA_WinUI::implementation
         if (!m_frameView)
             return nullptr;
         return winrt::get_self<FrameView>(m_frameView);
+    }
+
+    DirectoryCollectionView* MainWindow::DirectoryCollectionViewImpl() const
+    {
+        if (!m_directoryCollectionView)
+            return nullptr;
+        return winrt::get_self<DirectoryCollectionView>(m_directoryCollectionView);
+    }
+
+    PredicateEditorView* MainWindow::PredicateEditorViewImpl() const
+    {
+        if (!m_predicateEditorView)
+            return nullptr;
+        return winrt::get_self<PredicateEditorView>(m_predicateEditorView);
+    }
+
+    // Cocoa DetailTabViewController.selectedViewControllerIndex = .directoryBrowser:
+    // Left pane shows only the Project tab (DirectoryMasterViewController), center top
+    // pane shows DirectoryCollectionView, right pane shows PredicateEditorView.
+    void MainWindow::ShowDirectoryBrowser(std::shared_ptr<ProjectTreeNode> const& proxyProject)
+    {
+        m_directoryBrowserActive = true;
+
+        if (m_leftPaneTabs && m_leftPaneTabs.Items().Size() >= 3)
+        {
+            m_leftPaneTabs.Items().GetAt(1).Visibility(Visibility::Collapsed);
+            m_leftPaneTabs.Items().GetAt(2).Visibility(Visibility::Collapsed);
+        }
+        if (m_leftPaneIndex != 0)
+        {
+            m_leftPaneIndex = 0;
+            UpdateLeftPaneVisibility();
+        }
+
+        if (m_renderPanel)
+            m_renderPanel.Visibility(Visibility::Collapsed);
+        if (m_renderOverlay)
+            m_renderOverlay.Visibility(Visibility::Collapsed);
+        if (m_directoryCollectionView)
+            m_directoryCollectionView.Visibility(Visibility::Visible);
+
+        if (m_inspectorTabs)
+            m_inspectorTabs.Visibility(Visibility::Collapsed);
+        if (m_inspectorHost)
+            m_inspectorHost.Visibility(Visibility::Collapsed);
+        if (m_predicateEditorView)
+            m_predicateEditorView.Visibility(Visibility::Visible);
+
+        if (auto* dirView = DirectoryCollectionViewImpl())
+            dirView->SetProxyProject(proxyProject);
+    }
+
+    // Cocoa DetailTabViewController.selectedViewControllerIndex = .structureVisualisation:
+    // Restores the 3-segment left pane (Project/Scene/Frame), the 3D render view, and
+    // the 7-tab structure inspector.
+    void MainWindow::ShowStructureVisualisation()
+    {
+        if (!m_directoryBrowserActive)
+            return;
+        m_directoryBrowserActive = false;
+
+        if (m_leftPaneTabs && m_leftPaneTabs.Items().Size() >= 3)
+        {
+            m_leftPaneTabs.Items().GetAt(1).Visibility(Visibility::Visible);
+            m_leftPaneTabs.Items().GetAt(2).Visibility(Visibility::Visible);
+        }
+
+        if (m_directoryCollectionView)
+            m_directoryCollectionView.Visibility(Visibility::Collapsed);
+        if (m_renderPanel)
+            m_renderPanel.Visibility(Visibility::Visible);
+        if (m_renderOverlay)
+            m_renderOverlay.Visibility(Visibility::Visible);
+
+        if (m_predicateEditorView)
+            m_predicateEditorView.Visibility(Visibility::Collapsed);
+        if (m_inspectorTabs)
+            m_inspectorTabs.Visibility(Visibility::Visible);
+        if (m_inspectorHost)
+            m_inspectorHost.Visibility(Visibility::Visible);
+    }
+
+    void MainWindow::RefreshDirectoryBrowserIfNeeded()
+    {
+        if (!m_directoryBrowserActive)
+            return;
+        if (auto* dirView = DirectoryCollectionViewImpl())
+            dirView->ReloadData();
     }
 
     void MainWindow::SuppressProjectSelectionEvents(bool suppress)

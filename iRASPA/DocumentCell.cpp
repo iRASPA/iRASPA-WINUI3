@@ -116,6 +116,8 @@ std::vector<DocumentController::CellUndoState> DocumentController::SnapshotCellS
 void DocumentController::RegisterCellUndo(std::wstring const& actionName,
                                           std::vector<CellUndoState> const& before)
 {
+    if (auto tree = ProjectTree(); tree && tree->selectedTreeNode() && tree->selectedTreeNode()->representedObject())
+        tree->selectedTreeNode()->representedObject()->syncCachedPropertiesFromProject();
     if (before.empty())
         return;
     RegisterUndo(ObjectUndoStack(), actionName,

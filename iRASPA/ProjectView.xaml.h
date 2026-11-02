@@ -38,6 +38,7 @@ namespace winrt::iRASPA_WinUI::implementation
         void ScheduleRefresh();
         void RevealSelected();
         void ClearExpandedNodes() { m_expandedNodes.clear(); }
+        void SetDragNodes(std::vector<std::shared_ptr<ProjectTreeNode>> nodes) { m_dragNodes = std::move(nodes); }
         winrt::Microsoft::UI::Xaml::Controls::ItemsView ListControl() { return List(); }
 
         // Prefixed with List because UIElement already has protected virtuals

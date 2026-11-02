@@ -94,6 +94,10 @@ public:
     void setType(Type type) {_type = type;}
     void setIsDropEnabled(bool enabled) {_isDropEnabled = enabled;}
     void removeFromParent();
+    bool matchesFilter() const {return _matchesFilter;}
+    void setMatchesFilter(bool matches) {_matchesFilter = matches;}
+    const RKByteArray& thumbnailData() const {return _thumbnailData;}
+    void setThumbnailData(const RKByteArray& data) {_thumbnailData = data;}
 private:
     int64_t _versionNumber{2};
     Type _type;
@@ -110,6 +114,7 @@ private:
     bool _isDropEnabled;
 
     RKImage _thumbnail;
+    RKByteArray _thumbnailData{};
 
     friend ProjectTreeController;
 

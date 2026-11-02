@@ -62,6 +62,38 @@ public:
   std::shared_ptr<Project> project() {return _project;}
   ~iRASPAProject() {}
   RKUndoStack& undoManager() {return _undoStack;}
+
+  void syncCachedPropertiesFromProject();
+  void ensureCachedPropertiesLoaded();
+
+  double volumetricSurfaceArea() const {return _volumetricSurfaceArea;}
+  void setVolumetricSurfaceArea(double value) {_volumetricSurfaceArea = value;}
+  double gravimetricSurfaceArea() const {return _gravimetricSurfaceArea;}
+  void setGravimetricSurfaceArea(double value) {_gravimetricSurfaceArea = value;}
+  double heliumVoidFraction() const {return _heliumVoidFraction;}
+  void setHeliumVoidFraction(double value) {_heliumVoidFraction = value;}
+  double largestOverallCavityDiameter() const {return _largestOverallCavityDiameter;}
+  void setLargestOverallCavityDiameter(double value) {_largestOverallCavityDiameter = value;}
+  double restrictingPoreDiameter() const {return _restrictingPoreDiameter;}
+  void setRestrictingPoreDiameter(double value) {_restrictingPoreDiameter = value;}
+  double largestDiameterAlongViablePath() const {return _largestDiameterAlongViablePath;}
+  void setLargestDiameterAlongViablePath(double value) {_largestDiameterAlongViablePath = value;}
+  double density() const {return _density;}
+  void setDensity(double value) {_density = value;}
+  double mass() const {return _mass;}
+  void setMass(double value) {_mass = value;}
+  double specificVolume() const {return _specificVolume;}
+  void setSpecificVolume(double value) {_specificVolume = value;}
+  double accessiblePoreVolume() const {return _accessiblePoreVolume;}
+  void setAccessiblePoreVolume(double value) {_accessiblePoreVolume = value;}
+  int64_t numberOfChannelSystems() const {return _numberOfChannelSystems;}
+  void setNumberOfChannelSystems(int64_t value) {_numberOfChannelSystems = value;}
+  int64_t numberOfInaccesiblePockets() const {return _numberOfInaccesiblePockets;}
+  void setNumberOfInaccesiblePockets(int64_t value) {_numberOfInaccesiblePockets = value;}
+  int64_t dimensionalityPoreSystem() const {return _dimensionalityPoreSystem;}
+  void setDimensionalityPoreSystem(int64_t value) {_dimensionalityPoreSystem = value;}
+  const RKString& materialType() const {return _materialType;}
+  void setMaterialType(const RKString& value) {_materialType = value;}
 private:
   int64_t _versionNumber{1};
   ProjectType _projectType;
@@ -71,6 +103,22 @@ private:
   StorageType _storageType;
   LazyStatus _lazyStatus;
   RKByteArray _data;
+
+  bool _cachedPropertiesLoaded{false};
+  double _volumetricSurfaceArea{0.0};
+  double _gravimetricSurfaceArea{0.0};
+  double _heliumVoidFraction{0.0};
+  double _largestOverallCavityDiameter{0.0};
+  double _restrictingPoreDiameter{0.0};
+  double _largestDiameterAlongViablePath{0.0};
+  double _density{0.0};
+  double _mass{0.0};
+  double _specificVolume{0.0};
+  double _accessiblePoreVolume{0.0};
+  int64_t _numberOfChannelSystems{0};
+  int64_t _numberOfInaccesiblePockets{0};
+  int64_t _dimensionalityPoreSystem{0};
+  RKString _materialType{RKString("Unspecified")};
 
   RKUndoStack _undoStack;
 
