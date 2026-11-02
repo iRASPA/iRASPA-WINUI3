@@ -1981,6 +1981,14 @@ namespace winrt::iRASPA_WinUI::implementation
                         if (auto* projView = ProjectViewImpl())
                             projView->RevealNode(node);
                         m_controller.SetProjectSelection(node, { node }, L"Change Project Selection");
+                        // Sync the project tree's own row selection to the activated node.
+                        // RevealNode rebuilt the rows, and the tree's ItemsView still regards
+                        // the database group row as selected; its (asynchronous)
+                        // SelectionChanged then runs SyncSelectionFromView, which would push
+                        // the group back as the primary project, re-enter ShowDirectoryBrowser
+                        // and reload the collection view, undoing the double-click.
+                        if (auto* projView = ProjectViewImpl())
+                            projView->ReloadRowSelection();
                     });
                     dirView->SetNodeDragStartedCallback([this](std::shared_ptr<ProjectTreeNode> const& node)
                     {
