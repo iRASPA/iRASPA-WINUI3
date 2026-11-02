@@ -44,8 +44,16 @@
     <!-- Keep all qualifiers in the main architecture package. Splitting Scale/Language
          into satellite resource packages produced invalid/incomplete PRIs and omitted
          WinUI .mui language folders, which fail at runtime with
-         "resource loader cache doesn't have loaded MUI entry" (0x80073B01). -->
-    <AppxBundleAutoResourcePackageQualifiers></AppxBundleAutoResourcePackageQualifiers>
+         "resource loader cache doesn't have loaded MUI entry" (0x80073B01).
+         NOTE: an empty value is treated as unset and falls back to the default
+         "Language|Scale|DXFeatureLevel" (see obj\...\split.priconfig.xml), which is why
+         scale-100/125/150/400 packs still appeared in the bundle. Those packs are built
+         with omitSchemaFromResourcePacks, so a stale staged pack from an earlier install
+         of the same version fails to merge at deployment with
+         "Merge failure for shared merged PRI file ... 0x80070490". Naming only
+         DXFeatureLevel, for which no qualified files exist, yields a bundle with no
+         resource packages at all. -->
+    <AppxBundleAutoResourcePackageQualifiers>DXFeatureLevel</AppxBundleAutoResourcePackageQualifiers>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
   </PropertyGroup>
@@ -124,6 +132,17 @@
     </Content>
     <Content Include="..\iRASPA\iraspa\datafiles\iraspa.iconset\icon_512x512.png">
       <Link>Assets\AppIcon.png</Link>
+    </Content>
+    <!-- Directory Viewer artwork: the slide-carrier frame behind every collection item and
+         the fallback thumbnail. DeployAppIcon copies them next to the loose exe, which the
+         harvester does not see; without them here the packaged collection view renders
+         bare titles and thumbnails with no carrier (DirectoryCollectionView.xaml.cpp loads
+         both from <exe dir>\Assets). -->
+    <Content Include="..\iRASPA\Assets\SlideCarrier.png">
+      <Link>Assets\SlideCarrier.png</Link>
+    </Content>
+    <Content Include="..\iRASPA\Assets\MOF.png">
+      <Link>Assets\MOF.png</Link>
     </Content>
     <!-- About > Acknowledgements opens this next to the exe (DeployAcknowledgedLicenses
          puts it there for the loose build). -->
